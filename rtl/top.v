@@ -8,7 +8,8 @@
 //   SW2       = ปิดประตู D (ทดสอบห้อง Combat ล็อก)
 // 7-seg: [ชั้น] - [ร่าง] - [ห้อง]    LED0-3 = ปุ่มทิศ, LED15 = ชนะ (แตะประตู E)
 module top #(
-    parameter DEBOUNCE = 1_000_000          // 10 ms ที่ 100 MHz
+    parameter DEBOUNCE = 1_000_000,         // 10 ms ที่ 100 MHz
+    parameter CE_DIV   = 4                  // บอร์ดจริง = 4 (25 MHz) / simulator บนจอคอม = 1 (เร็วขึ้น 4 เท่า)
 ) (
     input  wire        CLK100MHZ,
     input  wire        CPU_RESETN,
@@ -31,8 +32,8 @@ module top #(
     wire rst = rst_sync[1];
 
     reg [1:0] ce_cnt = 0;
-    always @(posedge clk) ce_cnt <= ce_cnt + 1'b1;
-    wire ce = (ce_cnt == 2'd3);              // 25 MHz
+    always @(posedge clk) ce_cnt <= (ce_cnt == CE_DIV - 1) ? 2'd0 : ce_cnt + 1'b1;
+    wire ce = (ce_cnt == CE_DIV - 1);        // 25 MHz เมื่อ CE_DIV = 4
 
     // ---------- input ----------
     wire bu, bd, bl, br, bc, bc_rise, sw1, sw1_rise;

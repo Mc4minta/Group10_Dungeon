@@ -9,3 +9,5 @@ sim/*.vvp
 sim/*.ppm
 sim/*.vcd
 __pycache__/
+sim/verilator/obj_dir/
+*.bmp

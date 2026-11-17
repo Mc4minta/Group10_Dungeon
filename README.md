@@ -64,7 +64,43 @@ docs/         ภาพ preview ของ placeholder
   - player: เฟรม = ร่าง×12 + ทิศ×3 + ท่า (ทิศ 0 ลง 1 ขึ้น 2 ซ้าย 3 ขวา, ท่า 0 idle 1 ก้าว A 2 ก้าว B)
 - แก้ไฟล์ .mem แล้วใน Vivado ต้อง re-run synthesis
 
-## Simulation
+## เล่นบนจอคอม (ไม่ต้องมีบอร์ด)
+
+ใช้ Verilator แปลง Verilog ชุดเดียวกับที่ลงบอร์ดเป็นโปรแกรม แล้วแสดงภาพ VGA ในหน้าต่าง SDL2 พร้อมแผง 7-seg / LED / RGB / สวิตช์ ด้านล่าง
+
+```
+cd sim/verilator
+make run
+```
+
+| คีย์ | บนบอร์ด |
+| --- | --- |
+| ลูกศร | BTNU / BTND / BTNL / BTNR |
+| Space | BTNC |
+| 0–9 | สลับ SW0–SW9 |
+| F1–F6 | สลับ SW10–SW15 |
+| Backspace | CPU_RESETN |
+| Esc | ออก |
+
+ติดตั้งครั้งแรก:
+
+- **Windows**: ใช้ WSL2 + Ubuntu 24.04 (Windows 11 หรือ Windows 10 ที่อัปเดต WSL แล้ว หน้าต่างเด้งขึ้นมาเองผ่าน WSLg)
+  ```
+  wsl --install -d Ubuntu-24.04          # ใน PowerShell (admin) ครั้งเดียว แล้วรีสตาร์ท
+  sudo apt update && sudo apt install -y build-essential verilator libsdl2-dev
+  ```
+  เปิดโฟลเดอร์โปรเจคจาก WSL ได้ที่ `/mnt/c/Users/<ชื่อ>/...` (build เร็วกว่าถ้า copy ไปไว้ใน `~/`)
+- **macOS**: `brew install verilator sdl2`
+- **Ubuntu/Debian**: `sudo apt install -y build-essential verilator libsdl2-dev` (ต้องเป็น Verilator 5.x — Ubuntu 22.04 ได้ 4.x ซึ่งเก่าไป ใช้ 24.04)
+
+ข้อแตกต่างจากบอร์ดจริง: simulator ตั้ง `CE_DIV=1` (pixel clock ทุก clock เพื่อให้เร็วขึ้น 4 เท่า ภาพเลื่อน 1 พิกเซล) และ debounce สั้นลง ส่วน logic เกมเหมือนบอร์ดทุกอย่าง ความเร็วขึ้นกับเครื่อง (~25–60 fps) ถ้าช้ากว่า 60 fps เกมจะดูช้าลงตาม แต่ไม่ผิด
+
+ทดสอบอัตโนมัติแบบไม่เปิดหน้าต่าง:
+```
+SDL_VIDEODRIVER=dummy make run ARGS='--frames 300 --script "R:5:200,C:60:62" --shot shot.bmp'
+```
+
+## Simulation (testbench)
 
 ```
 ./scripts/run_sim.sh player   # 12 test: เดิน ชน ไถล corner slide หลุม ประตู animation
