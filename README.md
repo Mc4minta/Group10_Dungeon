@@ -2,7 +2,7 @@
 
 เกม dungeon crawler + ห้องปริศนา บน Digilent Nexys A7-100T, VGA 640×480 @ 60 Hz, Verilog
 
-สถานะ: **P0–P3 เสร็จใน simulation** — ภาพขึ้นจอ, เดิน 8 ทิศ, ชนกำแพง + ไถล + corner slide, เปลี่ยนห้อง flip-screen ครบ 3 ชั้น × 5 ห้อง, หลุม/ประตูบอส/ประตูทางออกเช็คตามร่าง, Game FSM (TITLE / PLAY / EVOLVE / FLOOR_CLEAR / WIN / GAME_OVER), 4 ร่าง + HP + เวลา mm.ss + sprint, การต่อสู้ (ฟัน/ยิง, มอน A ไล่ + มอน B ป้อมยิง 4 ทิศ, โดนตี knockback + อมตะ, ห้อง Combat ล็อกจนมอนตายหมด) (ยังไม่ได้ลงบอร์ดจริง) — ดูความคืบหน้าที่ `docs/PROGRESS.md`
+สถานะ: **P0–P4 เสร็จใน simulation** — ภาพขึ้นจอ, เดิน 8 ทิศ, ชนกำแพง + ไถล + corner slide, เปลี่ยนห้อง flip-screen ครบ 3 ชั้น × 5 ห้อง, หลุม/ประตูบอส/ประตูทางออกเช็คตามร่าง, Game FSM (TITLE / PLAY / EVOLVE / FLOOR_CLEAR / WIN / GAME_OVER), 4 ร่าง + HP + เวลา mm.ss + sprint, การต่อสู้ (ฟัน/ยิง, มอน A ไล่ + มอน B ป้อมยิง 4 ทิศ, โดนตี knockback + อมตะ, ห้อง Combat ล็อกจนมอนตายหมด), ปริศนา 3 ห้อง (Light Bulb, Sokoban + ดันกล่อง, Simon) + ไอเทมจริง (EVOLVE + เปิดประตูบอส L) (ยังไม่ได้ลงบอร์ดจริง) — ดูความคืบหน้าที่ `docs/PROGRESS.md`
 
 ## เริ่มใช้
 
@@ -26,32 +26,45 @@
 | BTNC กด | เริ่มเกมจากหน้า TITLE · **โจมตี** ตอนเล่น (ร่าง 1 ฟันประชิดหน้าตัว, ร่าง 2–4 ยิงกระสุนตามทิศที่หัน) · กลับ TITLE จากหน้า WIN / GAME OVER |
 | BTNC กดค้าง | strafe (ไม่เปลี่ยนทิศที่หัน) + ร่าง 2–4 ยิงซ้ำทุก cooldown |
 | **SW15** | **sprint**: ความเร็ว +1 px/เฟรม (ค่า `SPRINT_BONUS` ใน `rtl/params.vh`) ใช้ได้ทุกร่าง ระหว่างเล่น |
+| **SW13** ยกขึ้น | รีเซ็ตกล่องห้อง Sokoban (ชั้น 2) กลับที่เดิม — ใช้ได้เฉพาะในห้องนั้น ตอน gate ยังปิด (control จริง ไม่ใช่ debug) |
 | CPU_RESETN | reset (กลับหน้า TITLE) |
 
-ปุ่ม **debug ชั่วคราว** (จะเอาออกเมื่อมีระบบจริง):
+สวิตช์ **debug** ทำงานเฉพาะเมื่อ `top.v` ตั้ง `parameter DEBUG = 1` (ค่าตอนนี้ทั้งบอร์ดและ Verilator) — **build ส่งงานตั้ง `DEBUG = 0`**
+(`vivado ... create_project.tcl` แล้วแก้ generic `DEBUG` ของ top เป็น 0 หรือแก้ค่า default ใน `rtl/top.v`):
 
-| อุปกรณ์ | ทำอะไร | แทนของจริงใน |
-| --- | --- | --- |
-| SW0 | เปิดประตูบอส L | `has_item[floor]` จากปริศนา (P4) |
-| SW1 ยกขึ้น | `floor_done` → FLOOR_CLEAR 2 วิ → ชั้นถัดไป | บอสตาย (P5) |
-| SW3 ยกขึ้น | `got_item` → EVOLVE (ร่างถัดไป, HP เต็ม) | ไอเทมจากปริศนา (P4) |
-| SW4 ยกขึ้น | `take_hit` → HP −1 (ไม่มี knockback) | ใช้ทดสอบ; โดนศัตรูจริงทำงานแล้ว (P3) |
+| อุปกรณ์ | ทำอะไร (DEBUG = 1) |
+| --- | --- |
+| SW0 | เปิดประตูบอส L ทุกชั้น (ทับ `has_item`) |
+| SW1 ยกขึ้น | `floor_done` → FLOOR_CLEAR 2 วิ → ชั้นถัดไป (ของจริง: บอสตาย P5) |
+| SW2 ยกขึ้น | ลบมอนทั้งห้อง → ห้องเคลียร์ (ใช้ย่อสคริปต์ทดสอบ) |
+| SW3 ยกขึ้น | `got_item` → EVOLVE (ของจริง: เก็บไอเทมในห้องปริศนา) |
+| SW4 ยกขึ้น | `take_hit` → HP −1 (ไม่มี knockback) |
 
-SW2 (ปิดประตู D) เอาออกแล้ว: ประตูห้อง Combat ปิดเองเมื่อมีมอนเหลือ
+ไอเทมและปริศนา (P4):
+
+| ชั้น | ห้องปริศนา | ทำอย่างไร | ไอเทม |
+| --- | --- | --- | --- |
+| 1 | Light Bulb | ฟันประชิดหรือยิงคันโยก a–d (แถวบน) แต่ละครั้งสลับหลอด 4 ดวงตาม mask a = 0111, b = 1011, c = 1101, d = 1110 (bit 3 = หลอด 1) จนติดครบ 4 ดวง · รูปแบบเริ่มต้นสุ่มทุกเกม ต้องตีอย่างน้อย 2 ครั้ง | โผล่ที่ `I` เมื่อแก้ได้ |
+| 2 | Sokoban | เดินตรง (แกนเดียว) ชนกล่องเพื่อดัน 1 ช่อง ช่องถัดไปต้องเป็นพื้น/แผ่น · กล่องทับแผ่นครบ 2 แผ่น = gate เปิด · ติดเมื่อไหร่ยก SW13 · คำตอบน้อยสุด 24 ครั้ง (`scripts/solve_sokoban.py`) | อยู่หลัง gate ตั้งแต่แรก |
+| 3 | Simon | ยืนรอดูแผ่นสว่างตามลำดับ แล้วเดินเหยียบตาม (นับเมื่อจุดกลางตัวเข้าแผ่น ต้องลงจากแผ่นก่อนก้าวต่อไป) 3 รอบ ยาว 3 / 4 / 5 · ผิด = HP −1 แผ่นแดง แล้วโชว์รอบเดิมใหม่ | โผล่ที่ `I` เมื่อครบ 3 รอบ |
+
+เดินทับไอเทม → EVOLVE (ร่างถัดไป) + `has_item[ชั้น]` = ประตูบอส `L` ชั้นนั้นเปิด (LED13) · ปริศนาที่แก้แล้ว/ไอเทมที่เก็บแล้วค้างไว้แม้ออกจากห้อง · เริ่มเกมใหม่จาก TITLE = รีเซ็ตทั้งหมด
 
 จอและ LED:
 
 | อุปกรณ์ | แสดง |
 | --- | --- |
 | 7-seg | `ชั้น - HP - mm.ss` (TITLE = `--------`; WIN / GAME OVER ค้างค่าสุดท้าย) |
-| LED0–3 | ปุ่มทิศ |
+| LED0–3 | ปุ่มทิศ · ในห้อง Light Bulb = หลอด 1–4 (LED3 = หลอด 1 … LED0 = หลอด 4) · ในห้อง Simon = รอบที่ผ่านแล้ว (LED0–2) |
 | LED4–7 | มอนที่เหลือในห้อง (bar: LED4 = ≥1 … LED7 = ≥4, ห้องมีได้ถึง 6 ตัว) |
 | LED8–11 | HP (หนึ่งดวงต่อ HP เริ่มจาก LED8) |
 | LED12 | ประตูห้องล็อกอยู่ (ห้อง Combat ที่ยังมีมอน) |
+| LED13 | มีไอเทมของชั้นนี้แล้ว (ประตูบอส L เปิด) |
 | LED14 / LED15 | sprint เปิดอยู่ / WIN |
 | RGB LED16 | สีตามร่าง เขียว/ฟ้า/ม่วง/ทอง · ขาวตอน EVOLVE |
 | RGB LED17 | แดง = เพิ่งโดนตี (ช่วง knockback + อมตะ 68 เฟรม) |
-| จอ VGA | TITLE = พื้นกรมท่า + ตัวละคร · GAME OVER = แดงเข้ม · WIN = ทอง (ยังไม่มีข้อความ รอ font ใน P5) |
+| จอ VGA | TITLE = พื้นกรมท่า + ตัวละคร · GAME OVER = แดงเข้ม · WIN = ทอง (ยังไม่มีข้อความ รอ font ใน P5; ใน Verilator ดูสถานะที่ชื่อหน้าต่าง) |
+| 7-seg ในห้อง Simon | ยังแสดง HP ตามเดิม (เหยียบผิดเสีย HP) รอบที่ผ่านดูที่ LED0–2 |
 
 ค่าเกมที่ยัง *tentative* ทั้งหมดอยู่ใน `rtl/params.vh` ที่เดียว (บรรทัดละค่า) ค่าต่อร่าง:
 
@@ -83,23 +96,27 @@ rtl/          Verilog
   world.v       ห้อง: floor, room, grid, ตารางประตู + จุดเกิด, load player
   game_fsm.v    TITLE/PLAY/EVOLVE/FLOOR_CLEAR/ESCAPE/WIN/GAME_OVER, ร่าง, HP, timer, sprint
   objects.v     slot มอน 6 / กระสุนผู้เล่น 2 / กระสุนศัตรู 16 / บอส 1, spawn, โจมตี, AABB, โดนตี, ห้องล็อก
-  objline.v     ชั้นภาพ object แบบ line buffer สองชุด (วาดบรรทัดถัดไประหว่างบรรทัดนี้)
+  objline.v     ชั้นภาพ object แบบ line buffer สองชุด (วาดบรรทัดถัดไประหว่างบรรทัดนี้) รวมของในห้องปริศนา
+  puzzles.v     Light Bulb, Sokoban (ดันกล่อง), Simon, ไอเทม -> has_item / got_item
+  puzzle_layout.vh  ตำแหน่งคันโยก หลอด กล่อง แผ่น gate ไอเทม (สร้างจาก maps/ โดย build_maps.py)
   vga_sync.v    VGA timing, frame_tick
   renderer.v    pipeline 3 clock: tile < object < ผู้เล่น + หน้า TITLE / GAME OVER / WIN
   player.v      Movement FSM + collision + ประตู + knockback
-  roms.v        tilemap / tileset / player / monster / bullet / effect / spawn ROM
+  roms.v        tilemap / tileset / player / monster / bullet / effect / puzzle / spawn ROM
   debounce.v    sync 2FF + debounce + edge
   seg7.v        7-segment 8 หลัก + จุดทศนิยม
 maps/         แมพ ASCII 20×15 ทั้ง 13 ห้อง (แก้ที่นี่)
 mem/          ไฟล์ .mem ที่สร้างจากสคริปต์ (อย่าแก้มือ)
 scripts/
-  build_maps.py        maps/*.txt → mem/tilemap.mem + mem/objects.txt + mem/monsters.mem (มอนต่อห้อง)
-  make_placeholders.py สร้าง sprite placeholder → mem/tileset.mem, player.mem, monster.mem, bullet.mem, effect.mem
+  build_maps.py        maps/*.txt → mem/tilemap.mem + mem/objects.txt + mem/monsters.mem + rtl/puzzle_layout.vh
+  make_placeholders.py สร้าง sprite placeholder → mem/tileset.mem, player.mem, monster.mem, bullet.mem, effect.mem, puzzle.mem
+  solve_sokoban.py     BFS หาคำตอบห้อง Sokoban (ดันน้อยสุด), --vh เขียน sim/sokoban_solution.vh ให้ testbench
+  make_floor2_script.py สร้างสคริปต์ Verilator ชั้น 2 จากคำตอบ solver
   create_project.tcl   สร้าง Vivado project
   run_sim.sh           simulation ด้วย Icarus Verilog
 sim/          testbench + ภาพจาก simulation
 constraints/  .xdc
-docs/         ภาพ preview ของ placeholder + ภาพจาก simulation (p2_*, p3_*)
+docs/         ภาพ preview ของ placeholder + ภาพจาก simulation (p2_*, p3_*, p4_*)
   PROGRESS.md   checklist ความคืบหน้า P0–P7 / sprite / asset (อัปเดตทุกครั้งที่งานเสร็จ)
 ```
 
@@ -110,6 +127,7 @@ docs/         ภาพ preview ของ placeholder + ภาพจาก simul
   - tileset: 3 ชั้น × 16 tile, address = (ชั้น×16 + tile)×1024 + y×32 + x
   - player: เฟรม = ร่าง×12 + ทิศ×3 + ท่า (ทิศ 0 ลง 1 ขึ้น 2 ซ้าย 3 ขวา, ท่า 0 idle 1 ก้าว A 2 ก้าว B)
   - monster: 4 เฟรม 32×32 = มอน A เฟรม 0, 1 แล้วมอน B เฟรม 0, 1 · bullet: 2 เฟรม 8×8 (ผู้เล่น, ศัตรู) · effect: ฟันประชิด 4 ทิศ 32×32
+  - puzzle: 10 เฟรม 32×32 = หลอดดับ, หลอดติด, คันโยกขึ้น, คันโยกลง, กล่อง, gate ปิด, gate เปิด, ไอเทม 1, 2, 3 (tile 11 ของ tileset = กล่องบนแผ่น)
 - แก้ไฟล์ .mem แล้วใน Vivado ต้อง re-run synthesis
 
 ## เล่นบนจอคอม (ไม่ต้องมีบอร์ด)
@@ -155,10 +173,12 @@ SDL_VIDEODRIVER=dummy make run ARGS='--frames 300 --script "R:5:200,C:60:62" --s
 ./scripts/run_sim.sh world    # ประตูทุกบาน ทุกชั้น, grid, จุดเกิด, restart, next_floor, exit_evt
 ./scripts/run_sim.sh fsm      # game_fsm: TITLE→PLAY, EVOLVE 60 เฟรม, HP, GAME OVER, FLOOR_CLEAR 120 เฟรม, timer, sprint
 ./scripts/run_sim.sh objects  # objects: AABB, ฟัน, ยิง, กระสุนชน tile, มอน A/B, โดนตี knockback อมตะ, ห้องล็อก
+./scripts/run_sim.sh puzzles  # ปริศนา 3 ห้อง + ดันกล่อง (เล่นตามคำตอบ solver เป็นการกดปุ่ม) + ไอเทม + ค้างสถานะ + restart
+./scripts/run_sim.sh debug    # parameter DEBUG: สวิตช์ debug ใช้ได้เฉพาะ DEBUG = 1
 ./scripts/run_sim.sh top      # จำลองทั้งระบบ ได้ภาพ sim/frame_*.ppm
 ./scripts/run_sim.sh all      # รันทั้งหมดข้างบน
 ```
-ต้องมี Icarus Verilog (`sudo apt install iverilog` หรือ `brew install icarus-verilog`) ภาพตัวอย่างอยู่ใน `sim/*.png`, `docs/p2_*.png`, `docs/p3_*.png`
+ต้องมี Icarus Verilog (`sudo apt install iverilog` หรือ `brew install icarus-verilog`) ภาพตัวอย่างอยู่ใน `sim/*.png`, `docs/p2_*.png`, `docs/p3_*.png`, `docs/p4_*.png`
 
 ทดสอบ Verilator แบบไม่เปิดหน้าต่าง + จับภาพหลายเฟรม (สวิตช์ใน `--script`: `0-9` = SW0–9, `a-f` = SW10–15):
 ```
@@ -173,9 +193,23 @@ cd mem && SDL_VIDEODRIVER=dummy LOG=10 ../sim/verilator/obj_dir/Vtop --frames 90
   --shot-at 300:locked.bmp --shot-at 560:shooting.bmp --shot-at 815:cleared.bmp
 ```
 
+สคริปต์ทีละชั้น (P4) อยู่ใน `sim/verilator/scripts/` (ไฟล์ข้อความ: บรรทัดละรายการ `ปุ่ม:เฟรมเริ่ม:เฟรมจบ`, `#` = คอมเมนต์) เปิดดูได้ทั้งแบบหน้าต่างหรือไม่เปิดหน้าต่าง:
+```
+cd mem
+../sim/verilator/obj_dir/Vtop --script-file ../sim/verilator/scripts/floor1.txt            # ดูในหน้าต่าง
+SDL_VIDEODRIVER=dummy LOG=50 ../sim/verilator/obj_dir/Vtop --frames 1900 --script-file ../sim/verilator/scripts/floor1.txt
+```
+
+| สคริปต์ | เฟรม | ทำอะไร |
+| --- | --- | --- |
+| `floor1.txt` | ~1900 | START → C1 → C2 → Light Bulb (ตีคันโยก a, b) → ไอเทม 1 → EVOLVE → กลับ C2 → C1 → ประตู L → ห้องบอส |
+| `floor2.txt` | ~2400 | ข้ามชั้นด้วย SW1 → C1 → C2 → Sokoban เล่นตามคำตอบ solver 24 ครั้ง → gate เปิด → ไอเทม 2 (สร้างด้วย `scripts/make_floor2_script.py`) |
+| `floor3.txt` | ~2900 | ข้าม 2 ชั้น + SW3 เป็นร่าง 3 (บินข้ามหลุม) → C1 → C2 → Simon 3 รอบ → ไอเทม 3 |
+
+ห้อง Combat ในสคริปต์เหล่านี้เคลียร์ด้วย SW2 (DEBUG) ให้สั้น · รูปแบบหลอด/ลำดับ Simon สุ่มจาก LFSR แต่สคริปต์กดปุ่มที่เฟรมเดิมทุกครั้งจึงได้ค่าเดิม
+ถ้าแก้ RTL แล้วสคริปต์ไม่ผ่าน ให้ดู `bulbs=` / `seq=` ใน `LOG` แล้วแก้ช่วงปริศนาในสคริปต์
+
 ## ขั้นต่อไป (ตามแผน Implement)
 
-- P1.6 ดันกล่อง Sokoban
-- ESCAPE (P5), ข้อความบนจอ (font, P5)
-- P4 ปริศนา 3 ห้อง (ให้ `has_item` แทน SW0, `got_item` แทน SW3)
+- P5 บอส 3 ตัว + FLOOR_CLEAR จริง (แทน SW1) + ไมค์ + ESCAPE + ข้อความบนจอ (font)
 - งานคู่ขนาน: sprite จริง, ทดสอบไมค์ PDM
