@@ -54,6 +54,7 @@ scripts/
 sim/          testbench + ภาพจาก simulation
 constraints/  .xdc
 docs/         ภาพ preview ของ placeholder
+  PROGRESS.md   checklist ความคืบหน้า P0–P7 / sprite / asset (อัปเดตทุกครั้งที่งานเสร็จ)
 ```
 
 ## แก้แมพ / sprite
