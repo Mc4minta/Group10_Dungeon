@@ -85,6 +85,11 @@ def tile(floor, tid):
         img = floor_img()
         rect(img, 4, 4, 28, 28, 0x777 if tid == 7 else 0x4C4)
         rect(img, 8, 8, 24, 24, 0x999 if tid == 7 else 0x8F8)
+        if tid == 11:  # กล่องวางบนแผ่น (ขอบแผ่นเขียวโผล่รอบกล่อง)
+            rect(img, 6, 6, 26, 26, 0x000); rect(img, 7, 7, 25, 25, 0xA62)
+            rect(img, 7, 7, 25, 9, 0xC84)
+            for t in range(16):
+                rect(img, 8 + t, 8 + t, 10 + t, 10 + t, 0x741)
         return img
     if 12 <= tid <= 15:  # Simon plates
         img = floor_img()
@@ -166,6 +171,50 @@ def effect(d):
     return img
 
 
+def puzzle(i):
+    """ของในห้องปริศนา: 0 หลอดดับ 1 หลอดติด 2 คันโยกขึ้น 3 คันโยกลง 4 กล่อง 5 gate ปิด 6 gate เปิด 7-9 ไอเทม 1-3"""
+    img = blank(T)
+    if i in (0, 1):            # หลอดไฟ
+        glass, rim = (0x556, 0x334) if i == 0 else (0xFF6, 0xFC2)
+        for y in range(32):
+            for x in range(32):
+                if (x - 15.5) ** 2 + (y - 13) ** 2 <= 100:
+                    img[y][x] = rim
+                if (x - 15.5) ** 2 + (y - 13) ** 2 <= 64:
+                    img[y][x] = glass
+        rect(img, 11, 23, 21, 29, 0x777); rect(img, 11, 25, 21, 26, 0x444)
+        if i == 1:
+            rect(img, 13, 8, 16, 11, 0xFFF)
+    elif i in (2, 3):          # คันโยก: ขึ้น = แดง, ลง = เขียว
+        rect(img, 6, 22, 26, 28, 0x000); rect(img, 7, 23, 25, 27, 0x666)
+        knob = 0xD33 if i == 2 else 0x3C3
+        if i == 2:
+            rect(img, 15, 6, 18, 23, 0x222); rect(img, 12, 3, 21, 10, knob)
+        else:
+            for t in range(14):
+                rect(img, 16 + t // 2, 22 - t, 19 + t // 2, 23 - t, 0x222)
+            rect(img, 20, 6, 29, 13, knob)
+    elif i == 4:               # กล่องไม้
+        rect(img, 3, 3, 29, 29, 0x000); rect(img, 4, 4, 28, 28, 0xA62)
+        rect(img, 4, 4, 28, 7, 0xC84); rect(img, 4, 25, 28, 28, 0x741)
+        for t in range(22):
+            rect(img, 5 + t, 5 + t, 7 + t, 7 + t, 0x741)
+    elif i in (5, 6):          # gate: ปิด = ซี่เหล็ก, เปิด = เสาสองข้าง
+        rect(img, 0, 0, 4, 32, 0x444); rect(img, 28, 0, 32, 32, 0x444)
+        if i == 5:
+            for x in range(6, 28, 6):
+                rect(img, x, 0, x + 3, 32, 0x889)
+            rect(img, 4, 14, 28, 18, 0x667)
+    else:                      # ไอเทม 1-3: อัญมณีต่างสี
+        col, hi = [(0x2C4, 0xAFA), (0x38E, 0xAEF), (0xC4E, 0xFAF)][i - 7]
+        for y in range(4, 28):
+            w = 12 - abs(y - 14) if y <= 14 else (28 - y) * 12 // 13
+            if w > 0:
+                rect(img, 16 - w, y, 16 + w, y + 1, col)
+        rect(img, 12, 9, 16, 12, hi)
+    return img
+
+
 def to_png(frames, cols, path, size=32):
     rows = (len(frames) + cols - 1) // cols
     im = Image.new('RGB', (cols * size, rows * size), (255, 0, 255))
@@ -198,6 +247,9 @@ effects = [effect(d) for d in range(4)]
 write_mem(monsters, os.path.join(ROOT, 'mem', 'monster.mem'))
 write_mem(bullets, os.path.join(ROOT, 'mem', 'bullet.mem'))
 write_mem(effects, os.path.join(ROOT, 'mem', 'effect.mem'))
+puzzles = [puzzle(i) for i in range(10)]
+write_mem(puzzles + [blank(T)] * 6, os.path.join(ROOT, 'mem', 'puzzle.mem'))   # เติมให้ครบ 16 เฟรม (address 14 bit)
+to_png(puzzles, 10, os.path.join(ROOT, 'docs', 'puzzle_preview.png'))
 to_png(monsters + effects, 8, os.path.join(ROOT, 'docs', 'objects_preview.png'))
 to_png(bullets, 2, os.path.join(ROOT, 'docs', 'bullet_preview.png'), size=8)
 print(f'tileset: {len(tiles)} tiles, player: {len(players)} frames, '

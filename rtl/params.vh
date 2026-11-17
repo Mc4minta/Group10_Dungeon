@@ -44,3 +44,19 @@ localparam MON_FLASH      = 8;             // มอนโดนตีกะพ�
 localparam KB_FRAMES      = 8;             // knockback กี่เฟรม
 localparam KB_SPEED       = 2;             // px/เฟรม (รวม 16 px)
 localparam INV_FRAMES     = 60;            // อมตะหลัง knockback (กะพริบ)
+
+// ---------- ปริศนา (P4) ----------
+localparam [3:0] LB_MASK0 = 4'b0111;       // คันโยก a: XOR หลอด (bit 3 = หลอด 1)
+localparam [3:0] LB_MASK1 = 4'b1011;       // คันโยก b
+localparam [3:0] LB_MASK2 = 4'b1101;       // คันโยก c
+localparam [3:0] LB_MASK3 = 4'b1110;       // คันโยก d
+localparam BOX_SLIDE_FRAMES = 8;           // กล่องเลื่อน 1 ช่อง (32 px) กี่เฟรม (ต้องหาร 32 ลงตัว)
+localparam SIMON_PRE      = 45;            // เข้าห้อง/ก่อนโชว์รอบใหม่ รอกี่เฟรม
+localparam SIMON_ON       = 30;            // แผ่นสว่างตอนโชว์
+localparam SIMON_GAP      = 15;            // ช่องว่างระหว่างแผ่นตอนโชว์
+localparam SIMON_FEEDBACK = 15;            // แผ่นสว่างตอนผู้เล่นเหยียบถูก
+localparam SIMON_WRONG    = 45;            // จอแผ่นแดงตอนเหยียบผิด
+localparam SIMON_LEN0     = 3;             // ความยาวรอบ 1
+localparam SIMON_LEN1     = 4;             // รอบ 2
+localparam SIMON_LEN2     = 5;             // รอบ 3
+localparam PUZZLE_DELAY   = 256;           // puzzles.v เริ่มงานต่อเฟรมหลัง frame_tick กี่ clock (ให้ objects.v เสร็จก่อน)

@@ -67,6 +67,18 @@ module bullet_rom (
     always @(posedge clk) data <= mem[addr];
 endmodule
 
+// ของในห้องปริศนา: 10 เฟรม (ใช้ address 14 bit = 16 เฟรม) x 1024 px x 12 bit (BRAM)
+// 0 หลอดดับ 1 หลอดติด 2 คันโยกขึ้น 3 คันโยกลง 4 กล่อง 5 gate ปิด 6 gate เปิด 7-9 ไอเทม 1-3
+module puzzle_rom (
+    input  wire        clk,
+    input  wire [13:0] addr,
+    output reg  [11:0] data
+);
+    reg [11:0] mem [0:16383];
+    initial $readmemh("puzzle.mem", mem);
+    always @(posedge clk) data <= mem[addr];
+endmodule
+
 // player: 48 เฟรม x 1024 px x 12 bit (BRAM)
 module player_rom (
     input  wire        clk,
