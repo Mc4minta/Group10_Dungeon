@@ -51,60 +51,31 @@ module top #(
                   .hsync(hsync), .vsync(vsync), .active(active), .frame_tick(frame_tick));
 
     // ---------- game state (P2 จะย้ายไป game_fsm.v) ----------
-    localparam R_START = 3'd0, R_C1 = 3'd1, R_C2 = 3'd2, R_PUZ = 3'd3, R_BOSS = 3'd4;
-    reg [1:0] floor = 0;
-    reg [2:0] room  = R_START;
-    reg [1:0] form  = 0;
-    reg       win   = 0;
-
-    // ห้อง (floor, room) -> grid 0..12 (ลำดับไฟล์ใน maps/)
-    wire [3:0] grid = (room == R_START) ? ((floor == 2'd2) ? 4'd1 : 4'd0) :
-                      (room == R_C1)    ? 4'd4 + floor * 4'd3 :
-                      (room == R_C2)    ? 4'd5 + floor * 4'd3 :
-                      (room == R_PUZ)   ? 4'd6 + floor * 4'd3 :
-                                          ((floor == 2'd1) ? 4'd3 : 4'd2);   // BOSS
+    reg [1:0] form = 0;
+    reg       win  = 0;
+    wire [1:0] floor;
+    wire [2:0] room;
+    wire [3:0] grid;
+    wire       load, exit_evt;
+    wire [9:0] load_x, load_y;
 
     wire doors_open = ~SW[2];
     wire open_L     = SW[0];
 
-    // จุดเกิดหน้าประตู (มุมซ้ายบนของ sprite)
-    localparam [9:0] SP_LX = 10'd40,  SP_RX = 10'd568, SP_MX = 10'd304,
-                     SP_MY = 10'd240, SP_TY = 10'd40,  SP_BY = 10'd408,
-                     ST_X  = 10'd288, ST_Y  = 10'd224;   // จุด P ในห้อง START
-
     wire [9:0] px, py;
     wire [1:0] facing, pose, door_dir;
     wire       door_evt;
-    reg        load = 1;
-    reg  [9:0] load_x = ST_X, load_y = ST_Y;
+
+    world wld (.clk(clk), .rst(rst), .restart(1'b0), .next_floor(sw1_rise),
+               .door_evt(door_evt), .door_dir(door_dir),
+               .floor(floor), .room(room), .grid(grid),
+               .load(load), .load_x(load_x), .load_y(load_y), .exit_evt(exit_evt));
 
     always @(posedge clk) begin
-        load <= 1'b0;
-        if (rst) begin
-            floor <= 0; room <= R_START; form <= 0; win <= 0;
-            load <= 1'b1; load_x <= ST_X; load_y <= ST_Y;
-        end else begin
+        if (rst) begin form <= 0; win <= 0; end
+        else begin
             if (bc_rise) form <= form + 1'b1;                 // debug: เปลี่ยนร่าง
-            if (sw1_rise) begin                               // debug: ชั้นถัดไป
-                floor <= (floor == 2'd2) ? 2'd0 : floor + 1'b1;
-                room  <= R_START;
-                load <= 1'b1; load_x <= ST_X; load_y <= ST_Y;
-            end else if (door_evt) begin
-                load <= 1'b1;
-                case (room)
-                    R_START: if (door_dir == 2'd3) begin room <= R_C1;  load_x <= SP_LX; load_y <= SP_MY; end
-                             else                  begin win <= 1'b1; load <= 1'b0; end   // ประตู E
-                    R_C1: case (door_dir)
-                            2'd2:    begin room <= R_START; load_x <= SP_RX; load_y <= SP_MY; end
-                            2'd1:    begin room <= R_C2;    load_x <= SP_MX; load_y <= SP_BY; end
-                            default: begin room <= R_BOSS;  load_x <= SP_LX; load_y <= SP_MY; end
-                          endcase
-                    R_C2:    if (door_dir == 2'd0) begin room <= R_C1;  load_x <= SP_MX; load_y <= SP_TY; end
-                             else                  begin room <= R_PUZ; load_x <= SP_LX; load_y <= SP_MY; end
-                    R_PUZ:   begin room <= R_C2; load_x <= SP_RX; load_y <= SP_MY; end
-                    default: begin room <= R_C1; load_x <= SP_RX; load_y <= SP_MY; end   // BOSS -> C1
-                endcase
-            end
+            if (exit_evt) win <= 1'b1;
         end
     end
 
