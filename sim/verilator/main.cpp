@@ -4,9 +4,11 @@
 //        Backspace = CPU_RESETN   Esc = ออก
 // 7-seg, LED, RGB LED, สถานะสวิตช์ แสดงบนแถบด้านล่างของหน้าต่าง
 //
-// เกม (P2): เริ่มที่หน้า TITLE กด Space (BTNC) เริ่มเล่น · F6 (SW15) = sprint · 3 (SW3) = ได้ไอเทม/EVOLVE ·
-//          4 (SW4) = โดนตี HP-1 · 1 (SW1) = เคลียร์ชั้น · 0 (SW0) เปิดประตู L · 2 (SW2) ปิดประตู D
-//          (SW1/3/4 ทำงานตอน "ยกขึ้น" คือสลับจากล่างขึ้นบน) — รายละเอียดดู README.md
+// เกม: เริ่มที่หน้า TITLE กด Space เริ่มเล่น · ตอนเล่น Space = โจมตี (ร่าง 1 ฟันประชิด, ร่าง 2-4 ยิง;
+//      ค้าง Space = ยิงซ้ำ + strafe ไม่หันตัว) · F6 (SW15) = sprint · 3 (SW3) = ได้ไอเทม/EVOLVE ·
+//      4 (SW4) = โดนตี HP-1 · 1 (SW1) = เคลียร์ชั้น · 0 (SW0) เปิดประตูบอส L
+//      (SW1/3/4 ทำงานตอน "ยกขึ้น" คือสลับจากล่างขึ้นบน) — รายละเอียดดู README.md
+//      แผงล่าง: LED4-7 = มอนที่เหลือ, LED8-11 = HP, LED12 = ประตูห้องล็อก, RGB17 แดง = โดนตี
 //
 // ตัวเลือกสำหรับทดสอบอัตโนมัติ:
 //   --frames N        ออกหลัง N เฟรม
@@ -16,6 +18,7 @@
 //   --headless | HEADLESS=1   ไม่เรียก SDL เลย, รัน 300 เฟรม (หรือ --frames N) แล้วพิมพ์ fps
 //   FRAMESKIP=N | --skip N    จำลอง N เฟรมต่อ 1 เฟรมที่แสดง/อ่านคีย์ (ค่าเริ่มต้น 1 = เหมือนเดิม; กด [ ] ปรับตอนรัน)
 //   RENDERER=sw|accel         เลือก SDL renderer (ค่าเริ่มต้น = SDL เลือกเอง)
+//   LOG=N                     พิมพ์ "f=<เฟรม> LED=<hex>" ทุก N เฟรม (ไว้ดูสคริปต์: มอนเหลือ / HP / ล็อก)
 #include "Vtop.h"
 #include "verilated.h"
 #include <SDL.h>
@@ -155,6 +158,8 @@ int main(int argc, char** argv) {
         if (prev_vs && !vs) {                          // ขอบหน้า vsync = v 490 -> จบเฟรม
             y = 490; x = 0;
             frame++;
+            static const int logn = getenv("LOG") ? atoi(getenv("LOG")) : 0;
+            if (logn > 0 && frame % logn == 0) { printf("f=%d LED=%04x\n", frame, top->LED); fflush(stdout); }
 
             if (!headless && frame % skip == 0) {
                 // แผงสถานะด้านล่าง
