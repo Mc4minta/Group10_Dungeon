@@ -18,9 +18,11 @@
 //   --headless | HEADLESS=1   ไม่เรียก SDL เลย, รัน 300 เฟรม (หรือ --frames N) แล้วพิมพ์ fps
 //   FRAMESKIP=N | --skip N    จำลอง N เฟรมต่อ 1 เฟรมที่แสดง/อ่านคีย์ (ค่าเริ่มต้น 1 = เหมือนเดิม; กด [ ] ปรับตอนรัน)
 //   RENDERER=sw|accel         เลือก SDL renderer (ค่าเริ่มต้น = SDL เลือกเอง)
-//   LOG=N                     พิมพ์ "f=<เฟรม> LED=<hex>" ทุก N เฟรม (ไว้ดูสคริปต์: มอนเหลือ / HP / ล็อก)
+//   LOG=N                     พิมพ์ "f=<เฟรม> LED=<hex> st=.. fl=.. room=.. px py hp form alive bulbs sm rnd seq" ทุก N เฟรม
 #include "Vtop.h"
 #include "verilated.h"
+#include "Vtop___024root.h"
+#include "Vtop_top.h"               // อ่าน signal /*verilator public*/ (dbg_*) ใน top.v
 #include <SDL.h>
 #include <cstdio>
 #include <cstdlib>
@@ -35,6 +37,20 @@
 static const int W = 640, H = 480, PANEL = 72, SCALE = 1;
 
 struct Act { char key; int from, to; };
+
+// สถานะเกม (game_fsm) สำหรับแถบชื่อหน้าต่าง: หน้า TITLE ยังไม่มีตัวอักษรจนกว่าจะมี font (P5)
+static const char* state_name(int s) {
+    switch (s) {
+        case 0: return "TITLE: press Space";
+        case 1: return "PLAY";
+        case 2: return "EVOLVE";
+        case 3: return "FLOOR CLEAR";
+        case 4: return "ESCAPE";
+        case 5: return "WIN: press Space";
+        case 6: return "GAME OVER: press Space";
+        default: return "?";
+    }
+}
 
 // 7-seg (active-low gfedcba) -> ตัวอักษร
 static char seg_char(uint8_t s) {
@@ -159,7 +175,15 @@ int main(int argc, char** argv) {
             y = 490; x = 0;
             frame++;
             static const int logn = getenv("LOG") ? atoi(getenv("LOG")) : 0;
-            if (logn > 0 && frame % logn == 0) { printf("f=%d LED=%04x\n", frame, top->LED); fflush(stdout); }
+            if (logn > 0 && frame % logn == 0) {
+                auto* r = top->rootp;
+                printf("f=%d LED=%04x st=%d fl=%d room=%d px=%d py=%d hp=%d form=%d alive=%d bulbs=%x sm=%d rnd=%d seq=%03x\n",
+                       frame, top->LED, r->top->dbg_state, r->top->dbg_floor, r->top->dbg_room,
+                       r->top->dbg_px, r->top->dbg_py, r->top->dbg_hp, r->top->dbg_form,
+                       r->top->dbg_alive, r->top->dbg_bulbs, r->top->dbg_sm, r->top->dbg_round,
+                       r->top->dbg_seq);
+                fflush(stdout);
+            }
 
             if (!headless && frame % skip == 0) {
                 // แผงสถานะด้านล่าง
@@ -199,9 +223,10 @@ int main(int argc, char** argv) {
                 auto t1 = std::chrono::steady_clock::now();
                 double dt = std::chrono::duration<double>(t1 - tw).count();
                 if (dt > 1.0) {
-                    char title[160];
+                    char title[200];
                     fps = fw / dt; tw = t1; fw = 0;
-                    snprintf(title, sizeof title, "Group10 Dungeon (Verilator)  %.1f fps  skip=%d  [frame %d]", fps, skip, frame);
+                    snprintf(title, sizeof title, "Group10 Dungeon - %s  |  floor %d  %.1f fps  skip=%d  [frame %d]",
+                             state_name(top->rootp->top->dbg_state), top->rootp->top->dbg_floor + 1, fps, skip, frame);
                     SDL_SetWindowTitle(win, title);
                 }
             }
