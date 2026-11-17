@@ -1,14 +1,17 @@
 // Group 10 — top module (Nexys A7-100T)
-// สถานะตอนนี้: P2 = TITLE/PLAY/EVOLVE/FLOOR_CLEAR/WIN/GAME_OVER + HP + timer + sprint (ดู game_fsm.v, world.v)
+// สถานะตอนนี้: P3 = P2 (game_fsm, world) + การต่อสู้ (objects.v): มอน, กระสุน, ฟันประชิด, โดนตี, ห้อง Combat ล็อก
 //
 // ปุ่ม / สวิตช์:
-//   BTNU/D/L/R เดิน · BTNC กดครั้งเดียว = เริ่มเกม (TITLE) / กลับ TITLE (WIN, GAME_OVER) · BTNC ค้าง = strafe
+//   BTNU/D/L/R เดิน · BTNC = เริ่มเกม (TITLE) / โจมตี (PLAY: ร่าง 1 ฟัน, ร่าง 2-4 ยิง, ค้าง = ยิงซ้ำ + strafe)
+//                    / กลับ TITLE (WIN, GAME_OVER)
 //   SW15 = sprint (ความเร็ว +1 px/เฟรม, ใช้ได้ทุกร่าง)
 // ปุ่ม debug ชั่วคราว (ลบเมื่อมีระบบจริง):
-//   SW0 = เปิดประตูบอส L (แทน has_item)        SW2 = ปิดประตู D (ทดสอบห้อง Combat ล็อก)
+//   SW0 = เปิดประตูบอส L (แทน has_item[floor] จนกว่าจะมีปริศนา P4)
 //   SW1 ยก = floor_done  (P5: มาจากบอสตาย)      SW3 ยก = got_item -> EVOLVE (P4: มาจากปริศนา)
-//   SW4 ยก = take_hit HP-1 (P3: มาจากศัตรู)
-// 7-seg: [ชั้น] - [HP] - mm.ss (TITLE = ----)   LED0-3 = ปุ่มทิศ, LED8-11 = HP, LED14 = sprint, LED15 = WIN
+//   SW4 ยก = take_hit HP-1 (ทดสอบ; ศัตรูจริงทำได้แล้วใน P3)
+// 7-seg: [ชั้น] - [HP] - mm.ss (TITLE = ----)
+// LED0-3 = ปุ่มทิศ, LED4-7 = มอนที่เหลือในห้อง (bar, เต็มที่ 4), LED8-11 = HP, LED12 = ประตูห้องล็อก,
+// LED14 = sprint, LED15 = WIN, RGB16 = สีร่าง, RGB17 แดง = โดนตี (ช่วงอมตะ)
 module top #(
     parameter DEBOUNCE = 1_000_000,         // 10 ms ที่ 100 MHz
     parameter CE_DIV   = 4                  // บอร์ดจริง = 4 (25 MHz) / simulator บนจอคอม = 1 (เร็วขึ้น 4 เท่า)
@@ -62,7 +65,7 @@ module top #(
     wire       load, exit_evt, restart, next_floor;
     wire [9:0] load_x, load_y;
 
-    wire doors_open = ~SW[2];
+    wire doors_open;                 // จาก objects.v: ห้อง Combat ที่ยังมีมอน = ปิด
     wire open_L     = SW[0];
 
     wire [9:0] px, py;
@@ -71,7 +74,15 @@ module top #(
 
     wire [2:0] state, hp, hp_max, speed, rgb;
     wire [1:0] form, damage;
-    wire       freeze, hide_player;
+    wire       freeze, fsm_hide;
+    wire       obj_hit, kb_start, invuln, obj_blink, melee_on, mon_anim;
+    wire [1:0] kb_dir, melee_dir, pb_act;
+    wire [2:0] alive;
+    wire [5:0] mon_act, mon_type, mon_flash;
+    wire [59:0] mon_x, mon_y;
+    wire [19:0] pb_x, pb_y;
+    wire [15:0] eb_act;
+    wire [159:0] eb_x, eb_y;
     wire [3:0] m_t, m_o, s_t, s_o;
 
     world wld (.clk(clk), .rst(rst), .restart(restart), .next_floor(next_floor),
@@ -80,14 +91,14 @@ module top #(
                .load(load), .load_x(load_x), .load_y(load_y), .exit_evt(exit_evt));
 
     game_fsm fsm (.clk(clk), .rst(rst), .frame_tick(frame_tick), .btnc_rise(bc_rise),
-                  .got_item(sw3_rise), .take_hit(sw4_rise), .floor_done(sw1_rise),
+                  .got_item(sw3_rise), .take_hit(sw4_rise | obj_hit), .floor_done(sw1_rise),
                   .exit_evt(exit_evt), .sprint(sw15),
                   .state(state), .restart(restart), .next_floor(next_floor),
                   .form(form), .hp(hp), .hp_max(hp_max), .speed(speed), .damage(damage),
-                  .rgb(rgb), .freeze(freeze), .hide_player(hide_player),
+                  .rgb(rgb), .freeze(freeze), .hide_player(fsm_hide),
                   .m_t(m_t), .m_o(m_o), .s_t(s_t), .s_o(s_o));
 
-    localparam [2:0] S_TITLE = 3'd0, S_WIN = 3'd5, S_GAME_OVER = 3'd6;
+    localparam [2:0] S_TITLE = 3'd0, S_PLAY = 3'd1, S_WIN = 3'd5, S_GAME_OVER = 3'd6;
     wire is_title = (state == S_TITLE);
     wire is_win   = (state == S_WIN);
 
@@ -96,8 +107,20 @@ module top #(
                .form(form), .speed(speed), .freeze(freeze),
                .grid(grid), .doors_open(doors_open), .open_L(open_L),
                .load(load), .load_x(load_x), .load_y(load_y),
+               .kb_start(kb_start), .kb_dir(kb_dir),
                .px(px), .py(py), .facing(facing), .pose(pose),
                .door_evt(door_evt), .door_dir(door_dir));
+
+    // ---------- objects: มอน กระสุน ฟัน โดนตี ห้องล็อก ----------
+    objects obj (.clk(clk), .rst(rst), .frame_tick(frame_tick), .run(state == S_PLAY),
+                 .restart(restart), .room_load(load), .floor(floor), .room(room), .grid(grid),
+                 .open_L(open_L), .px(px), .py(py), .facing(facing), .form(form), .damage(damage),
+                 .atk_press(bc_rise), .atk_hold(bc),
+                 .doors_open(doors_open), .alive(alive), .hit(obj_hit), .kb_start(kb_start), .kb_dir(kb_dir),
+                 .invuln(invuln), .player_blink(obj_blink), .busy(),
+                 .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
+                 .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y),
+                 .eb_act(eb_act), .eb_x(eb_x), .eb_y(eb_y), .melee_on(melee_on), .melee_dir(melee_dir));
 
     // ---------- render ----------
     // TITLE: sprite ร่าง 1 idle หันลง กลางจอ
@@ -108,13 +131,24 @@ module top #(
     wire [11:0] color;
     renderer rnd (.clk(clk), .hcount(hcount), .vcount(vcount), .grid(grid), .floor(floor),
                   .form(form), .doors_open(doors_open), .open_L(open_L),
-                  .screen(screen), .hide_player(hide_player),
-                  .px(rpx), .py(rpy), .pframe(pframe), .color(color));
+                  .screen(screen), .hide_player(fsm_hide | (obj_blink && !is_title)),
+                  .px(rpx), .py(rpy), .pframe(pframe),
+                  .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
+                  .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y),
+                  .eb_act(eb_act), .eb_x(eb_x), .eb_y(eb_y), .melee_on(melee_on), .melee_dir(melee_dir),
+                  .color(color));
 
+    // renderer มี latency 3 clock -> หน่วง sync/active เท่ากัน ภาพตรงทั้ง CE_DIV = 1 และ 4
+    reg [2:0] hs_d = 3'b111, vs_d = 3'b111, act_d = 3'b000;
+    always @(posedge clk) begin
+        hs_d  <= {hs_d[1:0], hsync};
+        vs_d  <= {vs_d[1:0], vsync};
+        act_d <= {act_d[1:0], active};
+    end
     always @(posedge clk) if (ce) begin
-        {VGA_R, VGA_G, VGA_B} <= active ? color : 12'h000;
-        VGA_HS <= hsync;
-        VGA_VS <= vsync;
+        {VGA_R, VGA_G, VGA_B} <= act_d[2] ? color : 12'h000;
+        VGA_HS <= hs_d[2];
+        VGA_VS <= vs_d[2];
     end
 
     // ---------- 7-seg / LED / RGB ----------
@@ -126,8 +160,11 @@ module top #(
              .seg(seg), .an(AN), .dp(DP));
     assign {CG, CF, CE, CD, CC, CB, CA} = seg;
 
-    // LED0-3 = ปุ่มทิศ, LED8-11 = HP bar (LED8 = HP 1 ...), LED14 = sprint, LED15 = WIN
-    assign LED = {is_win, sw15, 2'd0, hp >= 3'd4, hp >= 3'd3, hp >= 3'd2, hp >= 3'd1, 4'd0, br, bl, bd, bu};
+    // LED0-3 = ปุ่มทิศ, LED4-7 = มอนเหลือ (bar), LED8-11 = HP bar (LED8 = HP 1 ...),
+    // LED12 = ประตูห้องล็อก, LED14 = sprint, LED15 = WIN
+    wire [3:0] mon_bar = {alive >= 3'd4, alive >= 3'd3, alive >= 3'd2, alive >= 3'd1};
+    assign LED = {is_win, sw15, 1'b0, ~doors_open, hp >= 3'd4, hp >= 3'd3, hp >= 3'd2, hp >= 3'd1,
+                  mon_bar, br, bl, bd, bu};
 
     reg [7:0] pwm = 0;
     always @(posedge clk) pwm <= pwm + 1'b1;
@@ -136,7 +173,8 @@ module top #(
     assign LED16_R = dim & rgb[2];
     assign LED16_G = dim & rgb[1];
     assign LED16_B = dim & rgb[0];
-    assign {LED17_R, LED17_G, LED17_B} = 3'b000;  // P3: แดงตอนโดนตี
+    assign LED17_R = dim & invuln;                // แดงตอนโดนตี (knockback + อมตะ)
+    assign {LED17_G, LED17_B} = 2'b00;
 
     assign AUD_PWM = 1'b0;                        // P6: เสียง
     assign AUD_SD  = 1'b0;
