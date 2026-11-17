@@ -167,8 +167,17 @@ int main(int argc, char** argv) {
 
     while (!quit) {
         // ---------- 1 clock 100 MHz ----------
+#if FAST_CLOCK
+        // eval ครั้งเดียวต่อ clock: RTL ใช้แต่ posedge -> ไม่ต้อง eval ตอน CLK = 0
+        // ตั้งค่า "CLK ก่อนหน้า" ของ trigger posedge ให้เป็น 0 เอง (ชื่อตัวแปรภายในของ Verilator 5.x;
+        // ถ้า build ไม่ผ่านกับ Verilator รุ่นอื่น ให้ make FAST_CLOCK=0)
+        top->CLK100MHZ = 1;
+        top->rootp->__Vtrigprevexpr___TOP__CLK100MHZ__1 = 0;
+        top->eval();
+#else
         top->CLK100MHZ = 0; top->eval();
         top->CLK100MHZ = 1; top->eval();
+#endif
         cyc++;
         if (cyc == 20) top->CPU_RESETN = 1;
 
