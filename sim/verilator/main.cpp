@@ -14,6 +14,7 @@
 //   --frames N        ออกหลัง N เฟรม
 //   --shot file.bmp   บันทึกภาพเฟรมสุดท้าย
 //   --shot-at N:file.bmp   บันทึกภาพ ณ เฟรม N (ใช้ซ้ำได้หลายครั้ง)
+//   --script-file scripts/floor1.txt   อ่านสคริปต์จากไฟล์ (รูปแบบเดียวกัน, # = คอมเมนต์, ขึ้นบรรทัดใหม่ = คั่น)
 //   --script "R:10:80,U:90:120,1:200"   กดปุ่มตามช่วงเฟรม (U D L R C) / สลับสวิตช์ที่เฟรมนั้น (0-9 = SW0-9, a-f = SW10-15)
 //   --headless | HEADLESS=1   ไม่เรียก SDL เลย, รัน 300 เฟรม (หรือ --frames N) แล้วพิมพ์ fps
 //   FRAMESKIP=N | --skip N    จำลอง N เฟรมต่อ 1 เฟรมที่แสดง/อ่านคีย์ (ค่าเริ่มต้น 1 = เหมือนเดิม; กด [ ] ปรับตอนรัน)
@@ -27,6 +28,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cctype>
 #include <string>
 #include <vector>
 #include <chrono>
@@ -103,16 +105,31 @@ int main(int argc, char** argv) {
             std::string t = argv[++i]; size_t c = t.find(':');
             if (c != std::string::npos) shots.push_back({atoi(t.c_str()), t.substr(c + 1)});
         }
-        else if (!strcmp(argv[i], "--script") && i + 1 < argc) {
-            std::string s = argv[++i];
+        else if ((!strcmp(argv[i], "--script") || !strcmp(argv[i], "--script-file")) && i + 1 < argc) {
+            std::string s;
+            if (!strcmp(argv[i], "--script")) s = argv[++i];
+            else {                                     // ไฟล์สคริปต์: # = คอมเมนต์ถึงท้ายบรรทัด, ขึ้นบรรทัดใหม่ = คั่นรายการ
+                FILE* f = fopen(argv[++i], "r");
+                if (!f) { fprintf(stderr, "cannot open %s\n", argv[i]); return 1; }
+                char line[4096];
+                while (fgets(line, sizeof line, f)) {
+                    std::string l = line;
+                    size_t h = l.find('#'); if (h != std::string::npos) l = l.substr(0, h);
+                    for (char c : l) if (!isspace((unsigned char)c)) s += c;
+                    if (!s.empty() && s.back() != ',') s += ',';
+                }
+                fclose(f);
+            }
             size_t p = 0;
             while (p < s.size()) {
                 size_t q = s.find(',', p); if (q == std::string::npos) q = s.size();
                 std::string t = s.substr(p, q - p);
-                Act a{t[0], 0, 0};
-                sscanf(t.c_str() + 2, "%d:%d", &a.from, &a.to);
-                if (a.to == 0) a.to = a.from;
-                script.push_back(a);
+                if (t.size() >= 3) {
+                    Act a{t[0], 0, 0};
+                    sscanf(t.c_str() + 2, "%d:%d", &a.from, &a.to);
+                    if (a.to == 0) a.to = a.from;
+                    script.push_back(a);
+                }
                 p = q + 1;
             }
         }
