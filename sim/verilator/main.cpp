@@ -85,6 +85,8 @@ static void draw_char(uint32_t* px, int x, int y, char ch, uint32_t c) {
             if (g[r * 3 + k] == '1') fill(px, x + k * 6, y + r * 6, 6, 6, c);
 }
 
+static long clap_left = 0;      // clock ที่เหลือของเสียงตบมือจำลอง (คีย์ C / สคริปต์ K)
+static unsigned rng = 12345;
 int main(int argc, char** argv) {
     Verilated::commandArgs(argc, argv);
     int max_frames = -1;
@@ -179,6 +181,10 @@ int main(int argc, char** argv) {
         top->CLK100MHZ = 1; top->eval();
 #endif
         cyc++;
+        // ไมค์จำลอง: PDM สุ่ม ~50% ones, ตอนตบมือ ~90%
+        rng ^= rng << 13; rng ^= rng >> 17; rng ^= rng << 5;
+        top->M_DATA = clap_left > 0 ? ((rng & 127) < 115) : (rng & 1);
+        if (clap_left > 0) clap_left--;
         if (cyc == 20) top->CPU_RESETN = 1;
 
         // 7-seg: เก็บ pattern ของหลักที่ anode ติดอยู่ (หลักละ 2^17 clock -> ดูทุก 256 clock พอ)
@@ -271,6 +277,7 @@ int main(int argc, char** argv) {
                         else if (k == SDLK_RIGHT) kR = d;
                         else if (k == SDLK_SPACE) kC = d;
                         else if (k == SDLK_ESCAPE && d) quit = true;
+                        else if (k == SDLK_c && d && !e.key.repeat) clap_left = 10000000;   // ตบมือ 100 ms
                         else if (k == SDLK_BACKSPACE) top->CPU_RESETN = !d;
                         else if (d && !e.key.repeat && k == SDLK_LEFTBRACKET) { if (skip > 1) skip--; }
                         else if (d && !e.key.repeat && k == SDLK_RIGHTBRACKET) { if (skip < 64) skip++; }
@@ -287,6 +294,7 @@ int main(int argc, char** argv) {
                 }
                 if (a.key >= '0' && a.key <= '9' && frame == a.from) top->SW ^= (1 << (a.key - '0'));
                 if (a.key >= 'a' && a.key <= 'f' && frame == a.from) top->SW ^= (1 << (10 + a.key - 'a'));
+                if (a.key == 'K' && frame == a.from) clap_left = 10000000;   // ตบมือ 100 ms
             }
             top->BTNU = kU | sU; top->BTND = kD | sD; top->BTNL = kL | sL; top->BTNR = kR | sR; top->BTNC = kC | sC;
 
