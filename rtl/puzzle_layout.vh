@@ -16,3 +16,5 @@ localparam [4:0] PLATE0_TX = 5'd6;  localparam [3:0] PLATE0_TY = 4'd9;
 localparam [4:0] BOX1_TX = 5'd11;  localparam [3:0] BOX1_TY = 4'd6;
 localparam [4:0] PLATE1_TX = 5'd8;  localparam [3:0] PLATE1_TY = 4'd9;
 localparam [4:0] GATE_TX = 5'd13;  localparam [3:0] GATE_TY = 4'd7;
+localparam [4:0] BOSSA_TX = 5'd10;  localparam [3:0] BOSSA_TY = 4'd7;   // ห้องบอสชั้น 1, 3 (grid 2)
+localparam [4:0] BOSSB_TX = 5'd9;  localparam [3:0] BOSSB_TY = 4'd7;   // ห้องบอสชั้น 2 (grid 3)

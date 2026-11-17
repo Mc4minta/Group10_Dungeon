@@ -215,6 +215,57 @@ def puzzle(i):
     return img
 
 
+def boss(kind, f):
+    """บอส 64x64: 1 ก้อนแดง (ขยับ 2 เฟรม), 2 ค้างคาวฟ้า (เฟรม 1 = มึน: เทา ตาเป็น X ดาววน), 3 มังกรม่วง"""
+    img = [[T] * 64 for _ in range(64)]
+
+    def r(x0, y0, x1, y1, c):
+        for y in range(max(0, y0), min(64, y1)):
+            for x in range(max(0, x0), min(64, x1)):
+                img[y][x] = c
+
+    def disc(cx, cy, rad, c):
+        for y in range(64):
+            for x in range(64):
+                if (x - cx) ** 2 + (y - cy) ** 2 <= rad * rad:
+                    img[y][x] = c
+    if kind == 0:
+        sq = 2 if f else 0
+        disc(32, 36 + sq, 26, 0x000); disc(32, 36 + sq, 24, 0xB22); disc(26, 28 + sq, 8, 0xE55)
+        r(18, 26 + sq, 27, 35 + sq, 0xFFF); r(37, 26 + sq, 46, 35 + sq, 0xFFF)
+        r(21, 29 + sq, 25, 33 + sq, 0x000); r(40, 29 + sq, 44, 33 + sq, 0x000)
+        r(22, 44 + sq, 42, 48 + sq, 0x400)
+        for t in range(4):                                       # หนาม
+            r(12 + t * 12, 8 + sq, 16 + t * 12, 16 + sq, 0x711)
+    elif kind == 1:
+        body, wing = (0x26C, 0x139) if f == 0 else (0x777, 0x555)
+        for y in range(16, 44):                                  # ปีก
+            w = (44 - y) // 2
+            r(4, y, 4 + w + 8, y + 1, wing); r(60 - w - 8, y, 60, y + 1, wing)
+        disc(32, 32, 18, 0x000); disc(32, 32, 16, body)
+        r(22, 10, 26, 20, body); r(38, 10, 42, 20, body)          # หู
+        if f == 0:
+            r(24, 26, 30, 32, 0xFF2); r(34, 26, 40, 32, 0xFF2)
+            r(26, 40, 38, 43, 0xFFF)
+        else:                                                    # มึน: ตา X + ดาว
+            for t in range(6):
+                img[25 + t][24 + t] = img[25 + t][29 - t] = 0x000
+                img[25 + t][35 + t] = img[25 + t][40 - t] = 0x000
+            for sx, sy in ((14, 6), (30, 2), (46, 6)):
+                r(sx, sy + 2, sx + 6, sy + 4, 0xFF4); r(sx + 2, sy, sx + 4, sy + 6, 0xFF4)
+    else:
+        sh = 2 if f else 0
+        r(10, 18, 54, 58, 0x000); r(12, 20, 52, 56, 0x82B)
+        r(16, 24, 48, 40, 0xA4D)
+        r(18, 26 + sh, 26, 32 + sh, 0xFF0); r(38, 26 + sh, 46, 32 + sh, 0xFF0)
+        r(20, 28 + sh, 24, 30 + sh, 0x000); r(40, 28 + sh, 44, 30 + sh, 0x000)
+        r(20, 44, 44, 50, 0x400)
+        for t in range(5):
+            r(22 + t * 5, 44, 24 + t * 5, 47, 0xFFF)              # ฟัน
+        r(8, 6, 16, 22, 0xFC4); r(48, 6, 56, 22, 0xFC4)          # เขา
+    return img
+
+
 def to_png(frames, cols, path, size=32):
     rows = (len(frames) + cols - 1) // cols
     im = Image.new('RGB', (cols * size, rows * size), (255, 0, 255))
@@ -250,6 +301,9 @@ write_mem(effects, os.path.join(ROOT, 'mem', 'effect.mem'))
 puzzles = [puzzle(i) for i in range(10)]
 write_mem(puzzles + [blank(T)] * 6, os.path.join(ROOT, 'mem', 'puzzle.mem'))   # เติมให้ครบ 16 เฟรม (address 14 bit)
 to_png(puzzles, 10, os.path.join(ROOT, 'docs', 'puzzle_preview.png'))
+bosses = [boss(k, f) for k in range(3) for f in range(2)]
+write_mem(bosses + [[[T] * 64 for _ in range(64)]] * 2, os.path.join(ROOT, 'mem', 'boss.mem'))   # 8 เฟรม (address 15 bit)
+to_png(bosses, 6, os.path.join(ROOT, 'docs', 'boss_preview.png'), size=64)
 to_png(monsters + effects, 8, os.path.join(ROOT, 'docs', 'objects_preview.png'))
 to_png(bullets, 2, os.path.join(ROOT, 'docs', 'bullet_preview.png'), size=8)
 print(f'tileset: {len(tiles)} tiles, player: {len(players)} frames, '

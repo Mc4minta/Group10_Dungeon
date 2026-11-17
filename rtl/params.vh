@@ -60,3 +60,31 @@ localparam SIMON_LEN0     = 3;             // ความยาวรอบ 1
 localparam SIMON_LEN1     = 4;             // รอบ 2
 localparam SIMON_LEN2     = 5;             // รอบ 3
 localparam PUZZLE_DELAY   = 256;           // puzzles.v เริ่มงานต่อเฟรมหลัง frame_tick กี่ clock (ให้ objects.v เสร็จก่อน)
+
+// ---------- บอส (P5) ----------
+localparam BOSS1_HP        = 10;           // บอส 1 (ชั้น 1)
+localparam BOSS2_HP        = 16;           // บอส 2 (ชั้น 2)
+localparam BOSS3_HP        = 24;           // บอส 3 (ชั้น 3)
+localparam BOSS1_SPEED     = 1;            // px ต่อก้าว
+localparam BOSS1_EVERY     = 2;            // บอส 1 ก้าวทุกกี่เฟรม (1 px ทุก 2 เฟรม)
+localparam BOSS2_SPEED     = 2;            // เด้งทแยง px/เฟรม
+localparam BOSS3_SPEED     = 2;            // ไล่ px/เฟรม
+localparam BOSS2_FIRE      = 120;          // ยิง 4 ทิศทุกกี่เฟรม
+localparam BOSS3_FIRE      = 60;
+localparam BOSS_FLASH      = 8;            // โดนตีกะพริบ
+localparam STUN_FRAMES     = 120;          // ตบมือ -> บอส 2 มึน
+localparam STUN_COOLDOWN   = 300;          // หลังมึนจบ รอกี่เฟรมถึงตบมือได้อีก
+
+// ---------- ฉากหนี (P5) ----------
+localparam ESCAPE_SECONDS  = 30;           // นับถอยหลัง (1800 เฟรม)
+localparam ESCAPE_BANNER   = 120;          // ข้อความ ESCAPE! กี่เฟรม
+localparam SHAKE_PX        = 2;            // จอสั่น +-px (ค่า 1..3)
+localparam SHAKE_EVERY     = 4;            // เปลี่ยน offset ทุกกี่เฟรม
+localparam LED_BLINK       = 15;           // LED กะพริบ 4 Hz (คาบ 15 เฟรม)
+
+// ---------- ไมค์ PDM (P5) ----------
+localparam MIC_CLK_DIV     = 40;           // 100 MHz / 40 = 2.5 MHz (M_CLK)
+localparam MIC_WINDOW      = 4096;         // นับ bit 1 ทุกกี่ sample (1.64 ms)
+localparam MIC_TH          = 600;          // |ones - 2048| > TH = ตบมือ (เงียบ ~ +-100, ตบมือดังกว่ามาก)
+localparam MIC_HOLDOFF     = 20000000;     // หลังตบมือ ไม่สนกี่ clock (200 ms ที่ 100 MHz)
+localparam BOSS_DELAY      = 300;          // boss.v เริ่มงานต่อเฟรมหลัง frame_tick กี่ clock (หลัง objects.v)

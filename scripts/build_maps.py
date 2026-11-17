@@ -96,6 +96,10 @@ for k in range(2):
     lay.append(f'localparam [4:0] BOX{k}_TX = 5\'d{bx[k][0]};  localparam [3:0] BOX{k}_TY = 4\'d{bx[k][1]};')
     lay.append(f'localparam [4:0] PLATE{k}_TX = 5\'d{pl[k][0]};  localparam [3:0] PLATE{k}_TY = 4\'d{pl[k][1]};')
 lay.append(f'localparam [4:0] GATE_TX = 5\'d{gx};  localparam [3:0] GATE_TY = 4\'d{gy};')
+(b1x, b1y), = find(2, 'B')
+(b2x, b2y), = find(3, 'B')
+lay.append(f'localparam [4:0] BOSSA_TX = 5\'d{b1x};  localparam [3:0] BOSSA_TY = 4\'d{b1y};   // ห้องบอสชั้น 1, 3 (grid 2)')
+lay.append(f'localparam [4:0] BOSSB_TX = 5\'d{b2x};  localparam [3:0] BOSSB_TY = 4\'d{b2y};   // ห้องบอสชั้น 2 (grid 3)')
 with open(os.path.join(ROOT, 'rtl', 'puzzle_layout.vh'), 'w', encoding='utf-8') as f:
     f.write('\n'.join(lay) + '\n')
 

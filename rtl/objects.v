@@ -36,6 +36,12 @@ module objects (
     input  wire         dbg_clear,      // pulse (DEBUG): ลบมอนทั้งห้อง -> ห้องเคลียร์
     input  wire [11:0]  blk0, blk1, blk2,   // tile กันเพิ่ม (กล่อง / gate จาก puzzles.v)
     input  wire [2:0]   blk_en,
+    // ---------- บอส (slot บอส; ตัว state อยู่ใน boss.v) ----------
+    input  wire         boss_act,
+    input  wire [9:0]   boss_x, boss_y,   // มุมซ้ายบน sprite 64x64, hitbox 48x48 ที่ +8
+    input  wire         boss_fire,        // pulse: ยิง 4 ทิศจากจุดกลางบอส
+    output reg          boss_dmg = 1'b0,  // pulse: บอสโดนกระสุน / ฟัน
+    output reg  [1:0]   boss_dmg_amt = 2'd0,
     output wire         doors_open,     // ประตู D เปิด (0 = ห้อง Combat ล็อก)
     output wire [2:0]   alive,          // มอนที่เหลือในห้อง
     output reg          hit = 1'b0,     // pulse: ผู้เล่นโดนตี -> game_fsm.take_hit
@@ -78,8 +84,6 @@ module objects (
     reg [NE*10-1:0] e_xv = 0;
     reg [NE*10-1:0] e_yv = 0;
     reg [NE*2-1:0] e_dirv = 0;
-    // boss slot: สำรองไว้ P5
-    reg        boss_act = 1'b0;
 
     reg [14:0] cleared = 0;                  // [floor*5 + room]
     reg [3:0]  cur_idx = 0;                  // ห้องที่ spawn ล่าสุด
@@ -88,6 +92,8 @@ module objects (
     reg [4:0]  melee_cnt = 0;
     reg [1:0]  mel_dir = 0;
     reg [5:0]  mel_mask = 0;                 // มอนที่โดนฟันครั้งนี้แล้ว
+    reg        mel_boss = 1'b0;              // บอสโดนฟันครั้งนี้แล้ว
+    reg        bfire_req = 1'b0;             // บอสขอยิง (ทำตอนประมวลผลเฟรมถัดไป)
     reg [4:0]  cool = 0;
     reg [6:0]  hurt_cnt = 0;                 // KB_FRAMES + INV_FRAMES .. 0
     reg        atk_req = 1'b0;
@@ -139,7 +145,7 @@ module objects (
     // ---------- FSM ----------
     localparam [3:0] S_IDLE = 4'd0, S_SPAWN = 4'd1, S_ATK = 4'd2, S_PB = 4'd3, S_EB = 4'd4,
                      S_MON = 4'd5, S_FIRE = 4'd6, S_CPB = 4'd7, S_CMEL = 4'd8, S_CPM = 4'd9,
-                     S_CPE = 4'd10, S_END = 4'd11;
+                     S_CPE = 4'd10, S_END = 4'd11, S_BFIRE = 4'd12, S_BPB = 4'd13, S_BMEL = 4'd14, S_BPM = 4'd15;
     reg [3:0] st = S_IDLE;
     reg [1:0] ph = 0;
     reg [3:0] i = 0, j = 0;                  // i = มอน / กระสุนผู้เล่น, j = กระสุนศัตรู
@@ -192,6 +198,8 @@ module objects (
         if (atk_press && run) atk_req <= 1'b1;
         if (!run) atk_req <= 1'b0;
         if (room_load) spawn_req <= 1'b1;
+        boss_dmg <= 1'b0;
+        if (boss_fire) bfire_req <= 1'b1;
         if (dbg_clear && st == S_IDLE && !spawn_req) m_act <= 0;   // ห้องเคลียร์ที่ S_END ของเฟรมถัดไป
 
         if (rst || restart) begin
@@ -205,7 +213,7 @@ module objects (
         S_IDLE:
             if (spawn_req) begin
                 spawn_req <= 1'b0;
-                m_act <= 0; p_act <= 0; e_act <= 0; melee_cnt <= 0;
+                m_act <= 0; p_act <= 0; e_act <= 0; melee_cnt <= 0; bfire_req <= 1'b0;
                 cur_idx <= idx_now;
                 cur_combat <= (room == R_C1) || (room == R_C2);
                 si <= 0; slot <= 0; nb <= 0;
@@ -246,6 +254,7 @@ module objects (
                     melee_cnt <= MELEE_FRAMES;
                     mel_dir   <= facing;
                     mel_mask  <= 0;
+                    mel_boss  <= 1'b0;
                     cool      <= MELEE_COOLDOWN - 1;
                 end
             end else if (atk_req || atk_hold) begin   // ยิง (กดค้างยิงซ้ำทุก cooldown)
@@ -431,8 +440,50 @@ module objects (
                 kb_dir <= away(e_xv[(j)*10 +: 10] + 10'd4, e_yv[(j)*10 +: 10] + 10'd4);
                 hurt_cnt <= KB_FRAMES + INV_FRAMES;
             end
-            if (j == NE - 1) st <= S_END;
+            if (j == NE - 1) begin j <= 0; fk <= 0; st <= S_BFIRE; end
+            else j <= j + 1'b1;
+        end
+        // ------------------------------------------------------------------ บอส
+        S_BFIRE: begin                       // บอสยิง 4 ทิศ ลง slot กระสุนศัตรูที่ว่าง (1 clock / slot)
+            if (!bfire_req || !boss_act) begin bfire_req <= 1'b0; j <= 0; st <= S_BPB; end
+            else begin
+                if (!e_act[j] && fk < 4) begin
+                    e_act[j] <= 1'b1;
+                    e_xv[(j)*10 +: 10] <= boss_x + 10'd28;
+                    e_yv[(j)*10 +: 10] <= boss_y + 10'd28;
+                    e_dirv[(j)*2 +: 2] <= fk[1:0];
+                    fk <= fk + 1'b1;
+                end
+                j <= j + 1'b1;
+                if (j == NE - 1 || (fk == 3'd3 && !e_act[j])) begin bfire_req <= 1'b0; j <= 0; st <= S_BPB; end
+            end
+        end
+        S_BPB: begin                         // กระสุนผู้เล่น j x บอส
+            if (boss_act && p_act[j[0]] &&
+                ovl({1'b0, p_xv[(j[0])*10 +: 10]} + OFS, {1'b0, p_yv[(j[0])*10 +: 10]} + OFS, 7'd8, 7'd8,
+                    {1'b0, boss_x} + OFS + 11'd8, {1'b0, boss_y} + OFS + 11'd8, 7'd48, 7'd48)) begin
+                p_act[j[0]] <= 1'b0;
+                boss_dmg <= 1'b1; boss_dmg_amt <= damage;
+            end
+            if (j[0]) st <= S_BMEL;
             j <= j + 1'b1;
+        end
+        S_BMEL: begin                        // ฟันประชิด x บอส (1 ทีต่อการฟัน)
+            if (boss_act && melee_cnt != 0 && !mel_boss &&
+                ovl(mbx, mby, mbw, mbh, {1'b0, boss_x} + OFS + 11'd8, {1'b0, boss_y} + OFS + 11'd8, 7'd48, 7'd48)) begin
+                mel_boss <= 1'b1;
+                boss_dmg <= 1'b1; boss_dmg_amt <= damage;
+            end
+            st <= S_BPM;
+        end
+        S_BPM: begin                         // ผู้เล่น x บอส (ชนตัว)
+            if (boss_act && hurt_cnt == 0 &&
+                ovl(plx, ply, 7'd24, 7'd24, {1'b0, boss_x} + OFS + 11'd8, {1'b0, boss_y} + OFS + 11'd8, 7'd48, 7'd48)) begin
+                hit <= 1'b1; kb_start <= 1'b1;
+                kb_dir <= away(boss_x + 10'd32, boss_y + 10'd32);
+                hurt_cnt <= KB_FRAMES + INV_FRAMES;
+            end
+            st <= S_END;
         end
         // ------------------------------------------------------------------
         S_END: begin
@@ -445,7 +496,7 @@ module objects (
 
     // ---------- outputs ----------
     assign alive = m_act[0] + m_act[1] + m_act[2] + m_act[3] + m_act[4] + m_act[5];
-    assign doors_open = !(cur_combat && m_act != 0);
+    assign doors_open = !(cur_combat && m_act != 0) && !boss_act;   // ห้อง Combat ที่มีมอน / ห้องบอสที่บอสยังอยู่ = ประตูปิด
     assign invuln = (hurt_cnt != 0);
     assign player_blink = (hurt_cnt != 0) && hurt_cnt[2];
     assign mon_act = m_act;
