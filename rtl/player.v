@@ -88,7 +88,7 @@ module player (
             S_XA: begin
                 if (!dxs[1]) state <= S_YA;
                 else begin
-                    nx = dxs[0] ? px - spd : px + spd;
+                    nx = dxs[0] ? ((px >= spd) ? px - spd : 10'd0) : px + spd;   // clamp ที่ 0 (กัน wrap)
                     addr_a <= taddr(grid, dxs[0] ? nx + 10'd4 : nx + 10'd27, py + 10'd4);
                     addr_b <= taddr(grid, dxs[0] ? nx + 10'd4 : nx + 10'd27, py + 10'd27);
                     state <= S_XB;
@@ -107,7 +107,7 @@ module player (
             S_YA: begin
                 if (!dys[1]) state <= S_DA;
                 else begin
-                    ny = dys[0] ? py - spd : py + spd;
+                    ny = dys[0] ? ((py >= spd) ? py - spd : 10'd0) : py + spd;
                     addr_a <= taddr(grid, px + 10'd4,  dys[0] ? ny + 10'd4 : ny + 10'd27);
                     addr_b <= taddr(grid, px + 10'd27, dys[0] ? ny + 10'd4 : ny + 10'd27);
                     state <= S_YB;
