@@ -2,7 +2,7 @@
 
 เกม dungeon crawler + ห้องปริศนา บน Digilent Nexys A7-100T, VGA 640×480 @ 60 Hz, Verilog
 
-สถานะ: **P0–P1 เสร็จ** — ภาพขึ้นจอ, เดิน 8 ทิศ, ชนกำแพง + ไถล + corner slide, เปลี่ยนห้อง flip-screen ครบ 3 ชั้น × 5 ห้อง, หลุม/ประตูบอส/ประตูทางออกเช็คตามร่าง (ผ่าน simulation แล้ว ยังไม่ได้ลงบอร์ดจริง)
+สถานะ: **P0–P2 เสร็จใน simulation** — ภาพขึ้นจอ, เดิน 8 ทิศ, ชนกำแพง + ไถล + corner slide, เปลี่ยนห้อง flip-screen ครบ 3 ชั้น × 5 ห้อง, หลุม/ประตูบอส/ประตูทางออกเช็คตามร่าง, Game FSM (TITLE / PLAY / EVOLVE / FLOOR_CLEAR / WIN / GAME_OVER), 4 ร่าง + HP + เวลา mm.ss + sprint (ยังไม่ได้ลงบอร์ดจริง) — ดูความคืบหน้าที่ `docs/PROGRESS.md`
 
 ## เริ่มใช้
 
@@ -23,27 +23,54 @@
 | อุปกรณ์ | ทำอะไร |
 | --- | --- |
 | BTNU/D/L/R | เดิน (กด 2 ปุ่ม = ทแยง) |
-| BTNC กด | **debug** เปลี่ยนร่าง (แทน EVOLVE จนกว่าจะมีปริศนา) |
+| BTNC กดครั้งเดียว | เริ่มเกมจากหน้า TITLE · กลับ TITLE จากหน้า WIN / GAME OVER (ตอนเล่นไม่ทำอะไร) |
 | BTNC กดค้าง | strafe (ไม่เปลี่ยนทิศที่หัน) |
-| SW0 | **debug** เปิดประตูบอส L |
-| SW1 ยกขึ้น | **debug** ไปชั้นถัดไป |
-| SW2 | **debug** ปิดประตู D (ทดสอบห้องล็อก) |
-| CPU_RESETN | reset |
-| 7-seg | `ชั้น - ร่าง - . . . ห้อง` |
-| LED0–3 | ปุ่มทิศ, LED15 = แตะประตู E แล้ว (ชนะ) |
-| RGB LED16 | สีตามร่าง เขียว/ฟ้า/ม่วง/ทอง |
+| **SW15** | **sprint**: ความเร็ว +1 px/เฟรม (ค่า `SPRINT_BONUS` ใน `game_fsm.v`) ใช้ได้ทุกร่าง ระหว่างเล่น |
+| CPU_RESETN | reset (กลับหน้า TITLE) |
+
+ปุ่ม **debug ชั่วคราว** (จะเอาออกเมื่อมีระบบจริง):
+
+| อุปกรณ์ | ทำอะไร | แทนของจริงใน |
+| --- | --- | --- |
+| SW0 | เปิดประตูบอส L | has_item (P3/P5) |
+| SW1 ยกขึ้น | `floor_done` → FLOOR_CLEAR 2 วิ → ชั้นถัดไป | บอสตาย (P5) |
+| SW2 | ปิดประตู D (ทดสอบห้องล็อก) | cleared[room] (P3) |
+| SW3 ยกขึ้น | `got_item` → EVOLVE (ร่างถัดไป, HP เต็ม) | ไอเทมจากปริศนา (P4) |
+| SW4 ยกขึ้น | `take_hit` → HP −1 (HP 0 = GAME OVER) | โดนศัตรู (P3) |
+
+จอและ LED:
+
+| อุปกรณ์ | แสดง |
+| --- | --- |
+| 7-seg | `ชั้น - HP - mm.ss` (TITLE = `--------`; WIN / GAME OVER ค้างค่าสุดท้าย) |
+| LED0–3 | ปุ่มทิศ |
+| LED8–11 | HP (หนึ่งดวงต่อ HP เริ่มจาก LED8) |
+| LED14 / LED15 | sprint เปิดอยู่ / WIN |
+| RGB LED16 | สีตามร่าง เขียว/ฟ้า/ม่วง/ทอง · ขาวตอน EVOLVE |
+| จอ VGA | TITLE = พื้นกรมท่า + ตัวละคร · GAME OVER = แดงเข้ม · WIN = ทอง (ยังไม่มีข้อความ รอ font ใน P5) |
+
+ค่าต่อร่าง (*tentative* รอทีมยืนยัน แก้ที่ตาราง `localparam` ใน `rtl/game_fsm.v` ที่เดียว):
+
+| ร่าง | ความเร็ว px/เฟรม | Max HP | ดาเมจ | RGB16 |
+| --- | --- | --- | --- | --- |
+| 1 | 2 | 3 | 1 | เขียว |
+| 2 | 2 | 3 | 1 | ฟ้า |
+| 3 | 3 | 4 | 2 | ม่วง |
+| 4 | 3 | 4 | 2 | ทอง |
 
 ## โครงสร้าง
 
 ```
 rtl/          Verilog
-  top.v         ต่อทุก module + ระบบห้อง (P2 จะแยก game_fsm.v)
+  top.v         ต่อทุก module + input/จอ/LED
+  world.v       ห้อง: floor, room, grid, ตารางประตู + จุดเกิด, load player
+  game_fsm.v    TITLE/PLAY/EVOLVE/FLOOR_CLEAR/ESCAPE/WIN/GAME_OVER, ร่าง, HP, timer, sprint, ตารางค่าต่อร่าง
   vga_sync.v    VGA timing, frame_tick
-  renderer.v    วาด tile + sprite ผู้เล่น
+  renderer.v    วาด tile + sprite ผู้เล่น + หน้า TITLE / GAME OVER / WIN
   player.v      Movement FSM + collision + ประตู
   roms.v        tilemap / tileset / player ROM
   debounce.v    sync 2FF + debounce + edge
-  seg7.v        7-segment 8 หลัก
+  seg7.v        7-segment 8 หลัก + จุดทศนิยม
 maps/         แมพ ASCII 20×15 ทั้ง 13 ห้อง (แก้ที่นี่)
 mem/          ไฟล์ .mem ที่สร้างจากสคริปต์ (อย่าแก้มือ)
 scripts/
@@ -104,14 +131,22 @@ SDL_VIDEODRIVER=dummy make run ARGS='--frames 300 --script "R:5:200,C:60:62" --s
 ## Simulation (testbench)
 
 ```
-./scripts/run_sim.sh player   # 12 test: เดิน ชน ไถล corner slide หลุม ประตู animation
+./scripts/run_sim.sh player   # 12 test เดิม + speed 4 + freeze: เดิน ชน ไถล corner slide หลุม ประตู animation
+./scripts/run_sim.sh world    # ประตูทุกบาน ทุกชั้น, grid, จุดเกิด, restart, next_floor, exit_evt
+./scripts/run_sim.sh fsm      # game_fsm: TITLE→PLAY, EVOLVE 60 เฟรม, HP, GAME OVER, FLOOR_CLEAR 120 เฟรม, timer, sprint
 ./scripts/run_sim.sh top      # จำลองทั้งระบบ ได้ภาพ sim/frame_*.ppm
+./scripts/run_sim.sh all      # รันทั้งหมดข้างบน
 ```
-ต้องมี Icarus Verilog (`sudo apt install iverilog` หรือ `brew install icarus-verilog`) ภาพตัวอย่างอยู่ใน `sim/*.png`
+ต้องมี Icarus Verilog (`sudo apt install iverilog` หรือ `brew install icarus-verilog`) ภาพตัวอย่างอยู่ใน `sim/*.png` และ `docs/p2_*.png`
+
+ทดสอบ Verilator แบบไม่เปิดหน้าต่าง + จับภาพหลายเฟรม (สวิตช์ใน `--script`: `0-9` = SW0–9, `a-f` = SW10–15):
+```
+cd mem && SDL_VIDEODRIVER=dummy ../sim/verilator/obj_dir/Vtop --frames 540   --script "C:20:23,f:50,R:45:230,3:240,3:250" --shot-at 15:t.bmp --shot-at 270:e.bmp
+```
 
 ## ขั้นต่อไป (ตามแผน Implement)
 
 - P1.6 ดันกล่อง Sokoban
-- P2 แยก `game_fsm.v` (TITLE / PLAY / EVOLVE / FLOOR_CLEAR / ESCAPE / WIN / GAME_OVER), HP, เวลาเล่นบน 7-seg
+- ESCAPE (P5), ข้อความบนจอ (font, P5)
 - P3 object slot + มอน + กระสุน + ห้อง Combat ล็อก (เอา SW2 ออก)
 - งานคู่ขนาน: sprite จริง, ทดสอบไมค์ PDM

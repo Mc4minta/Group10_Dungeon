@@ -13,7 +13,7 @@
 - [ ] **ศุกร์ 27/11 ส่งงาน:** วิดีโอ ≤ 7 นาที, report PDF, source code
 
 ## โค้ด P0–P7
-เสร็จ 10 จาก 40 ข้อ
+เสร็จ 15 จาก 41 ข้อ
 
 ### P0 ฐาน (17–18/11)
 - [x] 0.1 vga_sync 640×480 + ce 25 MHz + frame_tick (sim)
@@ -34,10 +34,11 @@
 - [ ] **เช็คบนบอร์ด:** เดินวนครบ 5 ห้องชั้น 1 ไป-กลับ, ทแยงชนกำแพงแล้วไถล
 
 ### P2 Game FSM + Evolution + จอสถานะ (19–20/11)
-- [ ] 2.1 `game_fsm.v`: TITLE / PLAY / EVOLVE / GAME_OVER
-- [ ] 2.2 Evolution + ตารางค่าต่อร่าง (ความเร็ว, Max HP, ดาเมจ, สี RGB) + กะพริบ 1 วิ
-- [ ] 2.3 HP บน LED8–11, 7-seg ชั้น/HP/เวลา mm.ss
-- [ ] 2.4 หน้า Title / Game Over แบบง่าย
+- [x] 2.1 `game_fsm.v`: TITLE / PLAY / EVOLVE / GAME_OVER (sim) — ครบ 7 state, `tb_game_fsm` 43 checks
+- [x] 2.2 Evolution + ตารางค่าต่อร่าง (ความเร็ว, Max HP, ดาเมจ, สี RGB) + กะพริบ 1 วิ (sim)
+- [x] 2.3 HP บน LED8–11, 7-seg ชั้น/HP/เวลา mm.ss (sim) — ตรวจจากภาพ Verilator `docs/p2_*.png`
+- [x] 2.4 หน้า Title / Game Over แบบง่าย (sim) — ยังไม่มีข้อความ รอ font P5
+- [x] 2.5 Sprint SW15: ความเร็ว +1 ตอนเปิด (sim) — `tb_player` speed 4, `tb_game_fsm`
 - [ ] **เช็คบนบอร์ด:** กด BTNC เริ่มเกม, HP 0 กลับ Title, เปลี่ยน 4 ร่างแล้ว RGB16 เปลี่ยนสี
 
 ### P3 การต่อสู้ (21–23/11)
@@ -94,14 +95,14 @@
 placeholder ตอนนี้มาจาก `scripts/make_placeholders.py` (tileset 3 ชั้น × 16 + ผู้เล่น 48 เฟรม)
 
 ## Data / ROM asset
-เสร็จ 4 จาก 13 ชิ้น
+เสร็จ 5 จาก 13 ชิ้น
 
 - [x] 1 Tile map 13 ห้อง (`mem/tilemap.mem`)
 - [x] 2 ห้อง Puzzle ชั้น 3 ใหม่ แผ่น Simon (`maps/12_f3_puzzle_simon.txt`)
 - [x] 3 ตารางประตู + จุดเกิดหน้าประตู (ใน `top.v`)
 - [x] 4 ตาราง object ต่อห้อง (`mem/objects.txt`, ยังไม่ได้อ่านเข้า Verilog รอ P3)
 - [ ] 5 พารามิเตอร์บอส 3 ตัว (HP 10/16/24, ความเร็ว, แบบเคลื่อนที่, fire_timer) · P5
-- [ ] 6 ค่าต่อร่าง (ความเร็ว 2/2/3/3, Max HP 3/3/4/4, ดาเมจ 1/1/2/2, สี) · P2, รอยืนยันตัวเลข
+- [x] 6 ค่าต่อร่าง (ความเร็ว 2/2/3/3, Max HP 3/3/4/4, ดาเมจ 1/1/2/2, สี) · P2, ค่ายังรอยืนยัน (ตาราง `localparam` ใน `rtl/game_fsm.v`)
 - [ ] 7 mask Light Bulb 0111/1011/1101/1110 · P4
 - [ ] 8 ตำแหน่งกล่อง Sokoban + เฉลย 24 ครั้ง · P4
 - [ ] 9 โน้ต Simon 4 โน้ต (ค่า divider) · P4
