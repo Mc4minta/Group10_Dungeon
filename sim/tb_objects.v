@@ -33,7 +33,7 @@ module tb_objects;
     wire [19:0] pb_x, pb_y; wire [15:0] eb_act; wire [159:0] eb_x, eb_y;
 
     game_fsm fsm (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(fsm_btnc), .got_item(item),
-                  .take_hit(hit), .floor_done(1'b0), .exit_evt(1'b0), .sprint(1'b0),
+                  .take_hit(hit), .floor_done(1'b0), .exit_evt(1'b0), .escape_start(1'b0), .exit_direct(1'b1), .sprint(1'b0),
                   .state(state), .restart(restart), .next_floor(next_floor), .form(form), .hp(hp),
                   .hp_max(hp_max), .speed(speed), .damage(damage), .rgb(rgb), .freeze(freeze),
                   .hide_player(fsm_hide), .m_t(m_t), .m_o(m_o), .s_t(s_t), .s_o(s_o));
@@ -49,6 +49,7 @@ module tb_objects;
                  .px(px), .py(py), .facing(facing), .form(form), .damage(damage),
                  .atk_press(atk_press), .atk_hold(atk_hold), .dbg_clear(1'b0),
                  .blk0(12'd0), .blk1(12'd0), .blk2(12'd0), .blk_en(3'd0),
+                 .boss_act(1'b0), .boss_x(10'd0), .boss_y(10'd0), .boss_fire(1'b0), .boss_dmg(), .boss_dmg_amt(),
                  .doors_open(doors_open), .alive(alive), .hit(hit), .kb_start(kb_start), .kb_dir(kb_dir),
                  .invuln(invuln), .player_blink(blink), .busy(busy),
                  .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),

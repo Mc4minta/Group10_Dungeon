@@ -10,11 +10,11 @@ module tb_top;
     top #(.DEBOUNCE(4)) dut (.CLK100MHZ(clk), .CPU_RESETN(rstn), .BTNC(BTNC), .BTNU(BTNU), .BTND(BTND),
         .BTNL(BTNL), .BTNR(BTNR), .SW(SW), .LED(), .LED16_R(), .LED16_G(), .LED16_B(),
         .LED17_R(), .LED17_G(), .LED17_B(), .CA(), .CB(), .CC(), .CD(), .CE(), .CF(), .CG(), .DP(), .AN(),
-        .VGA_R(R), .VGA_G(G), .VGA_B(B), .VGA_HS(HS), .VGA_VS(VS), .AUD_PWM(), .AUD_SD());
+        .VGA_R(R), .VGA_G(G), .VGA_B(B), .VGA_HS(HS), .VGA_VS(VS), .AUD_PWM(), .AUD_SD(), .M_CLK(), .M_DATA(1'b0), .M_LRSEL());
 
     reg [11:0] img [0:640*480-1];
     reg [9:0] h0, v0; reg act0, cap = 0;
-    integer hs_low = 0, hs_len = 0, f, i;
+    integer hs_low = 0, hs_len = 0, f, i, nwhite;
 
     always @(posedge clk) if (dut.ce) begin h0 <= dut.hcount; v0 <= dut.vcount; act0 <= dut.active; end
     // ค่า VGA ที่ register ตอน ce = สีของ (h0, v0)
@@ -41,6 +41,12 @@ module tb_top;
         // เกมเริ่มที่ TITLE -> กด BTNC เริ่มเล่น (DEBOUNCE = 4)
         repeat (20) @(posedge clk);
         if (dut.state !== 3'd0) $display("FAIL: expected TITLE after reset, state=%0d", dut.state);
+        // หน้า TITLE: ชื่อเกม (ฟอนต์ 4x) ต้องมีพิกเซลขาวในแถว 96..127 กลางจอ
+        grab("../sim/frame_title.ppm");
+        nwhite = 0;
+        for (i = 96 * 640; i < 128 * 640; i = i + 1) if (img[i] == 12'hFFF) nwhite = nwhite + 1;
+        if (nwhite < 400) $display("FAIL: title text missing (%0d white pixels in rows 96..127)", nwhite);
+        else $display("PASS  title text drawn: %0d white pixels in rows 96..127", nwhite);
         BTNC = 1; repeat (40) @(posedge clk); BTNC = 0; repeat (40) @(posedge clk);
         if (dut.state !== 3'd1) $display("FAIL: expected PLAY after BTNC, state=%0d", dut.state);
         grab("../sim/frame_start_f1.ppm");

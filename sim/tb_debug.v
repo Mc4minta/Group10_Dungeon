@@ -12,11 +12,11 @@ module tb_debug;
     top #(.DEBOUNCE(4), .DEBUG(1)) d1 (.CLK100MHZ(clk), .CPU_RESETN(rstn), .BTNC(1'b0), .BTNU(1'b0), .BTND(1'b0),
         .BTNL(1'b0), .BTNR(1'b0), .SW(SW), .LED(), .LED16_R(), .LED16_G(), .LED16_B(), .LED17_R(), .LED17_G(), .LED17_B(),
         .CA(), .CB(), .CC(), .CD(), .CE(), .CF(), .CG(), .DP(), .AN(), .VGA_R(), .VGA_G(), .VGA_B(), .VGA_HS(), .VGA_VS(),
-        .AUD_PWM(), .AUD_SD());
+        .AUD_PWM(), .AUD_SD(), .M_CLK(), .M_DATA(1'b0), .M_LRSEL());
     top #(.DEBOUNCE(4), .DEBUG(0)) d0 (.CLK100MHZ(clk), .CPU_RESETN(rstn), .BTNC(1'b0), .BTNU(1'b0), .BTND(1'b0),
         .BTNL(1'b0), .BTNR(1'b0), .SW(SW), .LED(), .LED16_R(), .LED16_G(), .LED16_B(), .LED17_R(), .LED17_G(), .LED17_B(),
         .CA(), .CB(), .CC(), .CD(), .CE(), .CF(), .CG(), .DP(), .AN(), .VGA_R(), .VGA_G(), .VGA_B(), .VGA_HS(), .VGA_VS(),
-        .AUD_PWM(), .AUD_SD());
+        .AUD_PWM(), .AUD_SD(), .M_CLK(), .M_DATA(1'b0), .M_LRSEL());
 
     integer t;
     initial for (t = 0; t < 5; t = t + 1) begin r1[t] = 0; r0[t] = 0; end

@@ -3,10 +3,11 @@
 // รัน: ./scripts/run_sim.sh fsm
 module tb_game_fsm;
     reg clk = 0; always #5 clk = ~clk;
-    reg rst = 1, btnc = 0, item = 0, hit = 0, fdone = 0, ext = 0, sprint = 0;
+    reg rst = 1, btnc = 0, item = 0, hit = 0, fdone = 0, ext = 0, sprint = 0, esc = 0;
     wire [2:0] state, hp, hp_max, speed, rgb; wire [1:0] form, damage;
     wire restart, next_floor, freeze, hide;
     wire [3:0] m_t, m_o, s_t, s_o;
+    wire [3:0] es1, es0, ef1, ef0; wire banner;
 
     localparam TITLE = 0, PLAY = 1, EVOLVE = 2, CLEAR = 3, ESCAPE = 4, WIN = 5, OVER = 6;
 
@@ -14,10 +15,11 @@ module tb_game_fsm;
     always @(posedge clk) begin c <= c + 1; tick <= (c == 2'd3); end
 
     game_fsm dut (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(btnc), .got_item(item),
-                  .take_hit(hit), .floor_done(fdone), .exit_evt(ext), .sprint(sprint),
+                  .take_hit(hit), .floor_done(fdone), .exit_evt(ext), .escape_start(esc), .exit_direct(1'b1), .sprint(sprint),
                   .state(state), .restart(restart), .next_floor(next_floor), .form(form), .hp(hp),
                   .hp_max(hp_max), .speed(speed), .damage(damage), .rgb(rgb), .freeze(freeze),
-                  .hide_player(hide), .m_t(m_t), .m_o(m_o), .s_t(s_t), .s_o(s_o));
+                  .hide_player(hide), .m_t(m_t), .m_o(m_o), .s_t(s_t), .s_o(s_o),
+                  .e_s_t(es1), .e_s_o(es0), .e_f_t(ef1), .e_f_o(ef0), .esc_banner(banner));
 
     integer errors = 0, checks = 0;
     integer ev_ticks, cl_ticks, restarts = 0, nexts = 0, vis = 0, hid = 0;
@@ -60,7 +62,7 @@ module tb_game_fsm;
         repeat (2) @(posedge clk);
     end endtask
 
-    integer i, t0;
+    integer i, t0, n_ticks;
     reg [15:0] t_snap;
     initial begin
         repeat (4) @(posedge clk); rst <= 0; repeat (2) @(posedge clk);
@@ -168,6 +170,28 @@ module tb_game_fsm;
         // ---------- BTNC ใน PLAY ไม่ทำอะไร ----------
         pulse_btnc;
         check(state == PLAY && form == 0, "BTNC in PLAY does not change state/form");
+
+        // ---------- ESCAPE (P5) ----------
+        @(posedge clk) esc <= 1; @(posedge clk) esc <= 0; repeat (2) @(posedge clk);
+        check(state == ESCAPE && !freeze && {es1, es0, ef1, ef0} == 16'h3000 && banner, "boss 3 dead -> ESCAPE 30.00, not frozen, banner on");
+        t_snap = tm(0);
+        wait_ticks(1);
+        check({es1, es0, ef1, ef0} == 16'h2959, "countdown 30.00 -> 29.59 (ss.ff)");
+        wait_ticks(120);
+        check(!banner, "ESCAPE! banner gone after 2 s");
+        pulse_hit;
+        check(state == ESCAPE && hp == 2, "take_hit works in ESCAPE");
+        pulse_exit;
+        check(state == WIN, "exit_evt during ESCAPE -> WIN");
+        pulse_btnc; pulse_btnc;
+        check(state == PLAY, "new game");
+        @(posedge clk) esc <= 1; @(posedge clk) esc <= 0; repeat (2) @(posedge clk);
+        t_snap = tm(0);
+        n_ticks = 0;
+        while (state == ESCAPE && n_ticks < 2000) begin wait_ticks(1); n_ticks = n_ticks + 1; end
+        check(state == OVER && n_ticks >= 1798 && n_ticks <= 1801, "ESCAPE timeout after 1800 frames -> GAME_OVER");
+        $display("      ESCAPE lasted %0d frames", n_ticks);
+        check(tm(0) != t_snap, "play timer kept running during ESCAPE");
 
         $display("checks = %0d  errors = %0d", checks, errors);
         if (errors == 0) $display("ALL PASS");

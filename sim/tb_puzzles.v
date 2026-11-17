@@ -36,7 +36,7 @@ module tb_puzzles;
     wire [9:0] dseq; wire [2:0] dsm; wire [1:0] dround;
 
     game_fsm fsm (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(fsm_btnc), .got_item(pz_got | item_dbg),
-                  .take_hit(obj_hit | pz_hit), .floor_done(1'b0), .exit_evt(1'b0), .sprint(1'b0),
+                  .take_hit(obj_hit | pz_hit), .floor_done(1'b0), .exit_evt(1'b0), .escape_start(1'b0), .exit_direct(1'b1), .sprint(1'b0),
                   .state(state), .restart(restart), .next_floor(next_floor), .form(form), .hp(hp),
                   .hp_max(hp_max), .speed(speed), .damage(damage), .rgb(rgb), .freeze(freeze),
                   .hide_player(fsm_hide), .m_t(m_t), .m_o(m_o), .s_t(s_t), .s_o(s_o));
@@ -53,6 +53,7 @@ module tb_puzzles;
                 .px(px), .py(py), .facing(facing), .form(form), .damage(damage),
                 .atk_press(atk_press), .atk_hold(atk_hold), .dbg_clear(1'b0),
                 .blk0(blk0), .blk1(blk1), .blk2(blk2), .blk_en(blk_en),
+                .boss_act(1'b0), .boss_x(10'd0), .boss_y(10'd0), .boss_fire(1'b0), .boss_dmg(), .boss_dmg_amt(),
                 .doors_open(doors_open), .alive(alive), .hit(obj_hit), .kb_start(kb_start), .kb_dir(kb_dir),
                 .invuln(invuln), .player_blink(blink), .busy(obj_busy),
                 .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
