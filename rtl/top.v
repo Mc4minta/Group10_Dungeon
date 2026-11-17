@@ -1,5 +1,5 @@
 // Group 10 — top module (Nexys A7-100T)
-// สถานะตอนนี้: P4 = P3 (game_fsm, world, objects) + ปริศนา 3 ห้อง + ดันกล่อง + ไอเทมจริง (puzzles.v)
+// สถานะตอนนี้: P5 = P4 + บอส 3 ตัว (boss.v) + FLOOR_CLEAR จริง + ESCAPE + ข้อความบนจอ + ไมค์ PDM (pdm_mic.v)
 //
 // ปุ่ม / สวิตช์:
 //   BTNU/D/L/R เดิน · BTNC = เริ่มเกม (TITLE) / โจมตี (PLAY: ร่าง 1 ฟัน, ร่าง 2-4 ยิง, ค้าง = ยิงซ้ำ + strafe)
@@ -29,8 +29,13 @@ module top #(
     output wire [7:0]  AN,
     output reg  [3:0]  VGA_R = 0, VGA_G = 0, VGA_B = 0,
     output reg         VGA_HS = 1, VGA_VS = 1,
-    output wire        AUD_PWM, AUD_SD
+    output wire        AUD_PWM, AUD_SD,
+    // ไมค์ PDM (ADMP421)
+    output wire        M_CLK,
+    input  wire        M_DATA,
+    output wire        M_LRSEL
 );
+    `include "params.vh"
     wire clk = CLK100MHZ;
 
     // ---------- reset + pixel enable ----------
@@ -105,6 +110,17 @@ module top #(
     wire [2:0]  pz_sm;
     wire [1:0]  pz_round;
     wire [3:0] m_t, m_o, s_t, s_o;
+    wire [3:0] e_s_t, e_s_o, e_f_t, e_f_o;
+    wire       esc_banner;
+    // บอส
+    wire        b_act, b_flash, b_stunned, b_fire, b_died, b_anim, b_busy, b_dmg;
+    wire [9:0]  b_x, b_y;
+    wire [1:0]  b_kind, b_dmg_amt;
+    wire [2:0]  b_dead;
+    wire [4:0]  b_hp;
+    wire [7:0]  b_hpbar;
+    wire        clap;
+    wire [11:0] mic_amp;
 
     world wld (.clk(clk), .rst(rst), .restart(restart), .next_floor(next_floor),
                .door_evt(door_evt), .door_dir(door_dir),
@@ -112,14 +128,20 @@ module top #(
                .load(load), .load_x(load_x), .load_y(load_y), .exit_evt(exit_evt));
 
     game_fsm fsm (.clk(clk), .rst(rst), .frame_tick(frame_tick), .btnc_rise(bc_rise),
-                  .got_item(sw3_rise | pz_got), .take_hit(sw4_rise | obj_hit | pz_hit), .floor_done(sw1_rise),
-                  .exit_evt(exit_evt), .sprint(sw15),
+                  .got_item(sw3_rise | pz_got), .take_hit(sw4_rise | obj_hit | pz_hit),
+                  .floor_done(sw1_rise | (b_died && b_kind != 2'd2)),          // บอส 1, 2 ตาย -> FLOOR_CLEAR
+                  .exit_evt(exit_evt), .escape_start(b_died && b_kind == 2'd2),  // บอส 3 ตาย -> ESCAPE
+                  .exit_direct(dbg), .sprint(sw15),
                   .state(state), .restart(restart), .next_floor(next_floor),
                   .form(form), .hp(hp), .hp_max(hp_max), .speed(speed), .damage(damage),
                   .rgb(rgb), .freeze(freeze), .hide_player(fsm_hide),
-                  .m_t(m_t), .m_o(m_o), .s_t(s_t), .s_o(s_o));
+                  .m_t(m_t), .m_o(m_o), .s_t(s_t), .s_o(s_o),
+                  .e_s_t(e_s_t), .e_s_o(e_s_o), .e_f_t(e_f_t), .e_f_o(e_f_o), .esc_banner(esc_banner));
 
-    localparam [2:0] S_TITLE = 3'd0, S_PLAY = 3'd1, S_WIN = 3'd5, S_GAME_OVER = 3'd6;
+    localparam [2:0] S_TITLE = 3'd0, S_PLAY = 3'd1, S_CLEAR = 3'd3, S_ESCAPE = 3'd4, S_WIN = 3'd5, S_GAME_OVER = 3'd6;
+    localparam [2:0] R_BOSS = 3'd4;
+    wire is_esc   = (state == S_ESCAPE);
+    wire run      = (state == S_PLAY) || is_esc;   // objects / puzzles / boss ทำงาน
     wire is_title = (state == S_TITLE);
     wire is_win   = (state == S_WIN);
 
@@ -134,11 +156,13 @@ module top #(
                .door_evt(door_evt), .door_dir(door_dir));
 
     // ---------- objects: มอน กระสุน ฟัน โดนตี ห้องล็อก ----------
-    objects obj (.clk(clk), .rst(rst), .frame_tick(frame_tick), .run(state == S_PLAY),
+    objects obj (.clk(clk), .rst(rst), .frame_tick(frame_tick), .run(run),
                  .restart(restart), .room_load(load), .floor(floor), .room(room), .grid(grid),
                  .open_L(open_L), .px(px), .py(py), .facing(facing), .form(form), .damage(damage),
                  .atk_press(bc_rise), .atk_hold(bc), .dbg_clear(sw2_rise),
                  .blk0(blk0), .blk1(blk1), .blk2(blk2), .blk_en(blk_en),
+                 .boss_act(b_act), .boss_x(b_x), .boss_y(b_y), .boss_fire(b_fire),
+                 .boss_dmg(b_dmg), .boss_dmg_amt(b_dmg_amt),
                  .doors_open(doors_open), .alive(alive), .hit(obj_hit), .kb_start(kb_start), .kb_dir(kb_dir),
                  .invuln(invuln), .player_blink(obj_blink), .busy(),
                  .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
@@ -146,7 +170,17 @@ module top #(
                  .eb_act(eb_act), .eb_x(eb_x), .eb_y(eb_y), .melee_on(melee_on), .melee_dir(melee_dir));
 
     // ---------- ปริศนา + ไอเทม ----------
-    puzzles #(.SEED(SEED)) pz (.clk(clk), .rst(rst), .frame_tick(frame_tick), .run(state == S_PLAY),
+    // ---------- บอส + ไมค์ ----------
+    boss bs (.clk(clk), .rst(rst), .frame_tick(frame_tick), .run(run), .restart(restart), .room_load(load),
+             .floor(floor), .room(room), .grid(grid), .px(px), .py(py),
+             .dmg(b_dmg), .dmg_amt(b_dmg_amt), .clap(clap),
+             .act(b_act), .bx(b_x), .by(b_y), .kind(b_kind), .flash(b_flash), .stunned(b_stunned),
+             .fire(b_fire), .died(b_died), .dead(b_dead), .hp(b_hp), .hp_bar(b_hpbar), .anim(b_anim), .busy(b_busy));
+    pdm_mic #(.CLK_DIV(MIC_CLK_DIV), .WINDOW(MIC_WINDOW), .TH(MIC_TH), .HOLDOFF(MIC_HOLDOFF)) mic (
+             .clk(clk), .rst(rst), .m_clk(M_CLK), .m_data(M_DATA), .m_lrsel(M_LRSEL),
+             .clap_pulse(clap), .amplitude(mic_amp));
+
+    puzzles #(.SEED(SEED)) pz (.clk(clk), .rst(rst), .frame_tick(frame_tick), .run(run),
                  .restart(restart), .room_load(load), .floor(floor), .grid(grid), .px(px), .py(py),
                  .up(bu), .down(bd), .left(bl), .right(br), .melee_on(melee_on), .melee_dir(melee_dir),
                  .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .soko_reset(sw13_rise),
@@ -173,6 +207,48 @@ module top #(
     wire [1:0]  dbg_round /*verilator public*/ = pz_round;
     wire [3:0]  dbg_bulbs /*verilator public*/ = bulbs;
     wire [2:0]  dbg_alive /*verilator public*/ = alive;
+    wire [4:0]  dbg_bhp   /*verilator public*/ = b_hp;
+    wire [9:0]  dbg_bx    /*verilator public*/ = b_x;
+    wire [9:0]  dbg_by    /*verilator public*/ = b_y;
+    wire        dbg_bact  /*verilator public*/ = b_act;
+    wire        dbg_stun  /*verilator public*/ = b_stunned;
+    wire        dbg_clap  /*verilator public*/ = clap;
+    wire [15:0] dbg_esc   /*verilator public*/ = {e_s_t, e_s_o, e_f_t, e_f_o};
+
+    // ---------- เฟรม: กะพริบข้อความ / LED, จอสั่น ----------
+    reg [7:0] fc = 0;                     // นับเฟรม
+    reg [3:0] blk_cnt = 0;                // LED กะพริบ 4 Hz (คาบ LED_BLINK เฟรม)
+    reg [3:0] sh_cnt = 0;
+    reg [7:0] sh_lfsr = 8'hA5;
+    reg [9:0] sh_dx = 0, sh_dy = 0;
+    function [9:0] shv(input [2:0] v);    // 0..7 -> -SHAKE_PX..+SHAKE_PX (10 bit two's complement)
+        case (v)
+            3'd0, 3'd5: shv = -SHAKE_PX;
+            3'd1, 3'd7: shv = -(SHAKE_PX / 2);
+            3'd3:       shv = SHAKE_PX / 2;
+            3'd4, 3'd6: shv = SHAKE_PX;
+            default:    shv = 10'd0;
+        endcase
+    endfunction
+    always @(posedge clk) if (frame_tick) begin
+        fc <= fc + 1'b1;
+        blk_cnt <= (blk_cnt == LED_BLINK - 1) ? 4'd0 : blk_cnt + 1'b1;
+        if (is_esc) begin
+            if (sh_cnt == SHAKE_EVERY - 1) begin
+                sh_cnt <= 0;
+                sh_lfsr <= {sh_lfsr[6:0], sh_lfsr[7] ^ sh_lfsr[5] ^ sh_lfsr[4] ^ sh_lfsr[3]};
+                sh_dx <= shv(sh_lfsr[2:0]);
+                sh_dy <= shv(sh_lfsr[5:3]);
+            end else sh_cnt <= sh_cnt + 1'b1;
+        end else begin
+            sh_cnt <= 0; sh_dx <= 0; sh_dy <= 0;
+        end
+    end
+    wire led_blink_on = (blk_cnt < (LED_BLINK + 1) / 2);
+    // ข้อความ: 1 TITLE 2 FLOOR CLEAR 3 ESCAPE! 4 WIN 5 GAME OVER
+    wire [2:0] txt_scr = is_title ? 3'd1 : (state == S_CLEAR) ? 3'd2 : esc_banner ? 3'd3 :
+                         is_win ? 3'd4 : (state == S_GAME_OVER) ? 3'd5 : 3'd0;
+    wire [2:0] b_frame = {b_kind, 1'b0} + ((b_kind == 2'd1) ? b_stunned : b_anim);
 
     // ---------- render ----------
     // TITLE: sprite ร่าง 1 idle หันลง กลางจอ
@@ -191,6 +267,9 @@ module top #(
                   .pz_act(pz_act), .pz_x(pz_x), .pz_y(pz_y), .pz_frame(pz_frame),
                   .pbox0(pbox0), .pbox1(pbox1), .pbox_en(pbox_en),
                   .simon_lit_on(simon_lit_on), .simon_lit(simon_lit), .simon_wrong(simon_wrong),
+                  .boss_act(b_act), .boss_x(b_x), .boss_y(b_y), .boss_frame(b_frame), .boss_flash(b_flash),
+                  .sh_dx(sh_dx), .sh_dy(sh_dy), .txt_scr(txt_scr), .txt_blink(fc[5]),
+                  .t_floor({2'b00, floor} + 4'd1), .t_m1(m_t), .t_m0(m_o), .t_s1(s_t), .t_s0(s_o),
                   .color(color));
 
     // renderer มี latency 3 clock -> หน่วง sync/active เท่ากัน ภาพตรงทั้ง CE_DIV = 1 และ 4
@@ -209,8 +288,10 @@ module top #(
     // ---------- 7-seg / LED / RGB ----------
     // [ชั้น] - [HP] - m m . s s   (d7 ซ้ายสุด; DP ที่ d2 = หลังหลักนาทีหน่วย) TITLE = ทุกหลัก '-'
     wire [6:0] seg;
+    // ESCAPE: 4 หลักขวาเป็นเวลานับถอยหลัง ss.ff (วินาที . เฟรม) แทนเวลาเล่น (เวลาเล่นยังเดินอยู่เบื้องหลัง)
     wire [31:0] digits = is_title ? 32'hEEEEEEEE :
-                         {1'b0, {1'b0, floor} + 3'd1, 4'hE, 1'b0, hp, 4'hE, m_t, m_o, s_t, s_o};
+                         is_esc   ? {1'b0, {1'b0, floor} + 3'd1, 4'hE, 1'b0, hp, 4'hE, e_s_t, e_s_o, e_f_t, e_f_o} :
+                                    {1'b0, {1'b0, floor} + 3'd1, 4'hE, 1'b0, hp, 4'hE, m_t, m_o, s_t, s_o};
     seg7 s7 (.clk(clk), .digits(digits), .dots(is_title ? 8'h00 : 8'b0000_0100),
              .seg(seg), .an(AN), .dp(DP));
     assign {CG, CF, CE, CD, CC, CB, CA} = seg;
@@ -219,8 +300,11 @@ module top #(
     // LED12 = ประตูห้องล็อก, LED13 = มีไอเทมชั้นนี้, LED14 = sprint, LED15 = WIN; ห้องปริศนา: LED0-3 = หลอด / รอบ Simon
     wire [3:0] mon_bar = {alive >= 3'd4, alive >= 3'd3, alive >= 3'd2, alive >= 3'd1};
     wire [3:0] led_lo = room_led_on ? room_led : {br, bl, bd, bu};
-    assign LED = {is_win, sw15, has_item[floor], ~doors_open, hp >= 3'd4, hp >= 3'd3, hp >= 3'd2, hp >= 3'd1,
-                  mon_bar, led_lo};
+    wire [15:0] led_play = {is_win, sw15, has_item[floor], ~doors_open, hp >= 3'd4, hp >= 3'd3, hp >= 3'd2, hp >= 3'd1,
+                            mon_bar, led_lo};
+    // ห้องบอส: LED0-7 = HP บอส (bar 8 ดวง ตามสัดส่วน) · ESCAPE: LED ทั้ง 16 ดวงกะพริบ 4 Hz
+    assign LED = is_esc ? {16{led_blink_on}} :
+                 (room == R_BOSS) ? {led_play[15:8], b_hpbar} : led_play;
 
     reg [7:0] pwm = 0;
     always @(posedge clk) pwm <= pwm + 1'b1;

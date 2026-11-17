@@ -28,6 +28,8 @@ module game_fsm (
     input  wire       take_hit,
     input  wire       floor_done,
     input  wire       exit_evt,
+    input  wire       escape_start,          // pulse: บอส 3 ตาย -> ESCAPE
+    input  wire       exit_direct,           // 1 = exit_evt ตอน PLAY ไป WIN ตรง ๆ (DEBUG, สคริปต์เก่า)
     input  wire       sprint,
     output reg  [2:0] state = 3'd0,
     output reg        restart = 1'b0,
@@ -40,7 +42,10 @@ module game_fsm (
     output wire [2:0] rgb,
     output wire       freeze,
     output wire       hide_player,
-    output reg  [3:0] m_t = 0, m_o = 0, s_t = 0, s_o = 0
+    output reg  [3:0] m_t = 0, m_o = 0, s_t = 0, s_o = 0,
+    // ESCAPE: นับถอยหลัง ss.ff (วินาที . เฟรมในวินาที) เป็น BCD, banner = ช่วงแสดง ESCAPE!
+    output reg  [3:0] e_s_t = 0, e_s_o = 0, e_f_t = 0, e_f_o = 0,
+    output wire       esc_banner
 );
     `include "params.vh"                      // ตารางค่าต่อร่าง + เวลา EVOLVE/FLOOR_CLEAR (tentative)
     localparam [2:0] BLINK_BIT = 3'd2;        // กะพริบ: เห็น 4 เฟรม / ซ่อน 4 เฟรม (บิต 2 ของตัวนับ)
@@ -73,7 +78,10 @@ module game_fsm (
 
     // ---------- timer ----------
     reg [5:0] tick60 = 6'd0;
-    wire timer_run = (state == S_PLAY) || (state == S_EVOLVE) || (state == S_FLOOR_CLEAR);
+    wire timer_run = (state == S_PLAY) || (state == S_EVOLVE) || (state == S_FLOOR_CLEAR) || (state == S_ESCAPE);
+    reg [7:0] esc_el = 0;                    // เฟรมที่ผ่านไปใน ESCAPE (ไว้แสดง banner)
+    assign esc_banner = (state == S_ESCAPE) && (esc_el < ESCAPE_BANNER);
+    localparam [3:0] ESC_T = ESCAPE_SECONDS / 10, ESC_O = ESCAPE_SECONDS % 10;
     reg timer_clr;                           // pulse ภายใน always (blocking, ใช้ใน block เดียว)
 
     always @(posedge clk) begin
@@ -98,10 +106,13 @@ module game_fsm (
                     hp <= 3'd0; state <= S_GAME_OVER;
                 end else if (got_item && form != 2'd3) begin
                     state <= S_EVOLVE; cnt <= 0;
+                end else if (escape_start) begin         // บอส 3 ตาย
+                    state <= S_ESCAPE; esc_el <= 0;
+                    e_s_t <= ESC_T; e_s_o <= ESC_O; e_f_t <= 0; e_f_o <= 0;
                 end else if (floor_done) begin
                     state <= S_FLOOR_CLEAR; cnt <= 0;
-                end else if (exit_evt) begin
-                    state <= S_WIN;                     // P5: เปลี่ยนเป็น ESCAPE ก่อน
+                end else if (exit_evt && exit_direct) begin
+                    state <= S_WIN;                     // DEBUG: ทางลัดแบบเก่า
                 end
             end
 
@@ -120,7 +131,26 @@ module game_fsm (
                 end else cnt <= cnt + 1'b1;
             end
 
-            S_ESCAPE: state <= S_PLAY;                  // ยังไม่ใช้ (P5)
+            S_ESCAPE: begin                             // วิ่งหนีไปประตู E ก่อนเวลาหมด
+                if (take_hit && hp != 3'd0) hp <= hp - 1'b1;
+                if (take_hit && hp <= 3'd1) begin
+                    hp <= 3'd0; state <= S_GAME_OVER;
+                end else if (exit_evt) begin
+                    state <= S_WIN;
+                end else if (frame_tick) begin
+                    if (esc_el != 8'hFF) esc_el <= esc_el + 1'b1;
+                    // นับถอยหลัง ss.ff (ff = 59..0)
+                    if (e_s_t == 0 && e_s_o == 0 && e_f_t == 0 && e_f_o == 1) begin
+                        e_f_o <= 0; state <= S_GAME_OVER;       // หมดเวลา
+                    end else if (e_f_t == 0 && e_f_o == 0) begin
+                        e_f_t <= 4'd5; e_f_o <= 4'd9;
+                        if (e_s_o == 0) begin e_s_o <= 4'd9; e_s_t <= e_s_t - 1'b1; end
+                        else e_s_o <= e_s_o - 1'b1;
+                    end else if (e_f_o == 0) begin
+                        e_f_o <= 4'd9; e_f_t <= e_f_t - 1'b1;
+                    end else e_f_o <= e_f_o - 1'b1;
+                end
+            end
 
             S_WIN, S_GAME_OVER: if (btnc_rise) state <= S_TITLE;
 
