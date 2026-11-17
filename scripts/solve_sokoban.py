@@ -10,7 +10,8 @@
 BFS ตามจำนวนครั้งที่ดัน (ระหว่างดันเดินได้ไม่จำกัด) -> จำนวนดันน้อยสุด
 ผลลัพธ์: จำนวนดัน + ลำดับก้าวทีละช่อง (U D L R) ตั้งแต่จุดเกิด
 
-รัน: python3 scripts/solve_sokoban.py [--moves] [--json]
+รัน: python3 scripts/solve_sokoban.py [--moves] [--json] [--vh]
+     --vh เขียน sim/sokoban_solution.vh ให้ sim/tb_puzzles.v เล่นตามคำตอบ
 """
 import collections
 import json
@@ -109,6 +110,15 @@ if __name__ == '__main__':
         print('UNSOLVABLE')
         sys.exit(1)
     mv, end = moves(seq)
+    if '--vh' in sys.argv:
+        path = os.path.join(ROOT, 'sim', 'sokoban_solution.vh')
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write('// สร้างโดย scripts/solve_sokoban.py --vh — อย่าแก้มือ\n')
+            f.write(f'// ดันน้อยสุด {len(seq)} ครั้ง, {len(mv)} ก้าว (ตัวเล็ก = ก้าวที่ดันกล่อง), เริ่มที่ช่อง {START}\n')
+            f.write(f'localparam SOKO_PUSHES = {len(seq)};\n')
+            f.write(f'localparam SOKO_N = {len(mv)};\n')
+            f.write(f'localparam [8*{len(mv)}-1:0] SOKO_MOVES = "{"".join(mv)}";\n')
+        print('wrote', path)
     if '--json' in sys.argv:
         print(json.dumps({'pushes': len(seq), 'moves': ''.join(mv), 'start': START, 'end': end,
                           'boxes': boxes0, 'plates': sorted(plates)}))

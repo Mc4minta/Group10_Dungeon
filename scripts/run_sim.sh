@@ -4,15 +4,17 @@
 #   ./scripts/run_sim.sh world    ทดสอบระบบห้อง/ประตู/จุดเกิด ทุกชั้น (~1 วิ)
 #   ./scripts/run_sim.sh fsm      ทดสอบ game_fsm (TITLE/PLAY/EVOLVE/...) (~1 วิ)
 #   ./scripts/run_sim.sh objects  ทดสอบ objects.v: AABB ฟัน ยิง มอน โดนตี ห้องล็อก (~1 นาที)
+#   ./scripts/run_sim.sh puzzles  ทดสอบปริศนา 3 ห้อง + ดันกล่อง (เล่นตามคำตอบ solver) + ไอเทม (~2 นาที)
+#   ./scripts/run_sim.sh debug    ทดสอบ parameter DEBUG (สวิตช์ debug ใช้ได้เฉพาะ DEBUG = 1)
 #   ./scripts/run_sim.sh top      จำลองทั้งระบบ บันทึกภาพ 3 เฟรมเป็น sim/*.ppm (~1 นาที)
-#   ./scripts/run_sim.sh all      player + world + fsm + objects + top (ล้มเหลวถ้ามี FAIL / errors != 0)
+#   ./scripts/run_sim.sh all      player + world + fsm + objects + puzzles + debug + top (ล้มเหลวถ้ามี FAIL / errors != 0)
 set -e
 SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 cd "$(dirname "$0")/../mem"          # $readmemh หาไฟล์ .mem จากโฟลเดอร์นี้
 
 run() {   # run <tb> <files...>
   local tb=$1; shift
-  iverilog -g2012 -I../rtl -o ../sim/$tb.vvp "$@"
+  iverilog -g2012 -I../rtl -I../sim -o ../sim/$tb.vvp "$@"
   vvp ../sim/$tb.vvp | tee /tmp/run_sim_$tb.log
   if grep -q "FAIL" /tmp/run_sim_$tb.log; then echo "== $tb: FAILED"; return 1; fi
   if grep -Eq "errors = [1-9]" /tmp/run_sim_$tb.log; then echo "== $tb: FAILED"; return 1; fi
@@ -22,10 +24,12 @@ case "${1:-player}" in
   player) run tb_player ../sim/tb_player.v ../rtl/player.v ../rtl/roms.v ;;
   world)  run tb_world  ../sim/tb_world.v ../rtl/world.v ;;
   fsm)    run tb_game_fsm ../sim/tb_game_fsm.v ../rtl/game_fsm.v ;;
+  puzzles) run tb_puzzles ../sim/tb_puzzles.v ../rtl/puzzles.v ../rtl/objects.v ../rtl/player.v ../rtl/game_fsm.v ../rtl/roms.v ;;
+  debug)  run tb_debug ../sim/tb_debug.v ../rtl/*.v ;;
   objects) run tb_objects ../sim/tb_objects.v ../rtl/objects.v ../rtl/player.v ../rtl/game_fsm.v ../rtl/roms.v ;;
   top)    iverilog -g2012 -I../rtl -o ../sim/tb_top.vvp ../sim/tb_top.v ../rtl/*.v
           vvp ../sim/tb_top.vvp | tee /tmp/run_sim_tb_top.log
           if grep -q "FAIL" /tmp/run_sim_tb_top.log; then echo "== tb_top: FAILED"; exit 1; fi ;;
-  all)    "$SELF" player && "$SELF" world && "$SELF" fsm && "$SELF" objects && "$SELF" top && echo "== ALL OK" ;;
+  all)    "$SELF" player && "$SELF" world && "$SELF" fsm && "$SELF" objects && "$SELF" puzzles && "$SELF" debug && "$SELF" top && echo "== ALL OK" ;;
   *) echo "usage: $0 [player|world|fsm|top|all]"; exit 1 ;;
 esac
