@@ -23,6 +23,50 @@ module tileset_rom (
     always @(posedge clk) data <= mem[addr];
 endmodule
 
+// มอนต่อห้อง (จาก scripts/build_maps.py): 16 grid x 8 entry x 16 bit, อ่าน async (ROM เล็ก)
+// {valid, type[2:0], ty[3:0], 3'b0, tx[4:0]}, address = grid*8 + i
+module spawn_rom (
+    input  wire [6:0]  addr,
+    output wire [15:0] data
+);
+    reg [15:0] mem [0:127];
+    initial $readmemh("monsters.mem", mem);
+    assign data = mem[addr];
+endmodule
+
+// sprite มอน: 4 เฟรม (A0 A1 B0 B1) x 1024 px x 12 bit (BRAM), address = frame*1024 + y*32 + x
+module monster_rom (
+    input  wire        clk,
+    input  wire [11:0] addr,
+    output reg  [11:0] data
+);
+    reg [11:0] mem [0:4095];
+    initial $readmemh("monster.mem", mem);
+    always @(posedge clk) data <= mem[addr];
+endmodule
+
+// เอฟเฟกต์ฟันประชิด: 4 เฟรม (ทิศ) x 1024 px x 12 bit (BRAM)
+module effect_rom (
+    input  wire        clk,
+    input  wire [11:0] addr,
+    output reg  [11:0] data
+);
+    reg [11:0] mem [0:4095];
+    initial $readmemh("effect.mem", mem);
+    always @(posedge clk) data <= mem[addr];
+endmodule
+
+// กระสุน: 2 เฟรม (ผู้เล่น, ศัตรู) x 64 px x 12 bit, address = kind*64 + y*8 + x
+module bullet_rom (
+    input  wire        clk,
+    input  wire [6:0]  addr,
+    output reg  [11:0] data
+);
+    reg [11:0] mem [0:127];
+    initial $readmemh("bullet.mem", mem);
+    always @(posedge clk) data <= mem[addr];
+endmodule
+
 // player: 48 เฟรม x 1024 px x 12 bit (BRAM)
 module player_rom (
     input  wire        clk,
