@@ -1,0 +1,75 @@
+`timescale 1ns/1ps
+// ทดสอบ movement/collision/ประตู โดยไม่ต้องรัน VGA (frame_tick ถี่ ๆ)
+// รัน: cd mem && iverilog -g2012 -o ../sim/tb_player.vvp ../sim/tb_player.v ../rtl/player.v ../rtl/roms.v && vvp ../sim/tb_player.vvp
+module tb_player;
+    reg clk = 0; always #5 clk = ~clk;
+    reg rst = 1, tick = 0, up = 0, down = 0, left = 0, right = 0, hold = 0;
+    reg [1:0] form = 0; reg [3:0] grid = 0; reg dopen = 1, openL = 0;
+    reg load = 0; reg [9:0] lx = 288, ly = 224;
+    wire [9:0] px, py; wire [1:0] facing, pose, ddir; wire devt;
+    integer doors = 0; reg [1:0] last_dir;
+    integer errors = 0; reg [1:0] maxpose = 0;
+    always @(posedge clk) if (pose > maxpose) maxpose = pose;
+
+    player dut(.clk(clk), .rst(rst), .frame_tick(tick), .up(up), .down(down), .left(left), .right(right),
+               .hold_facing(hold), .form(form), .grid(grid), .doors_open(dopen), .open_L(openL),
+               .load(load), .load_x(lx), .load_y(ly), .px(px), .py(py), .facing(facing), .pose(pose),
+               .door_evt(devt), .door_dir(ddir));
+
+    always @(posedge clk) if (devt) begin doors = doors + 1; last_dir = ddir; end
+
+    task frames(input integer n); integer i; begin
+        for (i = 0; i < n; i = i + 1) begin
+            @(posedge clk) tick <= 1; @(posedge clk) tick <= 0;
+            repeat (12) @(posedge clk);
+        end
+    end endtask
+
+    task place(input [3:0] g, input [9:0] x, input [9:0] y); begin
+        grid <= g; lx <= x; ly <= y; @(posedge clk) load <= 1; @(posedge clk) load <= 0;
+        doors = 0;
+    end endtask
+
+    task check(input cond, input [8*48-1:0] msg); begin
+        if (cond) $display("PASS  %0s  (px=%0d py=%0d)", msg, px, py);
+        else begin $display("FAIL  %0s  (px=%0d py=%0d)", msg, px, py); errors = errors + 1; end
+    end endtask
+
+    initial begin
+        repeat (3) @(posedge clk); rst <= 0;
+        // 1) START ชั้น 1: เดินขึ้นจนชนกำแพงบน -> py ต้องหยุดที่ 28 (hitbox บน = 32)
+        place(0, 288, 224); up = 1; frames(200); up = 0;
+        check(py == 28, "walk up stops at top wall");
+        check(facing == 1, "facing up");
+        // 2) เดินขวาเข้าประตู D -> door_evt ทิศขวา
+        place(0, 288, 240); right = 1; frames(200); right = 0;
+        check(doors >= 1 && last_dir == 3, "right door event");
+        // 3) ปิดประตู D -> ต้องชนประตู ไม่มี event
+        dopen = 0; place(0, 288, 240); right = 1; frames(200); right = 0; dopen = 1;
+        check(doors == 0 && px + 27 < 608, "closed door blocks");
+        // 4) ทแยงขึ้น-ขวาชนกำแพงบน -> ยังไถลไปขวาได้
+        place(0, 288, 40); up = 1; right = 1; frames(40); up = 0; right = 0;
+        check(py == 28 && px > 288, "diagonal slides along wall");
+        // 5) corner slide: เสา ## ที่ col 4-5 row 3-4 (x 128..191, y 96..159)
+        //    ยืนใต้เสา เหลื่อมขอบขวาเสา 4 px แล้วเดินขึ้น -> ต้องไถลออกขวาจนผ่าน
+        place(0, 192 - 4 - 4, 200); up = 1; frames(60); up = 0;
+        check(py < 140, "corner slide past pillar edge");
+        // 6) หลุม H: ร่าง 1 เดินผ่านไม่ได้, ร่าง 3 ผ่านได้ (ชั้น 3 Combat 1 = grid 10, หลุมแถว 4-5)
+        form = 0; place(10, 304, 240); up = 1; frames(100); up = 0;
+        check(py >= 164, "form1 blocked by hole");
+        form = 2; place(10, 304, 240); up = 1; frames(150); up = 0;
+        check(doors >= 1 && last_dir == 1 && py < 32, "form3 flies over hole to top door (frozen)");
+        // 7) ประตู L ล็อกถ้า open_L = 0 (Combat 1 ชั้น 1 = grid 4, L ขวา)
+        form = 0; openL = 0; place(4, 400, 240); right = 1; frames(150); right = 0;
+        check(doors == 0, "boss door L locked");
+        openL = 1; place(4, 400, 240); right = 1; frames(150); right = 0;
+        check(doors >= 1 && last_dir == 3, "boss door L opens with item");
+        // 8) animation ขยับตอนเดิน
+        maxpose = 0; place(0, 288, 224); left = 1; frames(40); left = 0;
+        check(maxpose == 2, "walk animation uses pose 1 and 2");
+        frames(10);
+        check(pose == 0, "idle pose when stopped");
+        $display("errors = %0d", errors);
+        $finish;
+    end
+endmodule

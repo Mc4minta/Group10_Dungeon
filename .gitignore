@@ -1,0 +1,11 @@
+# Vivado (สร้างใหม่ด้วย scripts/create_project.tcl)
+vivado/
+*.jou
+*.log
+*.str
+.Xil/
+# simulation output
+sim/*.vvp
+sim/*.ppm
+sim/*.vcd
+__pycache__/
