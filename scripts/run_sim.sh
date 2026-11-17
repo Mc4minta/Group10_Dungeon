@@ -6,6 +6,7 @@
 #   ./scripts/run_sim.sh top      จำลองทั้งระบบ บันทึกภาพ 3 เฟรมเป็น sim/*.ppm (~1 นาที)
 #   ./scripts/run_sim.sh all      player + world + fsm + top (ล้มเหลวถ้ามี FAIL / errors != 0)
 set -e
+SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 cd "$(dirname "$0")/../mem"          # $readmemh หาไฟล์ .mem จากโฟลเดอร์นี้
 
 run() {   # run <tb> <files...>
@@ -21,7 +22,8 @@ case "${1:-player}" in
   world)  run tb_world  ../sim/tb_world.v ../rtl/world.v ;;
   fsm)    run tb_game_fsm ../sim/tb_game_fsm.v ../rtl/game_fsm.v ;;
   top)    iverilog -g2012 -o ../sim/tb_top.vvp ../sim/tb_top.v ../rtl/*.v
-          vvp ../sim/tb_top.vvp ;;
-  all)    "$0" player && "$0" world && "$0" fsm && "$0" top && echo "== ALL OK" ;;
+          vvp ../sim/tb_top.vvp | tee /tmp/run_sim_tb_top.log
+          if grep -q "FAIL" /tmp/run_sim_tb_top.log; then echo "== tb_top: FAILED"; exit 1; fi ;;
+  all)    "$SELF" player && "$SELF" world && "$SELF" fsm && "$SELF" top && echo "== ALL OK" ;;
   *) echo "usage: $0 [player|world|fsm|top|all]"; exit 1 ;;
 esac

@@ -38,6 +38,11 @@ module tb_top;
 
     initial begin
         repeat (10) @(posedge clk); rstn = 1;
+        // เกมเริ่มที่ TITLE -> กด BTNC เริ่มเล่น (DEBOUNCE = 4)
+        repeat (20) @(posedge clk);
+        if (dut.state !== 3'd0) $display("FAIL: expected TITLE after reset, state=%0d", dut.state);
+        BTNC = 1; repeat (40) @(posedge clk); BTNC = 0; repeat (40) @(posedge clk);
+        if (dut.state !== 3'd1) $display("FAIL: expected PLAY after BTNC, state=%0d", dut.state);
         grab("../sim/frame_start_f1.ppm");
         // ห้อง Combat 1 ชั้น 2, ร่าง 2, ปิดประตู D
         force dut.floor = 2'd1; force dut.room = 3'd1; force dut.form = 2'd1; SW[2] = 1;

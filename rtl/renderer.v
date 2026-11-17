@@ -1,4 +1,6 @@
 // วาดภาพต่อพิกเซล: tile -> sprite ผู้เล่น (F0F = โปร่งใส)
+// screen: 0 เกม · 1 TITLE (พื้นกรมท่า + sprite ที่ px,py ที่ top ส่งมา) · 2 GAME OVER (แดงเข้มเต็มจอ) · 3 WIN (ทองเต็มจอ)
+// hide_player: ซ่อน sprite (กะพริบตอน EVOLVE)
 // สีออกมาภายใน 2 clock หลัง hcount/vcount เปลี่ยน (top จับค่าตอน ce ถัดไป)
 // TODO P3: object slot (มอน กระสุน บอส), P5: ข้อความ, จอสั่น
 module renderer (
@@ -8,6 +10,8 @@ module renderer (
     input  wire [1:0]  floor,
     input  wire [1:0]  form,
     input  wire        doors_open, open_L,
+    input  wire [1:0]  screen,
+    input  wire        hide_player,
     input  wire [9:0]  px, py,
     input  wire [5:0]  pframe,        // form*12 + facing*3 + pose
     output wire [11:0] color
@@ -42,5 +46,10 @@ module renderer (
     reg in_spr_d = 0;
     always @(posedge clk) in_spr_d <= in_spr;
 
-    assign color = (in_spr_d && spr_px != 12'hF0F) ? spr_px : tile_px;
+    localparam [11:0] C_NAVY = 12'h114, C_OVER = 12'h300, C_WIN = 12'hFB0;
+    wire spr_on = in_spr_d && !hide_player && (spr_px != 12'hF0F);
+    assign color = (screen == 2'd2) ? C_OVER :
+                   (screen == 2'd3) ? C_WIN  :
+                   spr_on           ? spr_px :
+                   (screen == 2'd1) ? C_NAVY : tile_px;
 endmodule
