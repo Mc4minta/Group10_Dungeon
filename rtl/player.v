@@ -11,7 +11,9 @@ module player (
     input  wire        frame_tick,
     input  wire        up, down, left, right,  // level หลัง debounce
     input  wire        hold_facing,            // BTNC ค้าง = strafe (ไม่เปลี่ยนทิศ)
-    input  wire [1:0]  form,                   // 0..3 = ร่าง 1..4
+    input  wire [1:0]  form,                   // 0..3 = ร่าง 1..4 (ใช้กับ E / H เท่านั้น)
+    input  wire [2:0]  speed,                  // px ต่อเฟรม (จาก game_fsm: ตารางร่าง + sprint) รองรับ 1..4
+    input  wire        freeze,                 // 1 = ไม่เดิน ไม่ animate (TITLE/EVOLVE/FLOOR_CLEAR/WIN/GAME_OVER)
     input  wire [3:0]  grid,                   // ห้องปัจจุบัน (0..12)
     input  wire        doors_open,             // ประตู D เปิดไหม (P3: มาจาก cleared[room])
     input  wire        open_L,                 // ประตูบอสเปิดไหม (has_item[floor])
@@ -40,7 +42,7 @@ module player (
     tilemap_rom rom_a (.addr(addr_a), .data(t_a));
     tilemap_rom rom_b (.addr(addr_b), .data(t_b));
 
-    wire [1:0] spd = (form >= 2) ? 2'd3 : 2'd2;
+    wire [2:0] spd = speed;
 
     // address ของ tile ที่พิกเซล (x, y)
     function [11:0] taddr(input [3:0] g, input [9:0] x, input [9:0] y);
@@ -79,7 +81,9 @@ module player (
             frozen <= 1'b0;
         end else begin
             case (state)
-            S_WAIT: if (frame_tick && !frozen) begin
+            S_WAIT: if (freeze) begin
+                anim_cnt <= 0; step <= 0; pose <= 2'd0;     // ค้างท่า idle
+            end else if (frame_tick && !frozen) begin
                 dxs <= {left ^ right, left & ~right};
                 dys <= {up ^ down,   up & ~down};
                 state <= S_XA;

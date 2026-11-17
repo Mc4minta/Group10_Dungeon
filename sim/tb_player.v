@@ -6,13 +6,15 @@ module tb_player;
     reg rst = 1, tick = 0, up = 0, down = 0, left = 0, right = 0, hold = 0;
     reg [1:0] form = 0; reg [3:0] grid = 0; reg dopen = 1, openL = 0;
     reg load = 0; reg [9:0] lx = 288, ly = 224;
+    reg [2:0] spd_ovr = 0; reg freeze = 0;                         // 0 = ใช้ความเร็วตามร่างแบบเดิม (2/2/3/3)
+    wire [2:0] spd = (spd_ovr != 0) ? spd_ovr : ((form >= 2) ? 3'd3 : 3'd2);
     wire [9:0] px, py; wire [1:0] facing, pose, ddir; wire devt;
     integer doors = 0; reg [1:0] last_dir;
     integer errors = 0; reg [1:0] maxpose = 0;
     always @(posedge clk) if (pose > maxpose) maxpose = pose;
 
     player dut(.clk(clk), .rst(rst), .frame_tick(tick), .up(up), .down(down), .left(left), .right(right),
-               .hold_facing(hold), .form(form), .grid(grid), .doors_open(dopen), .open_L(openL),
+               .hold_facing(hold), .form(form), .speed(spd), .freeze(freeze), .grid(grid), .doors_open(dopen), .open_L(openL),
                .load(load), .load_x(lx), .load_y(ly), .px(px), .py(py), .facing(facing), .pose(pose),
                .door_evt(devt), .door_dir(ddir));
 
@@ -69,6 +71,42 @@ module tb_player;
         check(maxpose == 2, "walk animation uses pose 1 and 2");
         frames(10);
         check(pose == 0, "idle pose when stopped");
+
+        // ---------- speed 4 (sprint ร่าง 3-4) ----------
+        spd_ovr = 4; form = 0;
+        place(0, 288, 224); up = 1; frames(200); up = 0;
+        check(py >= 28 && py <= 31, "spd4: walk up stops at top wall");
+        place(0, 288, 240); right = 1; frames(200); right = 0;
+        check(doors >= 1 && last_dir == 3, "spd4: right door event");
+        dopen = 0; place(0, 288, 240); right = 1; frames(200); right = 0; dopen = 1;
+        check(doors == 0 && px + 27 < 608, "spd4: closed door blocks");
+        place(0, 288, 40); up = 1; right = 1; frames(40); up = 0; right = 0;
+        check(py >= 28 && py <= 31 && px > 288, "spd4: diagonal slides along wall");
+        place(0, 192 - 4 - 4, 200); up = 1; frames(60); up = 0;
+        check(py < 140, "spd4: corner slide past pillar edge");
+        // ชนเสาจากด้านล่าง กึ่งกลางเสา (x 128..191): ต้องหยุดใต้เสา ไม่ทะลุ (ก้นเสา y = 160)
+        place(0, 144, 220); up = 1; frames(60); up = 0;
+        check(py + 4 >= 160 && py + 4 <= 163, "spd4: no tunnelling into pillar");
+        // ผนังขวาไม่ทะลุ (ห้อง 0 แถว 2 ไม่มีประตู): hitbox ขวาต้อง < 608
+        place(0, 400, 40); right = 1; frames(120); right = 0;
+        check(px + 27 < 608 && px + 27 >= 604, "spd4: right wall no tunnelling");
+        form = 0; place(10, 304, 240); up = 1; frames(100); up = 0;
+        check(py >= 164, "spd4: form1 still blocked by hole");
+        form = 2; place(10, 304, 240); up = 1; frames(150); up = 0;
+        check(doors >= 1 && last_dir == 1 && py < 32, "spd4: form3 over hole to top door");
+        // ชนซ้ายที่ px = 0 ไม่ wrap (หลัง clamp): เดินซ้ายในห้อง START แถวประตูซ้ายของชั้น 3 (grid 1)
+        form = 3; openL = 0;
+        place(1, 100, 240); left = 1; frames(100); left = 0;
+        check(doors >= 1 && last_dir == 2 && px < 100, "spd4: form4 E door (left edge), no wrap");
+        form = 0;
+        place(1, 100, 240); left = 1; frames(100); left = 0;
+        check(px >= 28 && px < 100, "spd4: left E door closed for form1");
+        spd_ovr = 0;
+        // ---------- freeze ----------
+        place(0, 288, 224); freeze = 1; right = 1; frames(30); right = 0;
+        check(px == 288 && py == 224 && pose == 0, "freeze: no movement, idle pose");
+        freeze = 0; right = 1; frames(10); right = 0;
+        check(px > 288, "unfreeze: moves again");
         $display("errors = %0d", errors);
         $finish;
     end
