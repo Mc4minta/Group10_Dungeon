@@ -108,12 +108,12 @@ module tb_objects;
     // วางมอนเอง (slot s)
     task put_mon(input integer s, input typ, input [9:0] x, input [9:0] y, input [2:0] h); begin
         while (busy) @(posedge clk);
-        dut.m_act[s] = 1; dut.m_typ[s] = typ; dut.m_x[s] = x; dut.m_y[s] = y; dut.m_hp[s] = h;
-        dut.m_fl[s] = 0; dut.m_tmr[s] = 9'd500;                       // ป้อมไม่ยิงระหว่างทดสอบ
+        dut.m_act[s] = 1; dut.m_typ[s] = typ; dut.m_xv[(s)*10 +: 10] = x; dut.m_yv[(s)*10 +: 10] = y; dut.m_hpv[(s)*3 +: 3] = h;
+        dut.m_flv[(s)*4 +: 4] = 0; dut.m_tmrv[(s)*9 +: 9] = 9'd500;                       // ป้อมไม่ยิงระหว่างทดสอบ
     end endtask
     task put_eb(input integer s, input [9:0] x, input [9:0] y, input [1:0] d); begin
         while (busy) @(posedge clk);
-        dut.e_act[s] = 1; dut.e_x[s] = x; dut.e_y[s] = y; dut.e_dir[s] = d;
+        dut.e_act[s] = 1; dut.e_xv[(s)*10 +: 10] = x; dut.e_yv[(s)*10 +: 10] = y; dut.e_dirv[(s)*2 +: 2] = d;
     end endtask
     task heal; begin while (busy) @(posedge clk); fsm.hp = fsm.hp_max; end endtask
 
@@ -223,15 +223,15 @@ module tb_objects;
         put_mon(1, 1, 288, 190, 3);          // หลัง (บน)
         put_mon(2, 1, 330, 224, 3);          // ข้าง (ขวา)
         press; frames(1);
-        check(melee_on && dut.m_hp[0] == 2, "melee hits monster in front (HP 3 -> 2)");
-        check(dut.m_hp[1] == 3 && dut.m_hp[2] == 3, "melee does not hit behind / beside");
-        check(mon_flash != 0 || dut.m_fl[0] != 0, "hit monster flashes");
+        check(melee_on && dut.m_hpv[(0)*3 +: 3] == 2, "melee hits monster in front (HP 3 -> 2)");
+        check(dut.m_hpv[(1)*3 +: 3] == 3 && dut.m_hpv[(2)*3 +: 3] == 3, "melee does not hit behind / beside");
+        check(mon_flash != 0 || dut.m_flv[(0)*4 +: 4] != 0, "hit monster flashes");
         frames(8);
-        check(!melee_on && dut.m_hp[0] == 2, "one hit per swing, hit box gone after 8 frames");
+        check(!melee_on && dut.m_hpv[(0)*3 +: 3] == 2, "one hit per swing, hit box gone after 8 frames");
         press; frames(1);
-        check(dut.m_hp[0] == 2, "cooldown: press again too early does nothing");
+        check(dut.m_hpv[(0)*3 +: 3] == 2, "cooldown: press again too early does nothing");
         frames(12); press; frames(1);
-        check(dut.m_hp[0] == 1, "after 20-frame cooldown melee hits again");
+        check(dut.m_hpv[(0)*3 +: 3] == 1, "after 20-frame cooldown melee hits again");
         frames(20); press; frames(1);
         check(dut.mon_act[0] == 0, "HP 0 -> monster removed");
         clear_all;
@@ -306,17 +306,17 @@ module tb_objects;
         ok = 1;
         for (n = 0; n < 120; n = n + 1) begin
             frames(1);
-            if (dut.m_x[0] + 4 < 192 && dut.m_x[0] + 28 > 128 && dut.m_y[0] + 4 < 160 && dut.m_y[0] + 28 > 96) ok = 0;
+            if (dut.m_xv[(0)*10 +: 10] + 4 < 192 && dut.m_xv[(0)*10 +: 10] + 28 > 128 && dut.m_yv[(0)*10 +: 10] + 4 < 160 && dut.m_yv[(0)*10 +: 10] + 28 > 96) ok = 0;
         end
-        check(ok && dut.m_y[0] == 156, "monster A stops under pillar (never overlaps wall)");
+        check(ok && dut.m_yv[(0)*10 +: 10] == 156, "monster A stops under pillar (never overlaps wall)");
         // มอนทแยง: ผู้เล่นขวาบน มอนซ้ายล่างของเสา
         clear_all;
         put_mon(0, 0, 60, 200, 2);
         ok = 1;
         for (n = 0; n < 200; n = n + 1) begin
             frames(1);
-            if (dut.m_x[0] + 4 < 192 && dut.m_x[0] + 28 > 128 && dut.m_y[0] + 4 < 160 && dut.m_y[0] + 28 > 96) ok = 0;
-            if (dut.m_x[0] + 4 < 32 || dut.m_y[0] + 4 < 32) ok = 0;
+            if (dut.m_xv[(0)*10 +: 10] + 4 < 192 && dut.m_xv[(0)*10 +: 10] + 28 > 128 && dut.m_yv[(0)*10 +: 10] + 4 < 160 && dut.m_yv[(0)*10 +: 10] + 28 > 96) ok = 0;
+            if (dut.m_xv[(0)*10 +: 10] + 4 < 32 || dut.m_yv[(0)*10 +: 10] + 4 < 32) ok = 0;
         end
         check(ok, "monster A diagonal chase never enters wall tiles");
         clear_all; heal; hits = 0;
@@ -350,7 +350,7 @@ module tb_objects;
         frames(1);
         check(!doors_open && alive == 1, "1 monster left: still locked");
         while (busy) @(posedge clk);
-        dut.m_hp[5] = 1; dut.hurt_cnt = 0;
+        dut.m_hpv[(5)*3 +: 3] = 1; dut.hurt_cnt = 0;
         // ฆ่าตัวสุดท้ายด้วยกระสุนผู้เล่นจริง: ยืนตรงแนวป้อม (17,13) = (544,416) แล้วยิงลง
         place(7, 544, 330); dut.e_act = 0;
         down = 1; frames(1); down = 0;

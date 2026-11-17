@@ -62,19 +62,19 @@ module objects (
 
     // ---------- slot ----------
     reg [5:0]  m_act = 0, m_typ = 0;
-    reg [9:0]  m_x [0:NM-1];
-    reg [9:0]  m_y [0:NM-1];
-    reg [2:0]  m_hp [0:NM-1];
-    reg [3:0]  m_fl [0:NM-1];
-    reg [8:0]  m_tmr [0:NM-1];
+    reg [NM*10-1:0] m_xv = 0;
+    reg [NM*10-1:0] m_yv = 0;
+    reg [NM*3-1:0] m_hpv = 0;
+    reg [NM*4-1:0] m_flv = 0;
+    reg [NM*9-1:0] m_tmrv = 0;
     reg [1:0]  p_act = 0;
-    reg [9:0]  p_x [0:NP-1];
-    reg [9:0]  p_y [0:NP-1];
-    reg [1:0]  p_dir [0:NP-1];
+    reg [NP*10-1:0] p_xv = 0;
+    reg [NP*10-1:0] p_yv = 0;
+    reg [NP*2-1:0] p_dirv = 0;
     reg [15:0] e_act = 0;
-    reg [9:0]  e_x [0:NE-1];
-    reg [9:0]  e_y [0:NE-1];
-    reg [1:0]  e_dir [0:NE-1];
+    reg [NE*10-1:0] e_xv = 0;
+    reg [NE*10-1:0] e_yv = 0;
+    reg [NE*2-1:0] e_dirv = 0;
     // boss slot: สำรองไว้ P5
     reg        boss_act = 1'b0;
 
@@ -92,11 +92,6 @@ module objects (
     reg        spawn_req = 1'b0;
 
     integer k;
-    initial for (k = 0; k < NM; k = k + 1) begin
-        m_x[k] = 0; m_y[k] = 0; m_hp[k] = 0; m_fl[k] = 0; m_tmr[k] = 0;
-    end
-    initial for (k = 0; k < NP; k = k + 1) begin p_x[k] = 0; p_y[k] = 0; p_dir[k] = 0; end
-    initial for (k = 0; k < NE; k = k + 1) begin e_x[k] = 0; e_y[k] = 0; e_dir[k] = 0; end
 
     // ---------- tile ROM (2 อ่านต่อ clock) ----------
     reg  [11:0] ta = 0, tb = 0;
@@ -213,16 +208,16 @@ module objects (
             if (sd[15] && !cleared[cur_idx] && slot < NM) begin
                 m_act[slot] <= 1'b1;
                 m_typ[slot] <= sd[12];
-                m_x[slot]   <= {sd[4:0], 5'd0};
-                m_y[slot]   <= {sd[11:8], 5'd0};
-                m_fl[slot]  <= 0;
+                m_xv[(slot)*10 +: 10]   <= {sd[4:0], 5'd0};
+                m_yv[(slot)*10 +: 10]   <= {sd[11:8], 5'd0};
+                m_flv[(slot)*4 +: 4]  <= 0;
                 if (sd[12]) begin
-                    m_hp[slot]  <= MON_B_HP;
-                    m_tmr[slot] <= TURRET_FIRST + nb * TURRET_PHASE - 1;
+                    m_hpv[(slot)*3 +: 3]  <= MON_B_HP;
+                    m_tmrv[(slot)*9 +: 9] <= TURRET_FIRST + nb * TURRET_PHASE - 1;
                     nb <= nb + 1'b1;
                 end else begin
-                    m_hp[slot]  <= MON_A_HP;
-                    m_tmr[slot] <= 0;
+                    m_hpv[(slot)*3 +: 3]  <= MON_A_HP;
+                    m_tmrv[(slot)*9 +: 9] <= 0;
                 end
                 slot <= slot + 1'b1;
             end
@@ -246,9 +241,9 @@ module objects (
                 if (!p_act[0] || !p_act[1]) begin
                     k = p_act[0] ? 1 : 0;
                     p_act[k] <= 1'b1;
-                    p_x[k]   <= px + 10'd12;
-                    p_y[k]   <= py + 10'd12;
-                    p_dir[k] <= facing;
+                    p_xv[(k)*10 +: 10]   <= px + 10'd12;
+                    p_yv[(k)*10 +: 10]   <= py + 10'd12;
+                    p_dirv[(k)*2 +: 2] <= facing;
                     cool     <= PB_COOLDOWN - 1;
                 end
             end
@@ -260,19 +255,19 @@ module objects (
             if (!p_act[i[0]]) begin
                 if (i == NP - 1) begin j <= 0; st <= S_EB; end
                 i <= i + 1'b1;
-            end else if (oob(p_x[i[0]], p_dir[i[0]], PB_SPEED, p_y[i[0]])) begin
+            end else if (oob(p_xv[(i[0])*10 +: 10], p_dirv[(i[0])*2 +: 2], PB_SPEED, p_yv[(i[0])*10 +: 10])) begin
                 p_act[i[0]] <= 1'b0;
                 if (i == NP - 1) begin j <= 0; st <= S_EB; end
                 i <= i + 1'b1;
             end else begin
-                nx <= step_x(p_x[i[0]], p_dir[i[0]], PB_SPEED);
-                ny <= step_y(p_y[i[0]], p_dir[i[0]], PB_SPEED);
-                ta <= taddr(grid, step_x(p_x[i[0]], p_dir[i[0]], PB_SPEED) + 10'd4,
-                                  step_y(p_y[i[0]], p_dir[i[0]], PB_SPEED) + 10'd4);
+                nx <= step_x(p_xv[(i[0])*10 +: 10], p_dirv[(i[0])*2 +: 2], PB_SPEED);
+                ny <= step_y(p_yv[(i[0])*10 +: 10], p_dirv[(i[0])*2 +: 2], PB_SPEED);
+                ta <= taddr(grid, step_x(p_xv[(i[0])*10 +: 10], p_dirv[(i[0])*2 +: 2], PB_SPEED) + 10'd4,
+                                  step_y(p_yv[(i[0])*10 +: 10], p_dirv[(i[0])*2 +: 2], PB_SPEED) + 10'd4);
                 ph <= 1;
             end
         end else begin                       // ph 1: ตัดสินจาก tile
-            if (bpass(tda)) begin p_x[i[0]] <= nx; p_y[i[0]] <= ny; end
+            if (bpass(tda)) begin p_xv[(i[0])*10 +: 10] <= nx; p_yv[(i[0])*10 +: 10] <= ny; end
             else p_act[i[0]] <= 1'b0;
             ph <= 0;
             if (i == NP - 1) begin j <= 0; st <= S_EB; end
@@ -283,19 +278,19 @@ module objects (
             if (!e_act[j]) begin
                 if (j == NE - 1) begin i <= 0; st <= S_MON; end
                 j <= j + 1'b1;
-            end else if (oob(e_x[j], e_dir[j], EB_SPEED, e_y[j])) begin
+            end else if (oob(e_xv[(j)*10 +: 10], e_dirv[(j)*2 +: 2], EB_SPEED, e_yv[(j)*10 +: 10])) begin
                 e_act[j] <= 1'b0;
                 if (j == NE - 1) begin i <= 0; st <= S_MON; end
                 j <= j + 1'b1;
             end else begin
-                nx <= step_x(e_x[j], e_dir[j], EB_SPEED);
-                ny <= step_y(e_y[j], e_dir[j], EB_SPEED);
-                ta <= taddr(grid, step_x(e_x[j], e_dir[j], EB_SPEED) + 10'd4,
-                                  step_y(e_y[j], e_dir[j], EB_SPEED) + 10'd4);
+                nx <= step_x(e_xv[(j)*10 +: 10], e_dirv[(j)*2 +: 2], EB_SPEED);
+                ny <= step_y(e_yv[(j)*10 +: 10], e_dirv[(j)*2 +: 2], EB_SPEED);
+                ta <= taddr(grid, step_x(e_xv[(j)*10 +: 10], e_dirv[(j)*2 +: 2], EB_SPEED) + 10'd4,
+                                  step_y(e_yv[(j)*10 +: 10], e_dirv[(j)*2 +: 2], EB_SPEED) + 10'd4);
                 ph <= 1;
             end
         end else begin
-            if (bpass(tda)) begin e_x[j] <= nx; e_y[j] <= ny; end
+            if (bpass(tda)) begin e_xv[(j)*10 +: 10] <= nx; e_yv[(j)*10 +: 10] <= ny; end
             else e_act[j] <= 1'b0;
             ph <= 0;
             if (j == NE - 1) begin i <= 0; st <= S_MON; end
@@ -305,47 +300,47 @@ module objects (
         S_MON: begin
             case (ph)
             2'd0: begin
-                if (m_fl[i] != 0) m_fl[i] <= m_fl[i] - 1'b1;
+                if (m_flv[(i)*4 +: 4] != 0) m_flv[(i)*4 +: 4] <= m_flv[(i)*4 +: 4] - 1'b1;
                 if (!m_act[i]) begin
                     if (i == NM - 1) begin i <= 0; j <= 0; st <= S_CPB; end
                     else i <= i + 1'b1;
                 end else if (m_typ[i]) begin                  // มอน B: นับเวลายิง
-                    if (m_tmr[i] == 0) begin
-                        m_tmr[i] <= TURRET_PERIOD - 1;
+                    if (m_tmrv[(i)*9 +: 9] == 0) begin
+                        m_tmrv[(i)*9 +: 9] <= TURRET_PERIOD - 1;
                         fk <= 0; j <= 0;
                         st <= S_FIRE;
                     end else begin
-                        m_tmr[i] <= m_tmr[i] - 1'b1;
+                        m_tmrv[(i)*9 +: 9] <= m_tmrv[(i)*9 +: 9] - 1'b1;
                         if (i == NM - 1) begin i <= 0; j <= 0; st <= S_CPB; end
                         else i <= i + 1'b1;
                     end
-                end else if (px != m_x[i]) begin                     // มอน A แกน x
-                    if (px > m_x[i]) begin
-                        nx <= m_x[i] + MON_A_SPEED;
-                        ta <= taddr(grid, m_x[i] + MON_A_SPEED + 10'd27, m_y[i] + 10'd4);
-                        tb <= taddr(grid, m_x[i] + MON_A_SPEED + 10'd27, m_y[i] + 10'd27);
+                end else if (px != m_xv[(i)*10 +: 10]) begin                     // มอน A แกน x
+                    if (px > m_xv[(i)*10 +: 10]) begin
+                        nx <= m_xv[(i)*10 +: 10] + MON_A_SPEED;
+                        ta <= taddr(grid, m_xv[(i)*10 +: 10] + MON_A_SPEED + 10'd27, m_yv[(i)*10 +: 10] + 10'd4);
+                        tb <= taddr(grid, m_xv[(i)*10 +: 10] + MON_A_SPEED + 10'd27, m_yv[(i)*10 +: 10] + 10'd27);
                     end else begin
-                        nx <= m_x[i] - MON_A_SPEED;
-                        ta <= taddr(grid, m_x[i] - MON_A_SPEED + 10'd4, m_y[i] + 10'd4);
-                        tb <= taddr(grid, m_x[i] - MON_A_SPEED + 10'd4, m_y[i] + 10'd27);
+                        nx <= m_xv[(i)*10 +: 10] - MON_A_SPEED;
+                        ta <= taddr(grid, m_xv[(i)*10 +: 10] - MON_A_SPEED + 10'd4, m_yv[(i)*10 +: 10] + 10'd4);
+                        tb <= taddr(grid, m_xv[(i)*10 +: 10] - MON_A_SPEED + 10'd4, m_yv[(i)*10 +: 10] + 10'd27);
                     end
                     ph <= 2'd1;
                 end else ph <= 2'd2;
             end
             2'd1: begin
-                if (mpass(tda) && mpass(tdb)) m_x[i] <= nx;
+                if (mpass(tda) && mpass(tdb)) m_xv[(i)*10 +: 10] <= nx;
                 ph <= 2'd2;
             end
             2'd2: begin                                         // มอน A แกน y
-                if (py != m_y[i]) begin
-                    if (py > m_y[i]) begin
-                        ny <= m_y[i] + MON_A_SPEED;
-                        ta <= taddr(grid, m_x[i] + 10'd4,  m_y[i] + MON_A_SPEED + 10'd27);
-                        tb <= taddr(grid, m_x[i] + 10'd27, m_y[i] + MON_A_SPEED + 10'd27);
+                if (py != m_yv[(i)*10 +: 10]) begin
+                    if (py > m_yv[(i)*10 +: 10]) begin
+                        ny <= m_yv[(i)*10 +: 10] + MON_A_SPEED;
+                        ta <= taddr(grid, m_xv[(i)*10 +: 10] + 10'd4,  m_yv[(i)*10 +: 10] + MON_A_SPEED + 10'd27);
+                        tb <= taddr(grid, m_xv[(i)*10 +: 10] + 10'd27, m_yv[(i)*10 +: 10] + MON_A_SPEED + 10'd27);
                     end else begin
-                        ny <= m_y[i] - MON_A_SPEED;
-                        ta <= taddr(grid, m_x[i] + 10'd4,  m_y[i] - MON_A_SPEED + 10'd4);
-                        tb <= taddr(grid, m_x[i] + 10'd27, m_y[i] - MON_A_SPEED + 10'd4);
+                        ny <= m_yv[(i)*10 +: 10] - MON_A_SPEED;
+                        ta <= taddr(grid, m_xv[(i)*10 +: 10] + 10'd4,  m_yv[(i)*10 +: 10] - MON_A_SPEED + 10'd4);
+                        tb <= taddr(grid, m_xv[(i)*10 +: 10] + 10'd27, m_yv[(i)*10 +: 10] - MON_A_SPEED + 10'd4);
                     end
                     ph <= 2'd3;
                 end else begin
@@ -355,7 +350,7 @@ module objects (
                 end
             end
             default: begin
-                if (mpass(tda) && mpass(tdb)) m_y[i] <= ny;
+                if (mpass(tda) && mpass(tdb)) m_yv[(i)*10 +: 10] <= ny;
                 ph <= 2'd0;
                 if (i == NM - 1) begin i <= 0; j <= 0; st <= S_CPB; end
                 else i <= i + 1'b1;
@@ -366,9 +361,9 @@ module objects (
         S_FIRE: begin                        // มอน B ตัวที่ i ยิง 4 ทิศ ลง slot ว่าง (1 clock / slot)
             if (!e_act[j] && fk < 4) begin
                 e_act[j] <= 1'b1;
-                e_x[j]   <= m_x[i] + 10'd12;
-                e_y[j]   <= m_y[i] + 10'd12;
-                e_dir[j] <= fk[1:0];
+                e_xv[(j)*10 +: 10]   <= m_xv[(i)*10 +: 10] + 10'd12;
+                e_yv[(j)*10 +: 10]   <= m_yv[(i)*10 +: 10] + 10'd12;
+                e_dirv[(j)*2 +: 2] <= fk[1:0];
                 fk <= fk + 1'b1;
             end
             j <= j + 1'b1;
@@ -381,12 +376,12 @@ module objects (
         // ------------------------------------------------------------------
         S_CPB: begin                         // กระสุนผู้เล่น i[3] x มอน i[2:0]  (12 คู่)
             if (p_act[j[0]] && m_act[i] &&
-                ovl({1'b0, p_x[j[0]]} + OFS, {1'b0, p_y[j[0]]} + OFS, 7'd8, 7'd8,
-                    {1'b0, m_x[i]} + OFS + 11'd4, {1'b0, m_y[i]} + OFS + 11'd4, 7'd24, 7'd24)) begin
+                ovl({1'b0, p_xv[(j[0])*10 +: 10]} + OFS, {1'b0, p_yv[(j[0])*10 +: 10]} + OFS, 7'd8, 7'd8,
+                    {1'b0, m_xv[(i)*10 +: 10]} + OFS + 11'd4, {1'b0, m_yv[(i)*10 +: 10]} + OFS + 11'd4, 7'd24, 7'd24)) begin
                 p_act[j[0]] <= 1'b0;
-                m_fl[i] <= MON_FLASH;
-                if (m_hp[i] <= damage) begin m_hp[i] <= 0; m_act[i] <= 1'b0; end
-                else m_hp[i] <= m_hp[i] - damage;
+                m_flv[(i)*4 +: 4] <= MON_FLASH;
+                if (m_hpv[(i)*3 +: 3] <= damage) begin m_hpv[(i)*3 +: 3] <= 0; m_act[i] <= 1'b0; end
+                else m_hpv[(i)*3 +: 3] <= m_hpv[(i)*3 +: 3] - damage;
             end
             if (i == NM - 1) begin
                 i <= 0;
@@ -397,11 +392,11 @@ module objects (
         S_CMEL: begin                        // ฟันประชิด x มอน (ครั้งละ 1 ทีต่อการฟัน)
             if (melee_cnt != 0 && m_act[i] && !mel_mask[i] &&
                 ovl(mbx, mby, mbw, mbh,
-                    {1'b0, m_x[i]} + OFS + 11'd4, {1'b0, m_y[i]} + OFS + 11'd4, 7'd24, 7'd24)) begin
+                    {1'b0, m_xv[(i)*10 +: 10]} + OFS + 11'd4, {1'b0, m_yv[(i)*10 +: 10]} + OFS + 11'd4, 7'd24, 7'd24)) begin
                 mel_mask[i] <= 1'b1;
-                m_fl[i] <= MON_FLASH;
-                if (m_hp[i] <= damage) begin m_hp[i] <= 0; m_act[i] <= 1'b0; end
-                else m_hp[i] <= m_hp[i] - damage;
+                m_flv[(i)*4 +: 4] <= MON_FLASH;
+                if (m_hpv[(i)*3 +: 3] <= damage) begin m_hpv[(i)*3 +: 3] <= 0; m_act[i] <= 1'b0; end
+                else m_hpv[(i)*3 +: 3] <= m_hpv[(i)*3 +: 3] - damage;
             end
             if (i == NM - 1) begin i <= 0; st <= S_CPM; end
             else i <= i + 1'b1;
@@ -409,9 +404,9 @@ module objects (
         S_CPM: begin                         // ผู้เล่น x มอน (ชนตัว)
             if (hurt_cnt == 0 && m_act[i] &&
                 ovl(plx, ply, 7'd24, 7'd24,
-                    {1'b0, m_x[i]} + OFS + 11'd4, {1'b0, m_y[i]} + OFS + 11'd4, 7'd24, 7'd24)) begin
+                    {1'b0, m_xv[(i)*10 +: 10]} + OFS + 11'd4, {1'b0, m_yv[(i)*10 +: 10]} + OFS + 11'd4, 7'd24, 7'd24)) begin
                 hit <= 1'b1; kb_start <= 1'b1;
-                kb_dir <= away(m_x[i] + 10'd16, m_y[i] + 10'd16);
+                kb_dir <= away(m_xv[(i)*10 +: 10] + 10'd16, m_yv[(i)*10 +: 10] + 10'd16);
                 hurt_cnt <= KB_FRAMES + INV_FRAMES;
             end
             if (i == NM - 1) begin j <= 0; st <= S_CPE; end
@@ -419,10 +414,10 @@ module objects (
         end
         S_CPE: begin                         // ผู้เล่น x กระสุนศัตรู (อมตะ = กระสุนทะลุ)
             if (hurt_cnt == 0 && e_act[j] &&
-                ovl(plx, ply, 7'd24, 7'd24, {1'b0, e_x[j]} + OFS, {1'b0, e_y[j]} + OFS, 7'd8, 7'd8)) begin
+                ovl(plx, ply, 7'd24, 7'd24, {1'b0, e_xv[(j)*10 +: 10]} + OFS, {1'b0, e_yv[(j)*10 +: 10]} + OFS, 7'd8, 7'd8)) begin
                 e_act[j] <= 1'b0;
                 hit <= 1'b1; kb_start <= 1'b1;
-                kb_dir <= away(e_x[j] + 10'd4, e_y[j] + 10'd4);
+                kb_dir <= away(e_xv[(j)*10 +: 10] + 10'd4, e_yv[(j)*10 +: 10] + 10'd4);
                 hurt_cnt <= KB_FRAMES + INV_FRAMES;
             end
             if (j == NE - 1) st <= S_END;
@@ -443,6 +438,12 @@ module objects (
     assign invuln = (hurt_cnt != 0);
     assign player_blink = (hurt_cnt != 0) && hurt_cnt[2];
     assign mon_act = m_act;
+    assign mon_x = m_xv;
+    assign mon_y = m_yv;
+    assign pb_x = p_xv;
+    assign pb_y = p_yv;
+    assign eb_x = e_xv;
+    assign eb_y = e_yv;
     assign mon_type = m_typ;
     assign mon_anim = fcnt[4];
     assign pb_act = p_act;
@@ -452,17 +453,7 @@ module objects (
     genvar g;
     generate
         for (g = 0; g < NM; g = g + 1) begin : gm
-            assign mon_x[g*10 +: 10] = m_x[g];
-            assign mon_y[g*10 +: 10] = m_y[g];
-            assign mon_flash[g] = (m_fl[g] != 0) && m_fl[g][1];
-        end
-        for (g = 0; g < NP; g = g + 1) begin : gp
-            assign pb_x[g*10 +: 10] = p_x[g];
-            assign pb_y[g*10 +: 10] = p_y[g];
-        end
-        for (g = 0; g < NE; g = g + 1) begin : ge
-            assign eb_x[g*10 +: 10] = e_x[g];
-            assign eb_y[g*10 +: 10] = e_y[g];
+            assign mon_flash[g] = (m_flv[(g)*4 +: 4] != 0) && m_flv[(g)*4 + 1];
         end
     endgenerate
 endmodule

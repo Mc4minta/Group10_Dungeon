@@ -129,7 +129,7 @@ module top #(
     wire [5:0]  pframe = is_title ? 6'd0 : form * 6'd12 + facing * 6'd3 + pose;
     wire [1:0]  screen = is_title ? 2'd1 : (state == S_GAME_OVER) ? 2'd2 : is_win ? 2'd3 : 2'd0;
     wire [11:0] color;
-    renderer rnd (.clk(clk), .hcount(hcount), .vcount(vcount), .grid(grid), .floor(floor),
+    renderer rnd (.clk(clk), .ce(ce), .hcount(hcount), .vcount(vcount), .grid(grid), .floor(floor),
                   .form(form), .doors_open(doors_open), .open_L(open_L),
                   .screen(screen), .hide_player(fsm_hide | (obj_blink && !is_title)),
                   .px(rpx), .py(rpy), .pframe(pframe),
