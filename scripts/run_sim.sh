@@ -11,7 +11,7 @@ cd "$(dirname "$0")/../mem"          # $readmemh หาไฟล์ .mem จา�
 
 run() {   # run <tb> <files...>
   local tb=$1; shift
-  iverilog -g2012 -o ../sim/$tb.vvp "$@"
+  iverilog -g2012 -I../rtl -o ../sim/$tb.vvp "$@"
   vvp ../sim/$tb.vvp | tee /tmp/run_sim_$tb.log
   if grep -q "FAIL" /tmp/run_sim_$tb.log; then echo "== $tb: FAILED"; return 1; fi
   if grep -Eq "errors = [1-9]" /tmp/run_sim_$tb.log; then echo "== $tb: FAILED"; return 1; fi
@@ -21,7 +21,7 @@ case "${1:-player}" in
   player) run tb_player ../sim/tb_player.v ../rtl/player.v ../rtl/roms.v ;;
   world)  run tb_world  ../sim/tb_world.v ../rtl/world.v ;;
   fsm)    run tb_game_fsm ../sim/tb_game_fsm.v ../rtl/game_fsm.v ;;
-  top)    iverilog -g2012 -o ../sim/tb_top.vvp ../sim/tb_top.v ../rtl/*.v
+  top)    iverilog -g2012 -I../rtl -o ../sim/tb_top.vvp ../sim/tb_top.v ../rtl/*.v
           vvp ../sim/tb_top.vvp | tee /tmp/run_sim_tb_top.log
           if grep -q "FAIL" /tmp/run_sim_tb_top.log; then echo "== tb_top: FAILED"; exit 1; fi ;;
   all)    "$SELF" player && "$SELF" world && "$SELF" fsm && "$SELF" top && echo "== ALL OK" ;;

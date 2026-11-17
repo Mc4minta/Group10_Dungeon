@@ -1,7 +1,7 @@
 // Game FSM (P2): TITLE / PLAY / EVOLVE / FLOOR_CLEAR / ESCAPE / WIN / GAME_OVER
 //  + ร่าง (form), HP, ตารางค่าต่อร่าง, timer mm.ss, sprint
 //
-// ค่าเกมทั้งหมดอยู่ใน localparam ด้านล่างที่เดียว (ค่า *tentative* รอทีมยืนยัน)
+// ค่าเกม (tentative) อยู่ใน rtl/params.vh ที่เดียว
 //
 // อินพุต (pulse 1 clock ทั้งหมด ยกเว้นที่ระบุ level)
 //   frame_tick  1 pulse ต่อเฟรม (60 Hz)
@@ -42,17 +42,8 @@ module game_fsm (
     output wire       hide_player,
     output reg  [3:0] m_t = 0, m_o = 0, s_t = 0, s_o = 0
 );
-    // ======================= ตารางค่า (แก้ที่นี่ที่เดียว) =======================
-    // ร่าง 1..4 *(tentative)*
-    localparam [2:0] SPD1 = 3'd2, SPD2 = 3'd2, SPD3 = 3'd3, SPD4 = 3'd3;   // px / เฟรม
-    localparam [2:0] HP1  = 3'd3, HP2  = 3'd3, HP3  = 3'd4, HP4  = 3'd4;   // Max HP
-    localparam [1:0] DMG1 = 2'd1, DMG2 = 2'd1, DMG3 = 2'd2, DMG4 = 2'd2;   // ดาเมจ
-    localparam [2:0] RGB1 = 3'b010, RGB2 = 3'b011, RGB3 = 3'b101, RGB4 = 3'b110; // {R,G,B}: เขียว ฟ้า ม่วง ทอง
-    localparam [2:0] SPRINT_BONUS = 3'd1;     // *(tentative)* +1 px/เฟรม ตอน SW15 เปิด
-    localparam [6:0] EVOLVE_FRAMES = 7'd60;   // 1 วิ
-    localparam [7:0] CLEAR_FRAMES  = 8'd120;  // 2 วิ
+    `include "params.vh"                      // ตารางค่าต่อร่าง + เวลา EVOLVE/FLOOR_CLEAR (tentative)
     localparam [2:0] BLINK_BIT = 3'd2;        // กะพริบ: เห็น 4 เฟรม / ซ่อน 4 เฟรม (บิต 2 ของตัวนับ)
-    // ===========================================================================
 
     localparam [2:0] S_TITLE = 3'd0, S_PLAY = 3'd1, S_EVOLVE = 3'd2, S_FLOOR_CLEAR = 3'd3,
                      S_ESCAPE = 3'd4, S_WIN = 3'd5, S_GAME_OVER = 3'd6;

@@ -11,6 +11,10 @@ set proj_dir $root/vivado
 create_project -force Group10_Dungeon $proj_dir -part xc7a100tcsg324-1
 
 add_files -norecurse [glob $root/rtl/*.v]
+add_files -norecurse $root/rtl/params.vh
+set_property file_type {Verilog Header} [get_files params.vh]
+set_property include_dirs [list $root/rtl] [get_filesets sources_1]
+set_property include_dirs [list $root/rtl] [get_filesets sim_1]
 add_files -norecurse [glob $root/mem/*.mem]
 set_property file_type {Memory Initialization Files} [get_files *.mem]
 add_files -fileset constrs_1 -norecurse $root/constraints/nexys_a7.xdc

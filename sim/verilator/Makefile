@@ -16,13 +16,13 @@ OPT_NATIVE := -O3 -march=native -fno-stack-protector
 MAKE_OVR   := OPT_FAST="$(OPT_NATIVE)" OPT_SLOW="$(OPT_NATIVE)" OPT_GLOBAL="$(OPT_NATIVE)"
 
 # debounce สั้นลงใน simulation (ของจริง 10 ms = 1,000,000 clock)
-VFLAGS  := --cc --exe -O3 -j 0 --top-module top -Wno-fatal -Wno-lint -Wno-style \
+VFLAGS  := --cc --exe -O3 -j 0 --top-module top -I$(ROOT)/rtl -Wno-fatal -Wno-lint -Wno-style \
            -GDEBOUNCE=2000 -GCE_DIV=1 --x-assign fast --x-initial fast \
            -CFLAGS "-DNDEBUG -DCE_DIV=1 $(SDL_CF)" -LDFLAGS "$(SDL_LD)"
 
 all: obj_dir/Vtop
 
-obj_dir/Vtop: $(RTL) main.cpp
+obj_dir/Vtop: $(RTL) $(ROOT)/rtl/params.vh main.cpp
 	verilator $(VFLAGS) $(RTL) main.cpp
 	env -u CXXFLAGS -u CPPFLAGS -u CFLAGS -u DEBUG_CXXFLAGS -u DEBUG_CPPFLAGS $(MAKE) -C obj_dir -f Vtop.mk -j$(shell nproc) $(MAKE_OVR)
 
