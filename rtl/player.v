@@ -4,7 +4,9 @@
 // - corner sliding: เหลื่อมมุมไม่เกิน 8 px เลื่อนเข้าช่องให้ 1 px/เฟรม
 // - hitbox 24x24 = พิกเซล 4..27 ของ sprite 32x32
 // - เดินเข้าประตูที่เปิด -> door_evt + door_dir (top เปลี่ยนห้อง)
-// TODO P1.6 ดันกล่อง, P3 HURT/knockback
+// - knockback (P3): kb_start + kb_dir -> ถอย KB_SPEED px/เฟรม KB_FRAMES เฟรม ไม่สนปุ่ม ไม่หันตัว
+//   ประตูทุกบานเป็นกำแพงระหว่าง knockback (กันเปลี่ยนห้องโดยบังเอิญ) และไม่มี door_evt
+// TODO P1.6 ดันกล่อง
 module player (
     input  wire        clk,
     input  wire        rst,
@@ -19,6 +21,8 @@ module player (
     input  wire        open_L,                 // ประตูบอสเปิดไหม (has_item[floor])
     input  wire        load,                   // วางผู้เล่นที่ (load_x, load_y)
     input  wire [9:0]  load_x, load_y,
+    input  wire        kb_start,               // pulse จาก objects.v: เริ่ม knockback
+    input  wire [1:0]  kb_dir,                 // ทิศที่ถอย 0 ลง 1 ขึ้น 2 ซ้าย 3 ขวา
     output reg  [9:0]  px = 0,                 // มุมซ้ายบนของ sprite
     output reg  [9:0]  py = 0,
     output reg  [1:0]  facing = 0,             // 0 ลง 1 ขึ้น 2 ซ้าย 3 ขวา
@@ -42,7 +46,11 @@ module player (
     tilemap_rom rom_a (.addr(addr_a), .data(t_a));
     tilemap_rom rom_b (.addr(addr_b), .data(t_b));
 
-    wire [2:0] spd = speed;
+    `include "params.vh"
+    reg  [3:0] kb_cnt = 0;            // เฟรม knockback ที่เหลือ
+    reg  [1:0] kb_d = 0;
+    reg        kb_now = 0;            // เฟรมนี้เป็น knockback
+    wire [2:0] spd = kb_now ? KB_SPEED[2:0] : speed;
 
     // address ของ tile ที่พิกเซล (x, y)
     function [11:0] taddr(input [3:0] g, input [9:0] x, input [9:0] y);
@@ -54,9 +62,9 @@ module player (
         case (t)
             4'h1, 4'h7, 4'h8, 4'h9, 4'hA, 4'hB,
             4'hC, 4'hD, 4'hE, 4'hF: pass = 1'b1;
-            4'h2: pass = doors_open;        // D
-            4'h3: pass = open_L;            // L
-            4'h4: pass = (form == 2'd3);    // E: ร่าง 4
+            4'h2: pass = doors_open && !kb_now;        // D
+            4'h3: pass = open_L && !kb_now;            // L
+            4'h4: pass = (form == 2'd3) && !kb_now;    // E: ร่าง 4
             4'h5: pass = (form >= 2'd2);    // H: ร่าง 3+
             default: pass = 1'b0;           // # , F
         endcase
@@ -79,13 +87,23 @@ module player (
             px <= load_x; py <= load_y;
             state <= S_WAIT;
             frozen <= 1'b0;
+            kb_cnt <= 0; kb_now <= 1'b0;
         end else begin
+            if (kb_start) begin kb_cnt <= KB_FRAMES; kb_d <= kb_dir; end
             case (state)
             S_WAIT: if (freeze) begin
                 anim_cnt <= 0; step <= 0; pose <= 2'd0;     // ค้างท่า idle
             end else if (frame_tick && !frozen) begin
-                dxs <= {left ^ right, left & ~right};
-                dys <= {up ^ down,   up & ~down};
+                if (kb_cnt != 0) begin                      // knockback: ถอยตามทิศ ไม่สนปุ่ม
+                    dxs <= {kb_d[1], kb_d == D_LEFT};
+                    dys <= {~kb_d[1], kb_d == D_UP};
+                    kb_now <= 1'b1;
+                    if (!kb_start) kb_cnt <= kb_cnt - 1'b1;
+                end else begin
+                    dxs <= {left ^ right, left & ~right};
+                    dys <= {up ^ down,   up & ~down};
+                    kb_now <= 1'b0;
+                end
                 state <= S_XA;
             end
             // ---------- แกน x ----------
@@ -132,7 +150,7 @@ module player (
                 state  <= S_DB;
             end
             S_DB: begin
-                if (is_door(t_a) && pass(t_a)) begin
+                if (is_door(t_a) && pass(t_a) && !kb_now) begin
                     door_evt <= 1'b1;
                     frozen   <= 1'b1;
                     if      (cx[9:5] == 5'd0)  door_dir <= D_LEFT;
@@ -140,7 +158,7 @@ module player (
                     else if (cy[8:5] == 4'd0)  door_dir <= D_UP;
                     else                       door_dir <= D_DOWN;
                 end
-                if (!hold_facing) begin
+                if (!hold_facing && !kb_now) begin
                     if (dxs[1])      facing <= dxs[0] ? D_LEFT : D_RIGHT;
                     else if (dys[1]) facing <= dys[0] ? D_UP : D_DOWN;
                 end
