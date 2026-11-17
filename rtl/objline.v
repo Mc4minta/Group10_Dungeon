@@ -70,27 +70,7 @@ module objline (
     reg [1:0]  s_kind;
     reg [3:0]  s_frame;
     reg        s_flash;
-    always @* begin
-        s_act = 1'b0; s_x = 0; s_y = 0; s_size = 6'd32; s_kind = 2'd0; s_frame = 0; s_flash = 1'b0;
-        if (o < 6'd9) begin
-            s_act = pz_act[o]; s_x = pz_x[o*10 +: 10]; s_y = pz_y[o*10 +: 10];
-            s_kind = 2'd3; s_frame = pz_frame[o*4 +: 4];
-        end else if (o < 6'd15) begin
-            s_act = mon_act[o - 6'd9]; s_x = mon_x[(o - 6'd9)*10 +: 10]; s_y = mon_y[(o - 6'd9)*10 +: 10];
-            s_frame = {2'b00, mon_type[o - 6'd9], mon_anim}; s_flash = mon_flash[o - 6'd9];
-        end else if (o < 6'd31) begin
-            s_act = eb_act[o - 6'd15]; s_x = eb_x[(o - 6'd15)*10 +: 10]; s_y = eb_y[(o - 6'd15)*10 +: 10];
-            s_size = 6'd8; s_kind = 2'd1; s_frame = 4'd1;
-        end else if (o < 6'd33) begin
-            s_act = pb_act[o - 6'd31]; s_x = pb_x[(o - 6'd31)*10 +: 10]; s_y = pb_y[(o - 6'd31)*10 +: 10];
-            s_size = 6'd8; s_kind = 2'd1; s_frame = 4'd0;
-        end else begin
-            s_act = melee_on; s_kind = 2'd2; s_frame = {2'b00, melee_dir};
-            s_x = (melee_dir == 2'd2) ? px - 10'd24 : (melee_dir == 2'd3) ? px + 10'd24 : px;
-            s_y = (melee_dir == 2'd0) ? py + 10'd24 : (melee_dir == 2'd1) ? py - 10'd24 : py;
-        end
-    end
-    wire [9:0] s_row = tline - s_y;          // wrap 10 bit: ใช้ได้กับตำแหน่งติดลบ (เช่น py - 24)
+    reg [9:0] s_row;                         // คิดเฉพาะตอนสแกน (ไม่เป็น logic ทุก clock)
 
     // บรรทัดใหม่เริ่ม (ขอบที่ hcount 799 -> 0): วาดบรรทัด vcount + 2
     wire line_start = ce && (hcount == 10'd799);
@@ -122,6 +102,25 @@ module objline (
             o <= 0; inobj <= 1'b0;
         end else if (drawing) begin
             if (!inobj) begin
+                s_act = 1'b0; s_x = 0; s_y = 0; s_size = 6'd32; s_kind = 2'd0; s_frame = 0; s_flash = 1'b0;
+                if (o < 6'd9) begin
+                    s_act = pz_act[o]; s_x = pz_x[o*10 +: 10]; s_y = pz_y[o*10 +: 10];
+                    s_kind = 2'd3; s_frame = pz_frame[o*4 +: 4];
+                end else if (o < 6'd15) begin
+                    s_act = mon_act[o - 6'd9]; s_x = mon_x[(o - 6'd9)*10 +: 10]; s_y = mon_y[(o - 6'd9)*10 +: 10];
+                    s_frame = {2'b00, mon_type[o - 6'd9], mon_anim}; s_flash = mon_flash[o - 6'd9];
+                end else if (o < 6'd31) begin
+                    s_act = eb_act[o - 6'd15]; s_x = eb_x[(o - 6'd15)*10 +: 10]; s_y = eb_y[(o - 6'd15)*10 +: 10];
+                    s_size = 6'd8; s_kind = 2'd1; s_frame = 4'd1;
+                end else if (o < 6'd33) begin
+                    s_act = pb_act[o - 6'd31]; s_x = pb_x[(o - 6'd31)*10 +: 10]; s_y = pb_y[(o - 6'd31)*10 +: 10];
+                    s_size = 6'd8; s_kind = 2'd1; s_frame = 4'd0;
+                end else begin
+                    s_act = melee_on; s_kind = 2'd2; s_frame = {2'b00, melee_dir};
+                    s_x = (melee_dir == 2'd2) ? px - 10'd24 : (melee_dir == 2'd3) ? px + 10'd24 : px;
+                    s_y = (melee_dir == 2'd0) ? py + 10'd24 : (melee_dir == 2'd1) ? py - 10'd24 : py;
+                end
+                s_row = tline - s_y;     // wrap 10 bit: ใช้ได้กับตำแหน่งติดลบ (เช่น py - 24)
                 if (s_act && s_row < {4'd0, s_size}) begin
                     inobj <= 1'b1; col <= 0;
                     ox <= s_x; orow <= s_row[4:0]; osize <= s_size;

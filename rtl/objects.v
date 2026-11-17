@@ -133,15 +133,8 @@ module objects (
         ovl = (ax < bx + bw) && (bx < ax + aw) && (ay < by + bh) && (by < ay + ah);
     endfunction
 
-    wire [10:0] plx = {1'b0, px} + OFS + 11'd4;      // hitbox ผู้เล่น
-    wire [10:0] ply = {1'b0, py} + OFS + 11'd4;
-    // hit box ฟันประชิด
-    wire [10:0] mbx = (mel_dir == 2'd2) ? {1'b0, px} + OFS - 11'd12 :
-                      (mel_dir == 2'd3) ? {1'b0, px} + OFS + 11'd28 : {1'b0, px} + OFS + 11'd4;
-    wire [10:0] mby = (mel_dir == 2'd0) ? {1'b0, py} + OFS + 11'd28 :
-                      (mel_dir == 2'd1) ? {1'b0, py} + OFS - 11'd12 : {1'b0, py} + OFS + 11'd4;
-    wire [6:0]  mbw = mel_dir[1] ? 7'd16 : 7'd24;
-    wire [6:0]  mbh = mel_dir[1] ? 7'd24 : 7'd16;
+    reg [10:0] plx, ply, mbx, mby;           // คิดเฉพาะช่วงตรวจชน (ไม่เป็น logic ทุก clock)
+    reg [6:0]  mbw, mbh;
 
     // ---------- FSM ----------
     localparam [3:0] S_IDLE = 4'd0, S_SPAWN = 4'd1, S_ATK = 4'd2, S_PB = 4'd3, S_EB = 4'd4,
@@ -184,6 +177,16 @@ module objects (
     wire [3:0] idx_now = {2'b00, floor} * 4'd5 + {1'b0, room};
 
     always @(posedge clk) begin
+        if (st >= S_CPB) begin
+            plx = {1'b0, px} + OFS + 11'd4;                 // hitbox ผู้เล่น
+            ply = {1'b0, py} + OFS + 11'd4;
+            mbx = (mel_dir == 2'd2) ? {1'b0, px} + OFS - 11'd12 :     // hit box ฟันประชิด
+                  (mel_dir == 2'd3) ? {1'b0, px} + OFS + 11'd28 : {1'b0, px} + OFS + 11'd4;
+            mby = (mel_dir == 2'd0) ? {1'b0, py} + OFS + 11'd28 :
+                  (mel_dir == 2'd1) ? {1'b0, py} + OFS - 11'd12 : {1'b0, py} + OFS + 11'd4;
+            mbw = mel_dir[1] ? 7'd16 : 7'd24;
+            mbh = mel_dir[1] ? 7'd24 : 7'd16;
+        end
         hit <= 1'b0;
         kb_start <= 1'b0;
         if (atk_press && run) atk_req <= 1'b1;

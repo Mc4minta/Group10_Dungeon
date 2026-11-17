@@ -33,23 +33,23 @@ module puzzles #(
     output reg         hit = 1'b0,           // pulse -> game_fsm take_hit (Simon ผิด)
     output wire [2:0]  has_item,             // [floor] -> ประตู L ชั้นนั้นเปิด
     // ช่องที่กันการเดิน (address tile แบบเดียวกับ tilemap_rom รวม grid แล้ว): กล่อง 0, กล่อง 1, gate
-    output wire [11:0] blk0, blk1, blk2,
-    output wire [2:0]  blk_en,
+    output reg  [11:0] blk0 = 0, blk1 = 0, blk2 = 0,
+    output reg  [2:0]  blk_en = 0,
     // ให้ objline: sprite ปริศนา 9 ช่อง
-    output reg  [8:0]  pz_act,
-    output reg  [89:0] pz_x, pz_y,
-    output reg  [35:0] pz_frame,
+    output reg  [8:0]  pz_act = 0,
+    output reg  [89:0] pz_x = 0, pz_y = 0,
+    output reg  [35:0] pz_frame = 0,
     // ให้ renderer: แผ่นที่มีกล่องวางนิ่ง -> วาด tile 11, Simon สว่าง / แดง
-    output wire [11:0] pbox0, pbox1,
-    output wire [1:0]  pbox_en,
+    output reg  [11:0] pbox0 = 0, pbox1 = 0,
+    output reg  [1:0]  pbox_en = 0,
     output wire        simon_lit_on,
     output wire [1:0]  simon_lit,
     output wire        simon_wrong,
     output wire        simon_note_on,        // ให้ P6 ต่อเสียง
     output wire [1:0]  simon_note,
     // LED0-3 ในห้องปริศนา
-    output reg  [3:0]  room_led,
-    output wire        room_led_on,
+    output reg  [3:0]  room_led = 0,
+    output reg         room_led_on = 0,
     // สถานะ (ทดสอบ / debug)
     output reg  [3:0]  bulbs = 4'd0,
     output reg         lb_ok = 1'b0,
@@ -111,14 +111,12 @@ module puzzles #(
     reg [1:0]  lit = 0;
     reg [4:0]  fb = 0;                       // เวลาสว่างตอนเหยียบถูก
 
-    wire [2:0] slen = (round == 2'd0) ? SIMON_LEN0 : (round == 2'd1) ? SIMON_LEN1 : SIMON_LEN2;
-    wire [1:0] note_i = seq[sidx*2 +: 2];
 
     // ---------- ไอเทมของชั้นนี้ ----------
-    wire [3:0] item_grid = (floor == 2'd0) ? G_LB : (floor == 2'd1) ? G_SOKO : G_SIMON;
-    wire [4:0] item_tx   = (floor == 2'd0) ? ITEM0_TX : (floor == 2'd1) ? ITEM1_TX : ITEM2_TX;
-    wire [3:0] item_ty   = (floor == 2'd0) ? ITEM0_TY : (floor == 2'd1) ? ITEM1_TY : ITEM2_TY;
-    wire       item_vis  = (floor == 2'd0) ? lb_ok : (floor == 2'd1) ? 1'b1 : sm_ok;
+    function [3:0] f_item_grid(input [1:0] f); f_item_grid = (f == 2'd0) ? G_LB : (f == 2'd1) ? G_SOKO : G_SIMON; endfunction
+    function [4:0] f_item_tx(input [1:0] f);   f_item_tx = (f == 2'd0) ? ITEM0_TX : (f == 2'd1) ? ITEM1_TX : ITEM2_TX; endfunction
+    function [3:0] f_item_ty(input [1:0] f);   f_item_ty = (f == 2'd0) ? ITEM0_TY : (f == 2'd1) ? ITEM1_TY : ITEM2_TY; endfunction
+    function       f_item_vis(input [1:0] f);  f_item_vis = (f == 2'd0) ? lb_ok : (f == 2'd1) ? 1'b1 : sm_ok; endfunction
 
     // ---------- FSM ต่อเฟรม ----------
     localparam [3:0] P_IDLE = 4'd0, P_DLY = 4'd1, P_GEN = 4'd2, P_LEV = 4'd3, P_PUSHA = 4'd4, P_PUSHB = 4'd5,
@@ -132,32 +130,15 @@ module puzzles #(
     reg        dbox = 1'b0;
     assign busy = (st != P_IDLE);
 
-    // ตำแหน่งคันโยก k
-    wire [4:0] lvx = (k == 0) ? LEVER0_TX : (k == 1) ? LEVER1_TX : (k == 2) ? LEVER2_TX : LEVER3_TX;
-    wire [3:0] lvy = (k == 0) ? LEVER0_TY : (k == 1) ? LEVER1_TY : (k == 2) ? LEVER2_TY : LEVER3_TY;
-    wire [3:0] lmask = (k == 0) ? LB_MASK0 : (k == 1) ? LB_MASK1 : (k == 2) ? LB_MASK2 : LB_MASK3;
-    wire [10:0] lvpx = {1'b0, lvx, 5'd0} + OFS;
-    wire [10:0] lvpy = {2'b00, lvy, 5'd0} + OFS;
-    // hit box ฟัน (เหมือน objects.v)
-    wire [10:0] mbx = (melee_dir == 2'd2) ? {1'b0, px} + OFS - 11'd12 :
-                      (melee_dir == 2'd3) ? {1'b0, px} + OFS + 11'd28 : {1'b0, px} + OFS + 11'd4;
-    wire [10:0] mby = (melee_dir == 2'd0) ? {1'b0, py} + OFS + 11'd28 :
-                      (melee_dir == 2'd1) ? {1'b0, py} + OFS - 11'd12 : {1'b0, py} + OFS + 11'd4;
-    wire [6:0]  mbw = melee_dir[1] ? 7'd16 : 7'd24;
-    wire [6:0]  mbh = melee_dir[1] ? 7'd24 : 7'd16;
-    wire hit_m  = melee_on && !mel_used[k] && ovl(mbx, mby, mbw, mbh, lvpx, lvpy, 7'd32, 7'd32);
-    wire hit_b0 = pb_act[0] && !pb_used[k] &&
-                  ovl({1'b0, pb_x[9:0]} + OFS, {1'b0, pb_y[9:0]} + OFS, 7'd8, 7'd8, lvpx, lvpy, 7'd32, 7'd32);
-    wire hit_b1 = pb_act[1] && !pb_used[4 + k] &&
-                  ovl({1'b0, pb_x[19:10]} + OFS, {1'b0, pb_y[19:10]} + OFS, 7'd8, 7'd8, lvpx, lvpy, 7'd32, 7'd32);
-
-    // ---------- ดันกล่อง: ผู้เล่นชิดกล่องตามทิศที่กด (ห่าง 0..3 px) และจุดกลางอยู่แถว/คอลัมน์เดียวกัน ----------
-    wire one_axis_r = right && !left && !up && !down;
-    wire one_axis_l = left && !right && !up && !down;
-    wire one_axis_d = down && !up && !left && !right;
-    wire one_axis_u = up && !down && !left && !right;
-    wire [4:0] ctx = px[9:5] + ((px[4:0] >= 5'd16) ? 5'd1 : 5'd0);   // คอลัมน์ของจุดกลาง (px + 16)
-    wire [3:0] cty = py[8:5] + ((py[4:0] >= 5'd16) ? 4'd1 : 4'd0);
+    // ตัวช่วย (reg ชั่วคราว): คิดเฉพาะตอนประมวลผลต่อเฟรม (st >= P_GEN) ไม่เป็น logic ที่ต้องคิดทุก clock
+    reg [4:0]  lvx, ctx, kbx, nbx, item_tx;
+    reg [3:0]  lvy, lmask, cty, kby, nby, item_grid, item_ty;
+    reg [10:0] lvpx, lvpy, mbx, mby;
+    reg [6:0]  mbw, mbh;
+    reg        one_axis_r, one_axis_l, one_axis_d, one_axis_u, in_one, sliding, item_vis;
+    reg [1:0]  in_dir, note_i;
+    reg [2:0]  slen;
+    reg hit_m, hit_b0, hit_b1;
     function touch(input [4:0] bx, input [3:0] by, input [1:0] d);
         reg [10:0] bxl, byt, pr, pl, pd, pu;
         begin
@@ -172,17 +153,40 @@ module puzzles #(
             endcase
         end
     endfunction
-    wire [1:0] in_dir = one_axis_d ? 2'd0 : one_axis_u ? 2'd1 : one_axis_l ? 2'd2 : 2'd3;
-    wire       in_one = one_axis_d | one_axis_u | one_axis_l | one_axis_r;
-    wire [4:0] kbx = k[0] ? b1x : b0x;
-    wire [3:0] kby = k[0] ? b1y : b0y;
-    wire [4:0] nbx = (in_dir == 2'd2) ? kbx - 5'd1 : (in_dir == 2'd3) ? kbx + 5'd1 : kbx;
-    wire [3:0] nby = (in_dir == 2'd1) ? kby - 4'd1 : (in_dir == 2'd0) ? kby + 4'd1 : kby;
-    wire       sliding = (sc0 != 0) || (sc1 != 0);
-    wire on_p0 = (b0x == PLATE0_TX && b0y == PLATE0_TY) || (b0x == PLATE1_TX && b0y == PLATE1_TY);
-    wire on_p1 = (b1x == PLATE0_TX && b1y == PLATE0_TY) || (b1x == PLATE1_TX && b1y == PLATE1_TY);
 
     always @(posedge clk) begin
+        if (st >= P_GEN) begin
+            lvx = (k == 0) ? LEVER0_TX : (k == 1) ? LEVER1_TX : (k == 2) ? LEVER2_TX : LEVER3_TX;
+            lvy = (k == 0) ? LEVER0_TY : (k == 1) ? LEVER1_TY : (k == 2) ? LEVER2_TY : LEVER3_TY;
+            lmask = (k == 0) ? LB_MASK0 : (k == 1) ? LB_MASK1 : (k == 2) ? LB_MASK2 : LB_MASK3;
+            lvpx = {1'b0, lvx, 5'd0} + OFS;
+            lvpy = {2'b00, lvy, 5'd0} + OFS;
+            // hit box ฟัน (เหมือน objects.v)
+            mbx = (melee_dir == 2'd2) ? {1'b0, px} + OFS - 11'd12 :
+                  (melee_dir == 2'd3) ? {1'b0, px} + OFS + 11'd28 : {1'b0, px} + OFS + 11'd4;
+            mby = (melee_dir == 2'd0) ? {1'b0, py} + OFS + 11'd28 :
+                  (melee_dir == 2'd1) ? {1'b0, py} + OFS - 11'd12 : {1'b0, py} + OFS + 11'd4;
+            mbw = melee_dir[1] ? 7'd16 : 7'd24;
+            mbh = melee_dir[1] ? 7'd24 : 7'd16;
+            // ดันกล่อง: ผู้เล่นชิดกล่องตามทิศที่กด (ห่าง 0..3 px) และจุดกลางอยู่แถว/คอลัมน์เดียวกัน
+            one_axis_r = right && !left && !up && !down;
+            one_axis_l = left && !right && !up && !down;
+            one_axis_d = down && !up && !left && !right;
+            one_axis_u = up && !down && !left && !right;
+            ctx = px[9:5] + ((px[4:0] >= 5'd16) ? 5'd1 : 5'd0);    // คอลัมน์ของจุดกลาง (px + 16)
+            cty = py[8:5] + ((py[4:0] >= 5'd16) ? 4'd1 : 4'd0);
+            in_dir = one_axis_d ? 2'd0 : one_axis_u ? 2'd1 : one_axis_l ? 2'd2 : 2'd3;
+            in_one = one_axis_d | one_axis_u | one_axis_l | one_axis_r;
+            kbx = k[0] ? b1x : b0x;
+            kby = k[0] ? b1y : b0y;
+            nbx = (in_dir == 2'd2) ? kbx - 5'd1 : (in_dir == 2'd3) ? kbx + 5'd1 : kbx;
+            nby = (in_dir == 2'd1) ? kby - 4'd1 : (in_dir == 2'd0) ? kby + 4'd1 : kby;
+            sliding = (sc0 != 0) || (sc1 != 0);
+            slen = (round == 2'd0) ? SIMON_LEN0 : (round == 2'd1) ? SIMON_LEN1 : SIMON_LEN2;
+            note_i = seq[sidx*2 +: 2];
+            item_grid = f_item_grid(floor); item_tx = f_item_tx(floor); item_ty = f_item_ty(floor);
+            item_vis = f_item_vis(floor);
+        end
         got_item <= 1'b0;
         hit <= 1'b0;
         if (room_load) enter_req <= 1'b1;
@@ -237,6 +241,11 @@ module puzzles #(
             end
             // ---- Light Bulb: คันโยก k ----
             P_LEV: begin
+                hit_m  = melee_on && !mel_used[k] && ovl(mbx, mby, mbw, mbh, lvpx, lvpy, 7'd32, 7'd32);
+                hit_b0 = pb_act[0] && !pb_used[k] &&
+                         ovl({1'b0, pb_x[9:0]} + OFS, {1'b0, pb_y[9:0]} + OFS, 7'd8, 7'd8, lvpx, lvpy, 7'd32, 7'd32);
+                hit_b1 = pb_act[1] && !pb_used[4 + k] &&
+                         ovl({1'b0, pb_x[19:10]} + OFS, {1'b0, pb_y[19:10]} + OFS, 7'd8, 7'd8, lvpx, lvpy, 7'd32, 7'd32);
                 if (grid == G_LB && lb_init && !lb_ok && (hit_m || hit_b0 || hit_b1)) begin
                     levers[k] <= ~levers[k];
                     bulbs <= bulbs ^ lmask;
@@ -341,16 +350,6 @@ module puzzles #(
     assign dbg_sm = sm;
     assign dbg_round = round;
 
-    // ---------- กันการเดิน ----------
-    assign blk0 = tad(G_SOKO, b0x, b0y);
-    assign blk1 = tad(G_SOKO, b1x, b1y);
-    assign blk2 = tad(G_SOKO, GATE_TX, GATE_TY);
-    assign blk_en = {!gate_open, 1'b1, 1'b1};
-
-    // ---------- แผ่นมีกล่องวางนิ่ง ----------
-    assign pbox0 = blk0;
-    assign pbox1 = blk1;
-    assign pbox_en = {sc1 == 0 && on_p1, sc0 == 0 && on_p0};
 
     // ---------- Simon ----------
     assign simon_lit_on = lit_on && (grid == G_SIMON);
@@ -359,10 +358,6 @@ module puzzles #(
     assign simon_note_on = simon_lit_on;
     assign simon_note = lit;
 
-    // ---------- LED0-3 ในห้องปริศนา ----------
-    wire [1:0] rdone = sm_ok ? 2'd3 : round;
-    assign room_led_on = (grid == G_LB) || (grid == G_SIMON);
-    always @* room_led = (grid == G_LB) ? bulbs : {1'b0, rdone == 2'd3, rdone >= 2'd2, rdone >= 2'd1};
 
     // ---------- sprite ปริศนา (เฟรมใน puzzle.mem) ----------
     // 0 หลอดดับ 1 หลอดติด 2 คันโยกขึ้น 3 คันโยกลง 4 กล่อง 5 gate ปิด 6 gate เปิด 7-9 ไอเทม 1-3
@@ -375,33 +370,60 @@ module puzzles #(
             else       bpos = (d == 2'd0) ? base - off : (d == 2'd1) ? base + off : base;
         end
     endfunction
-    always @* begin
-        pz_act = 0; pz_x = 0; pz_y = 0; pz_frame = 0;
-        if (grid == G_LB) begin
-            pz_act[7:0] = 8'hFF;
-            pz_x[0*10 +: 10] = {LEVER0_TX, 5'd0}; pz_y[0*10 +: 10] = {1'b0, LEVER0_TY, 5'd0}; pz_frame[0*4 +: 4] = 4'd2 + levers[0];
-            pz_x[1*10 +: 10] = {LEVER1_TX, 5'd0}; pz_y[1*10 +: 10] = {1'b0, LEVER1_TY, 5'd0}; pz_frame[1*4 +: 4] = 4'd2 + levers[1];
-            pz_x[2*10 +: 10] = {LEVER2_TX, 5'd0}; pz_y[2*10 +: 10] = {1'b0, LEVER2_TY, 5'd0}; pz_frame[2*4 +: 4] = 4'd2 + levers[2];
-            pz_x[3*10 +: 10] = {LEVER3_TX, 5'd0}; pz_y[3*10 +: 10] = {1'b0, LEVER3_TY, 5'd0}; pz_frame[3*4 +: 4] = 4'd2 + levers[3];
-            pz_x[4*10 +: 10] = {BULB0_TX, 5'd0};  pz_y[4*10 +: 10] = {1'b0, BULB0_TY, 5'd0};  pz_frame[4*4 +: 4] = {3'd0, bulbs[3]};
-            pz_x[5*10 +: 10] = {BULB1_TX, 5'd0};  pz_y[5*10 +: 10] = {1'b0, BULB1_TY, 5'd0};  pz_frame[5*4 +: 4] = {3'd0, bulbs[2]};
-            pz_x[6*10 +: 10] = {BULB2_TX, 5'd0};  pz_y[6*10 +: 10] = {1'b0, BULB2_TY, 5'd0};  pz_frame[6*4 +: 4] = {3'd0, bulbs[1]};
-            pz_x[7*10 +: 10] = {BULB3_TX, 5'd0};  pz_y[7*10 +: 10] = {1'b0, BULB3_TY, 5'd0};  pz_frame[7*4 +: 4] = {3'd0, bulbs[0]};
-        end else if (grid == G_SOKO) begin
-            pz_act[0] = !(sc0 == 0 && on_p0);   // วางนิ่งบนแผ่น = tile 11 แทน
-            pz_x[0*10 +: 10] = bpos(b0x, sc0, sd0, 1'b1); pz_y[0*10 +: 10] = bpos({1'b0, b0y}, sc0, sd0, 1'b0);
-            pz_frame[0*4 +: 4] = 4'd4;
-            pz_act[1] = !(sc1 == 0 && on_p1);
-            pz_x[1*10 +: 10] = bpos(b1x, sc1, sd1, 1'b1); pz_y[1*10 +: 10] = bpos({1'b0, b1y}, sc1, sd1, 1'b0);
-            pz_frame[1*4 +: 4] = 4'd4;
-            pz_act[2] = 1'b1;
-            pz_x[2*10 +: 10] = {GATE_TX, 5'd0}; pz_y[2*10 +: 10] = {1'b0, GATE_TY, 5'd0};
-            pz_frame[2*4 +: 4] = gate_open ? 4'd6 : 4'd5;
-        end
-        if (grid == item_grid && item_vis && !picked[floor]) begin
-            pz_act[8] = 1'b1;
-            pz_x[8*10 +: 10] = {item_tx, 5'd0}; pz_y[8*10 +: 10] = {1'b0, item_ty, 5'd0};
-            pz_frame[8*4 +: 4] = 4'd7 + floor;
+    // คำนวณใหม่ทุก 64 clock (ค่าเปลี่ยนแค่ตอนประมวลผลต่อเฟรม / เข้าห้อง / SW13) -> ไม่เป็น logic ที่ต้องคิดทุก clock
+    // (หน่วงไม่เกิน 64 clock: ไม่ถึง 1 บรรทัดภาพ และเสร็จก่อนเฟรมถัดไปเสมอ)
+    reg [5:0] ucnt = 0;
+    always @(posedge clk) begin : pz_upd
+        reg [8:0] a_; reg [89:0] x_, y_; reg [35:0] f_;
+        reg on_p0, on_p1; reg [1:0] rdone;
+        reg [3:0] item_grid; reg [4:0] item_tx; reg [3:0] item_ty; reg item_vis;
+        ucnt <= ucnt + 1'b1;
+        if (ucnt == 0) begin
+            on_p0 = (b0x == PLATE0_TX && b0y == PLATE0_TY) || (b0x == PLATE1_TX && b0y == PLATE1_TY);
+            on_p1 = (b1x == PLATE0_TX && b1y == PLATE0_TY) || (b1x == PLATE1_TX && b1y == PLATE1_TY);
+            item_grid = f_item_grid(floor); item_tx = f_item_tx(floor); item_ty = f_item_ty(floor);
+            item_vis = f_item_vis(floor);
+            // กันการเดิน: กล่อง 2 + gate (ตอนปิด)
+            blk0 <= tad(G_SOKO, b0x, b0y);
+            blk1 <= tad(G_SOKO, b1x, b1y);
+            blk2 <= tad(G_SOKO, GATE_TX, GATE_TY);
+            blk_en <= {!gate_open, 1'b1, 1'b1};
+            // แผ่นมีกล่องวางนิ่ง -> tile 11
+            pbox0 <= tad(G_SOKO, b0x, b0y);
+            pbox1 <= tad(G_SOKO, b1x, b1y);
+            pbox_en <= {sc1 == 0 && on_p1, sc0 == 0 && on_p0};
+            // LED0-3 ในห้องปริศนา: หลอด / รอบ Simon ที่ผ่าน
+            rdone = sm_ok ? 2'd3 : round;
+            room_led_on <= (grid == G_LB) || (grid == G_SIMON);
+            room_led <= (grid == G_LB) ? bulbs : {1'b0, rdone == 2'd3, rdone >= 2'd2, rdone >= 2'd1};
+            a_ = 0; x_ = 0; y_ = 0; f_ = 0;
+            if (grid == G_LB) begin
+                a_[7:0] = 8'hFF;
+                x_[0*10 +: 10] = {LEVER0_TX, 5'd0}; y_[0*10 +: 10] = {1'b0, LEVER0_TY, 5'd0}; f_[0*4 +: 4] = 4'd2 + levers[0];
+                x_[1*10 +: 10] = {LEVER1_TX, 5'd0}; y_[1*10 +: 10] = {1'b0, LEVER1_TY, 5'd0}; f_[1*4 +: 4] = 4'd2 + levers[1];
+                x_[2*10 +: 10] = {LEVER2_TX, 5'd0}; y_[2*10 +: 10] = {1'b0, LEVER2_TY, 5'd0}; f_[2*4 +: 4] = 4'd2 + levers[2];
+                x_[3*10 +: 10] = {LEVER3_TX, 5'd0}; y_[3*10 +: 10] = {1'b0, LEVER3_TY, 5'd0}; f_[3*4 +: 4] = 4'd2 + levers[3];
+                x_[4*10 +: 10] = {BULB0_TX, 5'd0};  y_[4*10 +: 10] = {1'b0, BULB0_TY, 5'd0};  f_[4*4 +: 4] = {3'd0, bulbs[3]};
+                x_[5*10 +: 10] = {BULB1_TX, 5'd0};  y_[5*10 +: 10] = {1'b0, BULB1_TY, 5'd0};  f_[5*4 +: 4] = {3'd0, bulbs[2]};
+                x_[6*10 +: 10] = {BULB2_TX, 5'd0};  y_[6*10 +: 10] = {1'b0, BULB2_TY, 5'd0};  f_[6*4 +: 4] = {3'd0, bulbs[1]};
+                x_[7*10 +: 10] = {BULB3_TX, 5'd0};  y_[7*10 +: 10] = {1'b0, BULB3_TY, 5'd0};  f_[7*4 +: 4] = {3'd0, bulbs[0]};
+            end else if (grid == G_SOKO) begin
+                a_[0] = !(sc0 == 0 && on_p0);   // วางนิ่งบนแผ่น = tile 11 แทน
+                x_[0*10 +: 10] = bpos(b0x, sc0, sd0, 1'b1); y_[0*10 +: 10] = bpos({1'b0, b0y}, sc0, sd0, 1'b0);
+                f_[0*4 +: 4] = 4'd4;
+                a_[1] = !(sc1 == 0 && on_p1);
+                x_[1*10 +: 10] = bpos(b1x, sc1, sd1, 1'b1); y_[1*10 +: 10] = bpos({1'b0, b1y}, sc1, sd1, 1'b0);
+                f_[1*4 +: 4] = 4'd4;
+                a_[2] = 1'b1;
+                x_[2*10 +: 10] = {GATE_TX, 5'd0}; y_[2*10 +: 10] = {1'b0, GATE_TY, 5'd0};
+                f_[2*4 +: 4] = gate_open ? 4'd6 : 4'd5;
+            end
+            if (grid == item_grid && item_vis && !picked[floor]) begin
+                a_[8] = 1'b1;
+                x_[8*10 +: 10] = {item_tx, 5'd0}; y_[8*10 +: 10] = {1'b0, item_ty, 5'd0};
+                f_[8*4 +: 4] = 4'd7 + floor;
+            end
+            pz_act <= a_; pz_x <= x_; pz_y <= y_; pz_frame <= f_;
         end
     end
 endmodule

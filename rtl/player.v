@@ -75,8 +75,7 @@ module player (
     function blocked(input [11:0] a);
         blocked = (blk_en[0] && a == blk0) || (blk_en[1] && a == blk1) || (blk_en[2] && a == blk2);
     endfunction
-    wire ok_a = pass(t_a) && !blocked(addr_a);
-    wire ok_b = pass(t_b) && !blocked(addr_b);
+    reg ok_a, ok_b;                      // คิดใน S_XB / S_YB เท่านั้น (ไม่เป็น logic ทุก clock)
 
     function is_door(input [3:0] t);
         is_door = (t == 4'h2) || (t == 4'h3) || (t == 4'h4);
@@ -125,6 +124,8 @@ module player (
                 end
             end
             S_XB: begin
+                ok_a = pass(t_a) && !blocked(addr_a);
+                ok_b = pass(t_b) && !blocked(addr_b);
                 if (ok_a && ok_b)
                     px <= nx;
                 else if (!ok_a && ok_b && ((py + 10'd4) & 10'd31) >= 10'd24)
@@ -144,6 +145,8 @@ module player (
                 end
             end
             S_YB: begin
+                ok_a = pass(t_a) && !blocked(addr_a);
+                ok_b = pass(t_b) && !blocked(addr_b);
                 if (ok_a && ok_b)
                     py <= ny;
                 else if (!ok_a && ok_b && ((px + 10'd4) & 10'd31) >= 10'd24)
