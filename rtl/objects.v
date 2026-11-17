@@ -33,6 +33,9 @@ module objects (
     input  wire [1:0]   damage,         // ดาเมจของร่างปัจจุบัน (game_fsm)
     input  wire         atk_press,      // BTNC rise
     input  wire         atk_hold,       // BTNC level
+    input  wire         dbg_clear,      // pulse (DEBUG): ลบมอนทั้งห้อง -> ห้องเคลียร์
+    input  wire [11:0]  blk0, blk1, blk2,   // tile กันเพิ่ม (กล่อง / gate จาก puzzles.v)
+    input  wire [2:0]   blk_en,
     output wire         doors_open,     // ประตู D เปิด (0 = ห้อง Combat ล็อก)
     output wire [2:0]   alive,          // มอนที่เหลือในห้อง
     output reg          hit = 1'b0,     // pulse: ผู้เล่นโดนตี -> game_fsm.take_hit
@@ -115,6 +118,10 @@ module objects (
         mpass = (t == 4'h1) || (t == 4'h7) || (t >= 4'hB);
     endfunction
 
+    function blocked(input [11:0] a);
+        blocked = (blk_en[0] && a == blk0) || (blk_en[1] && a == blk1) || (blk_en[2] && a == blk2);
+    endfunction
+
     // ---------- spawn ROM ----------
     reg  [2:0]  si = 0;
     wire [15:0] sd;
@@ -182,6 +189,7 @@ module objects (
         if (atk_press && run) atk_req <= 1'b1;
         if (!run) atk_req <= 1'b0;
         if (room_load) spawn_req <= 1'b1;
+        if (dbg_clear && st == S_IDLE && !spawn_req) m_act <= 0;   // ห้องเคลียร์ที่ S_END ของเฟรมถัดไป
 
         if (rst || restart) begin
             cleared <= 0;
@@ -267,7 +275,7 @@ module objects (
                 ph <= 1;
             end
         end else begin                       // ph 1: ตัดสินจาก tile
-            if (bpass(tda)) begin p_xv[(i[0])*10 +: 10] <= nx; p_yv[(i[0])*10 +: 10] <= ny; end
+            if (bpass(tda) && !blocked(ta)) begin p_xv[(i[0])*10 +: 10] <= nx; p_yv[(i[0])*10 +: 10] <= ny; end
             else p_act[i[0]] <= 1'b0;
             ph <= 0;
             if (i == NP - 1) begin j <= 0; st <= S_EB; end
@@ -290,7 +298,7 @@ module objects (
                 ph <= 1;
             end
         end else begin
-            if (bpass(tda)) begin e_xv[(j)*10 +: 10] <= nx; e_yv[(j)*10 +: 10] <= ny; end
+            if (bpass(tda) && !blocked(ta)) begin e_xv[(j)*10 +: 10] <= nx; e_yv[(j)*10 +: 10] <= ny; end
             else e_act[j] <= 1'b0;
             ph <= 0;
             if (j == NE - 1) begin i <= 0; st <= S_MON; end
@@ -328,7 +336,7 @@ module objects (
                 end else ph <= 2'd2;
             end
             2'd1: begin
-                if (mpass(tda) && mpass(tdb)) m_xv[(i)*10 +: 10] <= nx;
+                if (mpass(tda) && mpass(tdb) && !blocked(ta) && !blocked(tb)) m_xv[(i)*10 +: 10] <= nx;
                 ph <= 2'd2;
             end
             2'd2: begin                                         // มอน A แกน y
@@ -350,7 +358,7 @@ module objects (
                 end
             end
             default: begin
-                if (mpass(tda) && mpass(tdb)) m_yv[(i)*10 +: 10] <= ny;
+                if (mpass(tda) && mpass(tdb) && !blocked(ta) && !blocked(tb)) m_yv[(i)*10 +: 10] <= ny;
                 ph <= 2'd0;
                 if (i == NM - 1) begin i <= 0; j <= 0; st <= S_CPB; end
                 else i <= i + 1'b1;

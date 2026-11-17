@@ -1,8 +1,8 @@
 // ชั้น object (มอน กระสุน เอฟเฟกต์ฟัน) แบบ line buffer สองชุดสลับกัน
 //
 // ระหว่างแสดงบรรทัด v: วาด object ทุกตัวที่ทับบรรทัด v+1 ลงบัฟเฟอร์หลัง ทีละพิกเซลต่อ clock
-//   ลำดับวาด (ทีหลังทับก่อน): มอน 6 -> กระสุนศัตรู 16 -> กระสุนผู้เล่น 2 -> เอฟเฟกต์ฟัน 1
-//   งานต่อบรรทัดสูงสุด ~ 6x32 + 18x8 + 32 + 25 (สแกน) ≈ 395 clock < 800 clock ต่อบรรทัด (CE_DIV = 1)
+//   ลำดับวาด (ทีหลังทับก่อน): ของปริศนา 9 -> มอน 6 -> กระสุนศัตรู 16 -> กระสุนผู้เล่น 2 -> เอฟเฟกต์ฟัน 1
+//   งานต่อบรรทัดสูงสุด ~ 6x32 + 18x8 + 32 + 4x32 (ของปริศนาแถวเดียวกัน) + 34 (สแกน) ≈ 530 clock < 800 (CE_DIV = 1)
 // บัฟเฟอร์หน้า (บรรทัด v) อ่านที่ hcount แล้วเขียน F0F (โปร่งใส) ทับตอน ce ให้สะอาดสำหรับรอบถัดไป
 //   (RAM อ่านก่อนเขียนใน clock เดียวกัน -> ได้ค่าเก่า)
 // เอาต์พุต obj_px ตรงเวลากับข้อมูล ROM ของ renderer (2 clock หลัง hcount/vcount)
@@ -19,13 +19,16 @@ module objline (
     input  wire [19:0]  pb_x, pb_y,
     input  wire [15:0]  eb_act,
     input  wire [159:0] eb_x, eb_y,
+    input  wire [8:0]   pz_act,
+    input  wire [89:0]  pz_x, pz_y,
+    input  wire [35:0]  pz_frame,
     input  wire         melee_on,
     input  wire [1:0]   melee_dir,
     input  wire [9:0]   px, py,
     output reg  [11:0]  obj_px = 12'hF0F
 );
     localparam [11:0] C_T = 12'hF0F;
-    localparam NOBJ = 25;                    // 0-5 มอน, 6-21 กระสุนศัตรู, 22-23 กระสุนผู้เล่น, 24 ฟัน
+    localparam NOBJ = 34;                    // 0-8 ปริศนา, 9-14 มอน, 15-30 กระสุนศัตรู, 31-32 กระสุนผู้เล่น, 33 ฟัน
 
     // ---------- line buffer x2 ----------
     reg [11:0] lb0 [0:1023];
@@ -37,15 +40,15 @@ module objline (
     reg        drawing = 1'b0;
     reg        dbuf = 1'b0;                  // บัฟเฟอร์ที่กำลังวาด
     reg [9:0]  tline = 0;                    // บรรทัดที่กำลังวาด
-    reg [4:0]  o = 0;                        // object index
+    reg [5:0]  o = 0;                        // object index
     reg        inobj = 1'b0;                 // กำลังวาดคอลัมน์ของ object o
     reg [5:0]  col = 0;
     reg [9:0]  ox = 0;
     reg [4:0]  orow = 0;
     reg [5:0]  osize = 0;
-    reg [1:0]  okind = 0;                    // 0 มอน, 1 กระสุน, 2 ฟัน
+    reg [1:0]  okind = 0;                    // 0 มอน, 1 กระสุน, 2 ฟัน, 3 ปริศนา
     reg        oflash = 1'b0;
-    reg [1:0]  oframe = 0;                   // มอน: {type, anim}  กระสุน: kind  ฟัน: ทิศ
+    reg [3:0]  oframe = 0;                   // มอน: {type, anim}  กระสุน: kind  ฟัน: ทิศ  ปริศนา: เฟรม 0-9
     // ไปป์ไลน์เขียน (ROM ตอบช้า 1 clock)
     reg        w_on = 1'b0, w_flash = 1'b0;
     reg [1:0]  w_kind = 0;
@@ -53,30 +56,36 @@ module objline (
 
     reg  [11:0] maddr = 0, eaddr = 0;
     reg  [6:0]  baddr = 0;
-    wire [11:0] mdat, edat, bdat;
+    reg  [13:0] paddr = 0;
+    wire [11:0] mdat, edat, bdat, pdat;
     monster_rom mrom (.clk(clk), .addr(maddr), .data(mdat));
     effect_rom  erom (.clk(clk), .addr(eaddr), .data(edat));
     bullet_rom  brom (.clk(clk), .addr(baddr), .data(bdat));
+    puzzle_rom  prom (.clk(clk), .addr(paddr), .data(pdat));
 
     // object o: ตำแหน่ง / ขนาด / เปิดอยู่ไหม (mux 1 ตัวต่อ clock)
     reg        s_act;
     reg [9:0]  s_x, s_y;
     reg [5:0]  s_size;
-    reg [1:0]  s_kind, s_frame;
+    reg [1:0]  s_kind;
+    reg [3:0]  s_frame;
     reg        s_flash;
     always @* begin
         s_act = 1'b0; s_x = 0; s_y = 0; s_size = 6'd32; s_kind = 2'd0; s_frame = 0; s_flash = 1'b0;
-        if (o < 5'd6) begin
-            s_act = mon_act[o]; s_x = mon_x[o*10 +: 10]; s_y = mon_y[o*10 +: 10];
-            s_frame = {mon_type[o], mon_anim}; s_flash = mon_flash[o];
-        end else if (o < 5'd22) begin
-            s_act = eb_act[o - 5'd6]; s_x = eb_x[(o - 5'd6)*10 +: 10]; s_y = eb_y[(o - 5'd6)*10 +: 10];
-            s_size = 6'd8; s_kind = 2'd1; s_frame = 2'd1;
-        end else if (o < 5'd24) begin
-            s_act = pb_act[o - 5'd22]; s_x = pb_x[(o - 5'd22)*10 +: 10]; s_y = pb_y[(o - 5'd22)*10 +: 10];
-            s_size = 6'd8; s_kind = 2'd1; s_frame = 2'd0;
+        if (o < 6'd9) begin
+            s_act = pz_act[o]; s_x = pz_x[o*10 +: 10]; s_y = pz_y[o*10 +: 10];
+            s_kind = 2'd3; s_frame = pz_frame[o*4 +: 4];
+        end else if (o < 6'd15) begin
+            s_act = mon_act[o - 6'd9]; s_x = mon_x[(o - 6'd9)*10 +: 10]; s_y = mon_y[(o - 6'd9)*10 +: 10];
+            s_frame = {2'b00, mon_type[o - 6'd9], mon_anim}; s_flash = mon_flash[o - 6'd9];
+        end else if (o < 6'd31) begin
+            s_act = eb_act[o - 6'd15]; s_x = eb_x[(o - 6'd15)*10 +: 10]; s_y = eb_y[(o - 6'd15)*10 +: 10];
+            s_size = 6'd8; s_kind = 2'd1; s_frame = 4'd1;
+        end else if (o < 6'd33) begin
+            s_act = pb_act[o - 6'd31]; s_x = pb_x[(o - 6'd31)*10 +: 10]; s_y = pb_y[(o - 6'd31)*10 +: 10];
+            s_size = 6'd8; s_kind = 2'd1; s_frame = 4'd0;
         end else begin
-            s_act = melee_on; s_kind = 2'd2; s_frame = melee_dir;
+            s_act = melee_on; s_kind = 2'd2; s_frame = {2'b00, melee_dir};
             s_x = (melee_dir == 2'd2) ? px - 10'd24 : (melee_dir == 2'd3) ? px + 10'd24 : px;
             s_y = (melee_dir == 2'd0) ? py + 10'd24 : (melee_dir == 2'd1) ? py - 10'd24 : py;
         end
@@ -88,8 +97,9 @@ module objline (
     wire [9:0] v2 = (vcount >= 10'd523) ? vcount - 10'd523 : vcount + 10'd2;
 
     // ---------- พอร์ตเขียน: บัฟเฟอร์ละ 1 พอร์ต (วาด ถ้าเป็นบัฟเฟอร์หลัง / ล้าง ถ้าเป็นบัฟเฟอร์หน้า) ----------
-    wire [11:0] w_src = (w_kind == 2'd0) ? (w_flash ? 12'hFFF : mdat) : (w_kind == 2'd1) ? bdat : edat;
-    wire        w_opq = (w_kind == 2'd0) ? (mdat != C_T) : (w_kind == 2'd1) ? (bdat != C_T) : (edat != C_T);
+    wire [11:0] w_raw = (w_kind == 2'd0) ? mdat : (w_kind == 2'd1) ? bdat : (w_kind == 2'd2) ? edat : pdat;
+    wire [11:0] w_src = (w_kind == 2'd0 && w_flash) ? 12'hFFF : w_raw;
+    wire        w_opq = (w_raw != C_T);
     wire        dw    = w_on && w_opq;                                    // วาดพิกเซลทึบ
     wire        cl    = ce && (hcount < 10'd640) && (vcount < 10'd480);   // ล้างพิกเซลที่อ่านแล้ว
     wire        we0   = (dw && !dbuf) || (cl && !vcount[0]);
@@ -122,9 +132,10 @@ module objline (
                 end
             end else begin
                 // อ่าน ROM คอลัมน์ col, เขียนใน clock ถัดไป
-                maddr <= {oframe, orow, col[4:0]};
-                eaddr <= {oframe, orow, col[4:0]};
+                maddr <= {oframe[1:0], orow, col[4:0]};
+                eaddr <= {oframe[1:0], orow, col[4:0]};
                 baddr <= {oframe[0], orow[2:0], col[2:0]};
+                paddr <= {oframe, orow, col[4:0]};
                 w_on <= ((ox + col) < 10'd640);                // 10 bit wrap: x ติดลบ (เช่น 1000 + 30) ได้ 6
                 w_x <= ox + col; w_kind <= okind; w_flash <= oflash;
                 col <= col + 1'b1;

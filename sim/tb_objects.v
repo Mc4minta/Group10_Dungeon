@@ -41,13 +41,14 @@ module tb_objects;
     player pl (.clk(clk), .rst(rst), .frame_tick(tick), .up(up), .down(down), .left(left), .right(right),
                .hold_facing(atk_hold), .form(form), .speed(speed), .freeze(freeze), .grid(grid),
                .doors_open(doors_open), .open_L(open_L), .load(p_load), .load_x(lx), .load_y(ly),
-               .kb_start(kb_start), .kb_dir(kb_dir), .px(px), .py(py), .facing(facing), .pose(pose),
+               .kb_start(kb_start), .kb_dir(kb_dir), .blk0(12'd0), .blk1(12'd0), .blk2(12'd0), .blk_en(3'd0), .px(px), .py(py), .facing(facing), .pose(pose),
                .door_evt(door_evt), .door_dir(door_dir));
 
     objects dut (.clk(clk), .rst(rst), .frame_tick(tick), .run(state == 3'd1), .restart(restart | restart_tb),
                  .room_load(o_load), .floor(floor), .room(room), .grid(grid), .open_L(open_L),
                  .px(px), .py(py), .facing(facing), .form(form), .damage(damage),
-                 .atk_press(atk_press), .atk_hold(atk_hold),
+                 .atk_press(atk_press), .atk_hold(atk_hold), .dbg_clear(1'b0),
+                 .blk0(12'd0), .blk1(12'd0), .blk2(12'd0), .blk_en(3'd0),
                  .doors_open(doors_open), .alive(alive), .hit(hit), .kb_start(kb_start), .kb_dir(kb_dir),
                  .invuln(invuln), .player_blink(blink), .busy(busy),
                  .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),

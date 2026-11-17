@@ -21,6 +21,8 @@ module player (
     input  wire        open_L,                 // ประตูบอสเปิดไหม (has_item[floor])
     input  wire        load,                   // วางผู้เล่นที่ (load_x, load_y)
     input  wire [9:0]  load_x, load_y,
+    input  wire [11:0] blk0, blk1, blk2,       // tile ที่กันการเดินเพิ่ม (กล่อง 2 + gate จาก puzzles.v), address แบบ tilemap
+    input  wire [2:0]  blk_en,
     input  wire        kb_start,               // pulse จาก objects.v: เริ่ม knockback
     input  wire [1:0]  kb_dir,                 // ทิศที่ถอย 0 ลง 1 ขึ้น 2 ซ้าย 3 ขวา
     output reg  [9:0]  px = 0,                 // มุมซ้ายบนของ sprite
@@ -70,6 +72,12 @@ module player (
         endcase
     endfunction
 
+    function blocked(input [11:0] a);
+        blocked = (blk_en[0] && a == blk0) || (blk_en[1] && a == blk1) || (blk_en[2] && a == blk2);
+    endfunction
+    wire ok_a = pass(t_a) && !blocked(addr_a);
+    wire ok_b = pass(t_b) && !blocked(addr_b);
+
     function is_door(input [3:0] t);
         is_door = (t == 4'h2) || (t == 4'h3) || (t == 4'h4);
     endfunction
@@ -117,11 +125,11 @@ module player (
                 end
             end
             S_XB: begin
-                if (pass(t_a) && pass(t_b))
+                if (ok_a && ok_b)
                     px <= nx;
-                else if (!pass(t_a) && pass(t_b) && ((py + 10'd4) & 10'd31) >= 10'd24)
+                else if (!ok_a && ok_b && ((py + 10'd4) & 10'd31) >= 10'd24)
                     py <= py + 10'd1;                       // ชนมุมบน -> ไถลลง
-                else if (pass(t_a) && !pass(t_b) && ((py + 10'd27) & 10'd31) <= 10'd7)
+                else if (ok_a && !ok_b && ((py + 10'd27) & 10'd31) <= 10'd7)
                     py <= py - 10'd1;                       // ชนมุมล่าง -> ไถลขึ้น
                 state <= S_YA;
             end
@@ -136,11 +144,11 @@ module player (
                 end
             end
             S_YB: begin
-                if (pass(t_a) && pass(t_b))
+                if (ok_a && ok_b)
                     py <= ny;
-                else if (!pass(t_a) && pass(t_b) && ((px + 10'd4) & 10'd31) >= 10'd24)
+                else if (!ok_a && ok_b && ((px + 10'd4) & 10'd31) >= 10'd24)
                     px <= px + 10'd1;                       // ชนมุมซ้าย -> ไถลขวา
-                else if (pass(t_a) && !pass(t_b) && ((px + 10'd27) & 10'd31) <= 10'd7)
+                else if (ok_a && !ok_b && ((px + 10'd27) & 10'd31) <= 10'd7)
                     px <= px - 10'd1;                       // ชนมุมขวา -> ไถลซ้าย
                 state <= S_DA;
             end
