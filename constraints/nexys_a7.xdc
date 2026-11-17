@@ -97,10 +97,10 @@ set_property -dict { PACKAGE_PIN B12 IOSTANDARD LVCMOS33 } [get_ports VGA_VS]
 set_property -dict { PACKAGE_PIN A11 IOSTANDARD LVCMOS33 } [get_ports AUD_PWM]
 set_property -dict { PACKAGE_PIN D12 IOSTANDARD LVCMOS33 } [get_ports AUD_SD]
 
-## PDM microphone (เปิดใช้ใน P5 พร้อมเพิ่ม port ใน top.v)
-#set_property -dict { PACKAGE_PIN J5 IOSTANDARD LVCMOS33 } [get_ports M_CLK]
-#set_property -dict { PACKAGE_PIN H5 IOSTANDARD LVCMOS33 } [get_ports M_DATA]
-#set_property -dict { PACKAGE_PIN F5 IOSTANDARD LVCMOS33 } [get_ports M_LRSEL]
+## PDM microphone (P5: pdm_mic.v)
+set_property -dict { PACKAGE_PIN J5 IOSTANDARD LVCMOS33 } [get_ports M_CLK]
+set_property -dict { PACKAGE_PIN H5 IOSTANDARD LVCMOS33 } [get_ports M_DATA]
+set_property -dict { PACKAGE_PIN F5 IOSTANDARD LVCMOS33 } [get_ports M_LRSEL]
 
 ## Configuration
 set_property CONFIG_VOLTAGE 3.3 [current_design]
