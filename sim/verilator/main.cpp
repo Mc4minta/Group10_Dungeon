@@ -4,10 +4,15 @@
 //        Backspace = CPU_RESETN   Esc = ออก
 // 7-seg, LED, RGB LED, สถานะสวิตช์ แสดงบนแถบด้านล่างของหน้าต่าง
 //
+// เกม (P2): เริ่มที่หน้า TITLE กด Space (BTNC) เริ่มเล่น · F6 (SW15) = sprint · 3 (SW3) = ได้ไอเทม/EVOLVE ·
+//          4 (SW4) = โดนตี HP-1 · 1 (SW1) = เคลียร์ชั้น · 0 (SW0) เปิดประตู L · 2 (SW2) ปิดประตู D
+//          (SW1/3/4 ทำงานตอน "ยกขึ้น" คือสลับจากล่างขึ้นบน) — รายละเอียดดู README.md
+//
 // ตัวเลือกสำหรับทดสอบอัตโนมัติ:
 //   --frames N        ออกหลัง N เฟรม
 //   --shot file.bmp   บันทึกภาพเฟรมสุดท้าย
-//   --script "R:10:80,U:90:120,1:200"   กดปุ่มตามช่วงเฟรม (U D L R C) / สลับสวิตช์ (0-9) ที่เฟรมนั้น
+//   --shot-at N:file.bmp   บันทึกภาพ ณ เฟรม N (ใช้ซ้ำได้หลายครั้ง)
+//   --script "R:10:80,U:90:120,1:200"   กดปุ่มตามช่วงเฟรม (U D L R C) / สลับสวิตช์ที่เฟรมนั้น (0-9 = SW0-9, a-f = SW10-15)
 //   --headless | HEADLESS=1   ไม่เรียก SDL เลย, รัน 300 เฟรม (หรือ --frames N) แล้วพิมพ์ fps
 //   FRAMESKIP=N | --skip N    จำลอง N เฟรมต่อ 1 เฟรมที่แสดง/อ่านคีย์ (ค่าเริ่มต้น 1 = เหมือนเดิม; กด [ ] ปรับตอนรัน)
 //   RENDERER=sw|accel         เลือก SDL renderer (ค่าเริ่มต้น = SDL เลือกเอง)
@@ -63,6 +68,7 @@ int main(int argc, char** argv) {
     Verilated::commandArgs(argc, argv);
     int max_frames = -1;
     std::string shot;
+    std::vector<std::pair<int, std::string>> shots;   // --shot-at N:file
     std::vector<Act> script;
     bool headless = false;
     int skip = 1;
@@ -74,6 +80,10 @@ int main(int argc, char** argv) {
         else if (!strcmp(argv[i], "--headless")) headless = true;
         else if (!strcmp(argv[i], "--skip") && i + 1 < argc) skip = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--shot") && i + 1 < argc) shot = argv[++i];
+        else if (!strcmp(argv[i], "--shot-at") && i + 1 < argc) {
+            std::string t = argv[++i]; size_t c = t.find(':');
+            if (c != std::string::npos) shots.push_back({atoi(t.c_str()), t.substr(c + 1)});
+        }
         else if (!strcmp(argv[i], "--script") && i + 1 < argc) {
             std::string s = argv[++i];
             size_t p = 0;
@@ -112,6 +122,7 @@ int main(int argc, char** argv) {
     int prev_hs = 1, prev_vs = 1;
     int rgb_seen = 0;
     uint8_t digit[8]; memset(digit, 0x7F, 8);
+    bool dpon[8] = {0};                       // จุดทศนิยมต่อหลัก (DP active-low)
     bool quit = false;
     bool kU = 0, kD = 0, kL = 0, kR = 0, kC = 0;
     auto t0 = std::chrono::steady_clock::now();
@@ -130,6 +141,7 @@ int main(int argc, char** argv) {
             if (top->AN == (uint8_t)~(1 << k)) {
                 digit[k] = (top->CG << 6) | (top->CF << 5) | (top->CE << 4) | (top->CD << 3) |
                            (top->CC << 2) | (top->CB << 1) | top->CA;
+                dpon[k] = !top->DP;
             }
 
         // RGB LED เป็น PWM สว่างแค่ ~6% -> จำว่าเฟรมนี้เคยติดสีไหน
@@ -151,6 +163,7 @@ int main(int argc, char** argv) {
                     int cx = 16 + (7 - k) * 28;
                     fill(px.data(), cx - 3, H + 14, 24, 36, 0xFF101010);
                     draw_char(px.data(), cx, H + 18, seg_char(digit[k]), 0xFFFF4A3A);
+                    if (dpon[k]) fill(px.data(), cx + 19, H + 44, 4, 4, 0xFFFF4A3A);
                 }
                 for (int i = 0; i < 16; i++) {             // LED15..0
                     bool on = (top->LED >> (15 - i)) & 1;
@@ -164,6 +177,12 @@ int main(int argc, char** argv) {
                 fill(px.data(), 500, H + 18, 26, 26, rgb16 == 0xFF000000 ? 0xFF303030 : rgb16);
                 fill(px.data(), 536, H + 18, 26, 26, rgb17 == 0xFF000000 ? 0xFF303030 : rgb17);
 
+                for (auto& sh : shots) if (frame == sh.first) {      // --shot-at: ภาพของเฟรมนี้ (รวมแผง)
+                    SDL_Surface* ss = SDL_CreateRGBSurfaceFrom(px.data(), W, H + PANEL, 32, W * 4,
+                                                               0x00FF0000, 0x0000FF00, 0x000000FF, 0);
+                    SDL_SaveBMP(ss, sh.second.c_str());
+                    SDL_FreeSurface(ss);
+                }
                 SDL_UpdateTexture(tex, nullptr, px.data(), W * 4);
                 SDL_RenderClear(ren);
                 SDL_RenderCopy(ren, tex, nullptr, nullptr);
@@ -211,6 +230,7 @@ int main(int argc, char** argv) {
                     if (a.key == 'L') sL = 1; if (a.key == 'R') sR = 1; if (a.key == 'C') sC = 1;
                 }
                 if (a.key >= '0' && a.key <= '9' && frame == a.from) top->SW ^= (1 << (a.key - '0'));
+                if (a.key >= 'a' && a.key <= 'f' && frame == a.from) top->SW ^= (1 << (10 + a.key - 'a'));
             }
             top->BTNU = kU | sU; top->BTND = kD | sD; top->BTNL = kL | sL; top->BTNR = kR | sR; top->BTNC = kC | sC;
 
