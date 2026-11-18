@@ -272,12 +272,12 @@ int main(int argc, char** argv) {
             if (logn > 0 && frame % logn == 0) {
                 auto* r = top->rootp;
                 printf("f=%d LED=%04x st=%d fl=%d room=%d px=%d py=%d hp=%d form=%d alive=%d bulbs=%x sm=%d rnd=%d seq=%03x"
-                       " boss=%d bhp=%d bx=%d by=%d stun=%d esc=%04x\n",
+                       " boss=%d bhp=%d bx=%d by=%d stun=%d esc=%04x pact=%02x chg=%d\n",
                        frame, top->LED, r->top->dbg_state, r->top->dbg_floor, r->top->dbg_room,
                        r->top->dbg_px, r->top->dbg_py, r->top->dbg_hp, r->top->dbg_form,
                        r->top->dbg_alive, r->top->dbg_bulbs, r->top->dbg_sm, r->top->dbg_round,
                        r->top->dbg_seq, r->top->dbg_bact ? r->top->dbg_floor + 1 : 0, r->top->dbg_bhp,
-                       r->top->dbg_bx, r->top->dbg_by, r->top->dbg_stun, r->top->dbg_esc);
+                       r->top->dbg_bx, r->top->dbg_by, r->top->dbg_stun, r->top->dbg_esc, r->top->dbg_pact, r->top->dbg_chg);
                 fflush(stdout);
             }
 

@@ -215,6 +215,8 @@ module top #(
     wire [3:0]  dbg_bulbs /*verilator public*/ = bulbs;
     wire [2:0]  dbg_alive /*verilator public*/ = alive;
     wire [4:0]  dbg_bhp   /*verilator public*/ = b_hp;
+    wire [5:0]  dbg_pact  /*verilator public*/ = pb_act;
+    wire        dbg_chg   /*verilator public*/ = charged;
     wire [9:0]  dbg_bx    /*verilator public*/ = b_x;
     wire [9:0]  dbg_by    /*verilator public*/ = b_y;
     wire        dbg_bact  /*verilator public*/ = b_act;

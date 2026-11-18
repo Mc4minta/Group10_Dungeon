@@ -170,7 +170,7 @@ module renderer (
         if (txt_on)                                  color <= 12'hFFF;    // ข้อความอยู่บนสุด
         else if (r2_scr == 2'd2)                     color <= C_OVER;
         else if (r2_scr == 2'd3)                     color <= C_WIN;
-        else if (r2_p && spr_px != C_T)              color <= r2_tint ? (spr_px | 12'h888) : spr_px;   // ชาร์จเต็ม: สว่าง
+        else if (r2_p && spr_px != C_T)              color <= r2_tint ? (spr_px | 12'hCCC) : spr_px;   // ชาร์จเต็ม: สว่าง
         else if (r2_scr == 2'd1)                     color <= C_NAVY;
         else if (r2_out)                             color <= 12'h000;    // จอสั่น: ขอบที่เลื่อนออก
         else if (obj_px != C_T)                      color <= obj_px;   // มอน < กระสุน < ฟัน (เรียงใน objline)
