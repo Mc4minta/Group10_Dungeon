@@ -28,9 +28,9 @@ module tb_objects;
     wire [3:0] m_t, m_o, s_t, s_o;
     wire [9:0] px, py; wire [1:0] facing, pose, door_dir; wire door_evt;
     wire doors_open, hit, kb_start, invuln, blink, busy, melee_on, mon_anim;
-    wire [1:0] kb_dir, melee_dir, pb_act; wire [2:0] alive;
+    wire [1:0] kb_dir, melee_dir; wire [5:0] pb_act; wire [11:0] pb_kind; wire charged; wire [2:0] alive;
     wire [5:0] mon_act, mon_type, mon_flash; wire [59:0] mon_x, mon_y;
-    wire [19:0] pb_x, pb_y; wire [15:0] eb_act; wire [159:0] eb_x, eb_y;
+    wire [59:0] pb_x, pb_y; wire [15:0] eb_act; wire [159:0] eb_x, eb_y;
 
     game_fsm fsm (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(fsm_btnc), .got_item(item),
                   .take_hit(hit), .floor_done(1'b0), .exit_evt(1'b0), .escape_start(1'b0), .exit_direct(1'b1), .sprint(1'b0),
@@ -53,7 +53,7 @@ module tb_objects;
                  .doors_open(doors_open), .alive(alive), .hit(hit), .kb_start(kb_start), .kb_dir(kb_dir),
                  .invuln(invuln), .player_blink(blink), .busy(busy),
                  .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
-                 .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y),
+                 .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .pb_kind(pb_kind), .charged(charged),
                  .eb_act(eb_act), .eb_x(eb_x), .eb_y(eb_y), .melee_on(melee_on), .melee_dir(melee_dir));
 
     // ---------- monitors ----------
@@ -144,8 +144,15 @@ module tb_objects;
         if (dut.st == 4'd6) fire_i = dut.i;
     end
 
+    function [2:0] pop6(input [5:0] v); pop6 = v[0] + v[1] + v[2] + v[3] + v[4] + v[5]; endfunction
+    // tile ใต้จุดกลางกระสุน slot s (ขนาด sz)
+    function [3:0] tile_at(input [3:0] g, input [9:0] x, input [9:0] y);
+        tile_at = ob_tile(g * 300 + y[8:5] * 20 + x[9:5]);
+    endfunction
+    function [3:0] ob_tile(input integer a); ob_tile = dut.rom_a.mem[a]; endfunction
+    integer nb_big, wall_bad, fence_seen, kills0, cnt3, d_ok, n2;
     integer n, max_pb, last_spawn, gap_ok, spawns, x0, minx, maxy_seen, miny, ok, d0;
-    reg [1:0] pb_prev;
+    reg [5:0] pb_prev;
     initial begin
         for (n = 0; n < 6; n = n + 1) begin fire_cnt[n] = 0; fire_bul[n] = 0; end
         fire_i = 0;
@@ -250,18 +257,17 @@ module tb_objects;
         atk_hold = 1;
         for (n = 0; n < 160; n = n + 1) begin
             frames(1);
-            if (pb_act[0] + pb_act[1] > max_pb) max_pb = pb_act[0] + pb_act[1];
+            if (pop6(pb_act) > max_pb) max_pb = pop6(pb_act);
             if ((pb_act & ~pb_prev) != 0) begin
-                // นัดที่ 2 ห่าง 15 เฟรมพอดี; ถ้า 2 นัดยังบินอยู่ต้องรอ slot ว่าง (ห่าง >= 15)
-                if (spawns == 1 && frame_no - last_spawn != 15) gap_ok = 0;
-                if (spawns >= 1 && frame_no - last_spawn < 15) gap_ok = 0;
+                // ยิงซ้ำทุก 15 เฟรม (6 slot พอ ไม่ต้องรอ)
+                if (spawns >= 1 && frame_no - last_spawn != 15) gap_ok = 0;
                 $display("      spawn at frame %0d (pb_act=%b)", frame_no, pb_act); last_spawn = frame_no; spawns = spawns + 1;
             end
             pb_prev = pb_act;
         end
         atk_hold = 0;
-        check(max_pb == 2, "max 2 player bullets on screen");
-        check(gap_ok && spawns >= 3, "hold BTNC: refire after 15-frame cooldown (waits for a free slot)");
+        check(max_pb >= 3 && max_pb <= 6, "form 2 hold: several bullets in flight, never more than 6 slots");
+        check(gap_ok && spawns >= 5, "hold BTNC: refire every 15 frames");
         frames(60); clear_all;
         // กระสุนชนกำแพงบน: หยุดก่อน tile # (ศูนย์กลาง y >= 32)
         place(0, 288, 224);
@@ -378,6 +384,103 @@ module tb_objects;
         @(posedge clk) restart_tb <= 1; @(posedge clk) restart_tb <= 0;
         enter(7, 1, 1, 40, 240);
         check(alive == 6 && !doors_open && dut.cleared == 0, "restart clears cleared bits: monsters respawn");
+
+        // ================= 8. อาวุธต่อร่าง / ฟันทุกร่าง / กระสุนชนกัน (P6) =================
+        enter(0, 0, 0, 288, 224); clear_all; heal; frames(2);
+        // --- ร่าง 3: กระจาย 3 ทาง ---
+        while (busy) @(posedge clk); fsm.form = 2'd2;
+        right = 1; frames(1); right = 0; frames(16); clear_all;
+        press; frames(1);
+        cnt3 = 0; d_ok = 0;
+        for (n = 0; n < 6; n = n + 1) if (pb_act[n]) begin
+            cnt3 = cnt3 + 1;
+            if (dut.p_dirv[n*3 +: 3] == 3) d_ok = d_ok | 1;
+            if (dut.p_dirv[n*3 +: 3] == 7) d_ok = d_ok | 2;
+            if (dut.p_dirv[n*3 +: 3] == 5) d_ok = d_ok | 4;
+        end
+        check(cnt3 == 3 && d_ok == 7 && pb_kind[1:0] == 2'd1, "form 3 press: 3 bullets right / up-right / down-right");
+        // ทแยงไม่ทะลุกำแพง: ตามดูทุกเฟรมว่าจุดกลางไม่อยู่ใน #
+        wall_bad = 0;
+        for (n = 0; n < 120 && pb_act != 0; n = n + 1) begin
+            frames(1);
+            for (n2 = 0; n2 < 6; n2 = n2 + 1)
+                if (pb_act[n2] && tile_at(0, pb_x[n2*10 +: 10] + 4, pb_y[n2*10 +: 10] + 4) == 0) wall_bad = 1;
+        end
+        check(!wall_bad && pb_act == 0, "spread / diagonal bullets never enter # tiles, all stop at walls");
+        // ทแยงผ่านรั้ว F: ห้อง grid 7 (รั้วมุมซ้ายบน), ยิงกระจายหันซ้ายจาก (200, 112)
+        place(7, 200, 112); clear_all;
+        left = 1; frames(1); left = 0; frames(16); clear_all;
+        fence_seen = 0; wall_bad = 0;
+        press;
+        for (n = 0; n < 120 && (n < 2 || pb_act != 0); n = n + 1) begin
+            frames(1);
+            for (n2 = 0; n2 < 6; n2 = n2 + 1) if (pb_act[n2]) begin
+                if (tile_at(7, pb_x[n2*10 +: 10] + 4, pb_y[n2*10 +: 10] + 4) == 6) fence_seen = fence_seen + 1;
+                if (tile_at(7, pb_x[n2*10 +: 10] + 4, pb_y[n2*10 +: 10] + 4) == 0) wall_bad = 1;
+            end
+        end
+        check(fence_seen > 0 && !wall_bad, "diagonal bullets fly over fences F, stop at #");
+        // slot: กดค้างนาน -> ไม่เกิน 6
+        place(0, 288, 224); clear_all; max_pb = 0;
+        right = 1; frames(1); right = 0;
+        atk_hold = 1;
+        for (n = 0; n < 100; n = n + 1) begin frames(1); if (pop6(pb_act) > max_pb) max_pb = pop6(pb_act); end
+        atk_hold = 0; frames(80); clear_all;
+        check(max_pb == 6, "form 3 hold: player bullets fill all 6 slots, never more");
+        // --- ร่าง 4: กด = นัดเร็ว, กดค้าง 45 เฟรม = ลูกใหญ่ ---
+        while (busy) @(posedge clk); fsm.form = 2'd3;
+        place(0, 288, 224); right = 1; frames(1); right = 0; frames(16); clear_all;
+        @(posedge clk) begin atk_press <= 1; atk_hold <= 1; end @(posedge clk) atk_press <= 0;
+        frames(1);
+        check(pop6(pb_act) == 1 && pb_kind[1:0] == 2'd2, "form 4 press: one fast shot (tap)");
+        x0 = pb_x[9:0]; frames(1);
+        check(pb_x[9:0] - x0 == dut.TAP_SPEED, "tap shot moves 6 px/frame");
+        frames(43); atk_hold = 0; frames(2);      // ค้าง 44 เฟรมหลังนัดเร็ว
+        nb_big = 0; for (n = 0; n < 6; n = n + 1) if (pb_act[n] && pb_kind[n*2 +: 2] == 3) nb_big = nb_big + 1;
+        check(nb_big == 0, "held 44 frames: released without a big shot");
+        frames(20); clear_all;
+        @(posedge clk) begin atk_press <= 1; atk_hold <= 1; end @(posedge clk) atk_press <= 0;
+        frames(1); frames(45);                   // ค้าง 45 เฟรมหลังนัดเร็ว
+        check(charged, "held 45 frames: charged (player flashes)");
+        atk_hold = 0; frames(2);
+        nb_big = 0; for (n = 0; n < 6; n = n + 1) if (pb_act[n] && pb_kind[n*2 +: 2] == 3) nb_big = nb_big + 1;
+        check(nb_big == 1 && !charged, "release after 45 frames: one big 16x16 shot");
+        clear_all;
+        // ลูกใหญ่ทะลุมอน 2 ตัวในแนวเดียว + ทำลายกระสุนศัตรู
+        place(0, 100, 224); right = 1; frames(1); right = 0; frames(16); clear_all;
+        put_mon(0, 1, 260, 224, 3);
+        put_mon(1, 1, 360, 224, 3);
+        put_eb(0, 460, 232, 2);                    // กระสุนศัตรูวิ่งซ้ายเข้าหา
+        dut.hurt_cnt = 7'd100;
+        @(posedge clk) begin atk_press <= 1; atk_hold <= 1; end @(posedge clk) atk_press <= 0;
+        frames(1); frames(45); atk_hold = 0;
+        for (n = 0; n < 80; n = n + 1) begin while (busy) @(posedge clk); dut.hurt_cnt = 7'd100; frames(1); end
+        check(dut.m_act[1:0] == 2'b00, "big shot (damage 4) pierces and kills 2 monsters in a line");
+        check(eb_act[0] == 0, "big shot destroys the enemy bullet in its path");
+        clear_all;
+        // --- ฟันอัตโนมัติร่าง 2-4 เมื่อมีศัตรูในกล่องหน้าตัว ---
+        for (n2 = 1; n2 <= 3; n2 = n2 + 1) begin
+            while (busy) @(posedge clk); fsm.form = n2;
+            place(0, 288, 224); clear_all; frames(25);   // พ้น cooldown
+            right = 1; frames(1); right = 0; frames(25);
+            put_mon(0, 1, 318, 224, 3);                  // อยู่ในกล่องฟันด้านขวา (x 316..331)
+            dut.hurt_cnt = 7'd100;
+            press; frames(1);
+            check(melee_on && pb_act == 0 && dut.m_hpv[2:0] < 3, "forms 2-4: enemy in front box -> melee instead of shooting");
+            clear_all; frames(25);
+            press; frames(1);
+            check(!melee_on && pb_act != 0, "forms 2-4: nobody in front -> shoot");
+            clear_all;
+        end
+        // --- กระสุนชนกัน ---
+        while (busy) @(posedge clk); fsm.form = 2'd1;
+        place(0, 100, 224); right = 1; frames(1); right = 0; frames(20); clear_all;
+        put_eb(0, 300, 236, 2);
+        dut.hurt_cnt = 7'd100;
+        press;
+        for (n = 0; n < 40 && (eb_act[0] || pb_act != 0); n = n + 1) begin while (busy) @(posedge clk); dut.hurt_cnt = 7'd100; frames(1); end
+        check(eb_act[0] == 0 && pb_act == 0 && n < 30, "player bullet + enemy bullet collide: both disappear");
+        clear_all; heal;
 
         // ================= 7. เวลา vblank =================
         $display("      objects busy max = %0d clocks per frame (budget 36000)", busy_max);

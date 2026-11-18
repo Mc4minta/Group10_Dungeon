@@ -26,9 +26,9 @@ module tb_puzzles;
     wire restart, next_floor, freeze, fsm_hide; wire [3:0] m_t, m_o, s_t, s_o;
     wire [9:0] px, py; wire [1:0] facing, pose, door_dir; wire door_evt;
     wire doors_open, obj_hit, kb_start, invuln, blink, obj_busy, melee_on, mon_anim;
-    wire [1:0] kb_dir, melee_dir, pb_act; wire [2:0] alive;
+    wire [1:0] kb_dir, melee_dir; wire [5:0] pb_act; wire [11:0] pb_kind; wire charged; wire [2:0] alive;
     wire [5:0] mon_act, mon_type, mon_flash; wire [59:0] mon_x, mon_y;
-    wire [19:0] pb_x, pb_y; wire [15:0] eb_act; wire [159:0] eb_x, eb_y;
+    wire [59:0] pb_x, pb_y; wire [15:0] eb_act; wire [159:0] eb_x, eb_y;
     wire pz_got, pz_hit, pz_busy, lit_on, wrong, note_on, led_on, lb_ok, gate_open, sm_ok;
     wire [1:0] lit, note, pbox_en; wire [3:0] room_led, bulbs;
     wire [2:0] has_item, blk_en; wire [11:0] blk0, blk1, blk2, pbox0, pbox1;
@@ -57,7 +57,7 @@ module tb_puzzles;
                 .doors_open(doors_open), .alive(alive), .hit(obj_hit), .kb_start(kb_start), .kb_dir(kb_dir),
                 .invuln(invuln), .player_blink(blink), .busy(obj_busy),
                 .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
-                .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y),
+                .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .pb_kind(pb_kind), .charged(charged),
                 .eb_act(eb_act), .eb_x(eb_x), .eb_y(eb_y), .melee_on(melee_on), .melee_dir(melee_dir));
 
     puzzles #(.SEED(16'h0000)) pz (.clk(clk), .rst(rst), .frame_tick(tick), .run(state == 3'd1),
@@ -298,6 +298,10 @@ module tb_puzzles;
         check(pbox_en == 2'b11, "both boxes resting on plates show tile 11");
         @(posedge clk) soko_reset <= 1; @(posedge clk) soko_reset <= 0; frames(1);
         check(gate_open && pbox_en == 2'b11, "SW13 ignored once the gate is open");
+        // gate เปิดแล้ว = กล่องล็อก: ถ้ายังไม่ล็อก การดันนี้จะเลื่อนกล่องได้
+        place(10'd224, 10'd288); right = 1; frames(20); right = 0; frames(10);   // ยืน (7,9) ระหว่างแผ่น ดันกล่อง (8,9) ไป (9,9) ที่ว่าง
+        check(pz.b0x == 6 && pz.b0y == 9 && pz.b1x == 8 && pz.b1y == 9 || pz.b0x == 8 && pz.b1x == 6,
+              "after the gate opens the boxes are locked (pushing does nothing)");
         // ผ่าน gate ไปเก็บไอเทม 2
         gots = 0;
         place(10'd384, 10'd224); right = 1; frames(70); right = 0; frames(2);

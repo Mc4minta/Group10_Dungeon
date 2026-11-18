@@ -23,11 +23,11 @@ module tb_boss;
     wire [1:0] floor; wire [2:0] room; wire [3:0] grid; wire w_load, exit_evt; wire [9:0] w_lx, w_ly;
     wire [9:0] px, py; wire [1:0] facing, pose, door_dir; wire door_evt;
     wire doors_open, obj_hit, kb_start, invuln, blink, obj_busy, melee_on, mon_anim;
-    wire [1:0] kb_dir, melee_dir, pb_act; wire [2:0] alive;
+    wire [1:0] kb_dir, melee_dir; wire [5:0] pb_act; wire [11:0] pb_kind; wire charged; wire [2:0] alive;
     wire [5:0] mon_act, mon_type, mon_flash; wire [59:0] mon_x, mon_y;
-    wire [19:0] pb_x, pb_y; wire [15:0] eb_act; wire [159:0] eb_x, eb_y;
+    wire [59:0] pb_x, pb_y; wire [15:0] eb_act; wire [159:0] eb_x, eb_y;
     wire b_act, b_flash, b_stun, b_fire, b_died, b_anim, b_busy, b_dmg; wire [9:0] b_x, b_y;
-    wire [1:0] b_kind, b_amt; wire [2:0] b_dead; wire [4:0] b_hp; wire [7:0] b_bar;
+    wire [1:0] b_kind; wire [2:0] b_amt; wire [2:0] b_dead; wire [4:0] b_hp; wire [7:0] b_bar;
 
     wire ld = w_load | tb_load;
     wire run = (state == 3'd1) || (state == 3'd4);
@@ -56,7 +56,7 @@ module tb_boss;
                 .doors_open(doors_open), .alive(alive), .hit(obj_hit), .kb_start(kb_start), .kb_dir(kb_dir),
                 .invuln(invuln), .player_blink(blink), .busy(obj_busy),
                 .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
-                .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y),
+                .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .pb_kind(pb_kind), .charged(charged),
                 .eb_act(eb_act), .eb_x(eb_x), .eb_y(eb_y), .melee_on(melee_on), .melee_dir(melee_dir));
     boss bs (.clk(clk), .rst(rst), .frame_tick(tick), .run(run), .restart(restart), .room_load(ld),
              .floor(floor), .room(room), .grid(grid), .px(px), .py(py), .dmg(b_dmg), .dmg_amt(b_amt), .clap(clap),
