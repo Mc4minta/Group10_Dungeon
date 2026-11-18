@@ -11,3 +11,4 @@ sim/*.vcd
 __pycache__/
 sim/verilator/obj_dir/
 *.bmp
+sim/verilator/obj_dir_seeded/

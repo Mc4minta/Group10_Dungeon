@@ -19,7 +19,8 @@
 //   --headless | HEADLESS=1   ไม่เรียก SDL เลย, รัน 300 เฟรม (หรือ --frames N) แล้วพิมพ์ fps
 //   FRAMESKIP=N | --skip N    จำลอง N เฟรมต่อ 1 เฟรมที่แสดง/อ่านคีย์ (ค่าเริ่มต้น 1 = เหมือนเดิม; กด [ ] ปรับตอนรัน)
 //   RENDERER=sw|accel         เลือก SDL renderer (ค่าเริ่มต้น = SDL เลือกเอง)
-//   LOG=N                     พิมพ์ "f=<เฟรม> LED=<hex> st=.. fl=.. room=.. px py hp form alive bulbs sm rnd seq" ทุก N เฟรม
+//   LOG=N                     พิมพ์ "f=<เฟรม> LED=<hex> st fl room px py hp form alive bulbs sm rnd seq boss bhp bx by stun esc" ทุก N เฟรม
+//   ปุ่ม C = ตบมือจำลอง (ไมค์ดัง 100 ms) · สคริปต์: K:<เฟรม>
 #include "Vtop.h"
 #include "verilated.h"
 #include "Vtop___024root.h"
@@ -85,6 +86,7 @@ static void draw_char(uint32_t* px, int x, int y, char ch, uint32_t c) {
             if (g[r * 3 + k] == '1') fill(px, x + k * 6, y + r * 6, 6, 6, c);
 }
 
+static int clap_until = -1;    // เฟรมสุดท้ายที่แสดง CLAP ในชื่อหน้าต่าง
 static long clap_left = 0;      // clock ที่เหลือของเสียงตบมือจำลอง (คีย์ C / สคริปต์ K)
 static unsigned rng = 12345;
 int main(int argc, char** argv) {
@@ -185,6 +187,7 @@ int main(int argc, char** argv) {
         rng ^= rng << 13; rng ^= rng >> 17; rng ^= rng << 5;
         top->M_DATA = clap_left > 0 ? ((rng & 127) < 115) : (rng & 1);
         if (clap_left > 0) clap_left--;
+        if (top->rootp->top->dbg_clap) clap_until = frame + 30;      // clap_pulse จาก pdm_mic.v -> CLAP ~0.5 วิ
         if (cyc == 20) top->CPU_RESETN = 1;
 
         // 7-seg: เก็บ pattern ของหลักที่ anode ติดอยู่ (หลักละ 2^17 clock -> ดูทุก 256 clock พอ)
@@ -209,11 +212,13 @@ int main(int argc, char** argv) {
             static const int logn = getenv("LOG") ? atoi(getenv("LOG")) : 0;
             if (logn > 0 && frame % logn == 0) {
                 auto* r = top->rootp;
-                printf("f=%d LED=%04x st=%d fl=%d room=%d px=%d py=%d hp=%d form=%d alive=%d bulbs=%x sm=%d rnd=%d seq=%03x\n",
+                printf("f=%d LED=%04x st=%d fl=%d room=%d px=%d py=%d hp=%d form=%d alive=%d bulbs=%x sm=%d rnd=%d seq=%03x"
+                       " boss=%d bhp=%d bx=%d by=%d stun=%d esc=%04x\n",
                        frame, top->LED, r->top->dbg_state, r->top->dbg_floor, r->top->dbg_room,
                        r->top->dbg_px, r->top->dbg_py, r->top->dbg_hp, r->top->dbg_form,
                        r->top->dbg_alive, r->top->dbg_bulbs, r->top->dbg_sm, r->top->dbg_round,
-                       r->top->dbg_seq);
+                       r->top->dbg_seq, r->top->dbg_bact ? r->top->dbg_floor + 1 : 0, r->top->dbg_bhp,
+                       r->top->dbg_bx, r->top->dbg_by, r->top->dbg_stun, r->top->dbg_esc);
                 fflush(stdout);
             }
 
@@ -254,11 +259,16 @@ int main(int argc, char** argv) {
             if (!headless) {   // fps: วัดทุก ~1 วินาที (headless วัดรวมตอนจบ)
                 auto t1 = std::chrono::steady_clock::now();
                 double dt = std::chrono::duration<double>(t1 - tw).count();
-                if (dt > 1.0) {
-                    char title[200];
-                    fps = fw / dt; tw = t1; fw = 0;
-                    snprintf(title, sizeof title, "Group10 Dungeon - %s  |  floor %d  %.1f fps  skip=%d  [frame %d]",
-                             state_name(top->rootp->top->dbg_state), top->rootp->top->dbg_floor + 1, fps, skip, frame);
+                // ป้ายเพิ่ม: CLAP (~0.5 วิหลังไมค์จับเสียงตบมือ), STUN (บอส 2 มึน)
+                static int last_tag = -1;
+                int tag = (frame <= clap_until ? 1 : 0) | (top->rootp->top->dbg_stun ? 2 : 0);
+                if (dt > 1.0 || tag != last_tag) {
+                    char title[220];
+                    if (dt > 1.0) { fps = fw / dt; tw = t1; fw = 0; }
+                    last_tag = tag;
+                    snprintf(title, sizeof title, "Group10 Dungeon - %s%s%s  |  floor %d  %.1f fps  skip=%d  [frame %d]",
+                             state_name(top->rootp->top->dbg_state), (tag & 1) ? "  CLAP" : "", (tag & 2) ? "  STUN" : "",
+                             top->rootp->top->dbg_floor + 1, fps, skip, frame);
                     SDL_SetWindowTitle(win, title);
                 }
             }

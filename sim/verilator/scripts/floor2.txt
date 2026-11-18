@@ -1,3 +1,6 @@
+# ต้องใช้ build แบบ seed คงที่: cd sim/verilator && make seeded  (SEED=0x1234 -> obj_dir_seeded/Vtop)
+# เล่น: cd mem && ../sim/verilator/obj_dir_seeded/Vtop --script-file ../sim/verilator/scripts/floor2.txt
+# (ชั้น 2 ไม่มีอะไรสุ่ม: ใช้ build ไหนก็ได้ แต่ใช้ seeded ให้เหมือนกันทุกสคริปต์)
 # ชั้น 2: สร้างโดย scripts/make_floor2_script.py — อย่าแก้มือ
 # Sokoban: ดันน้อยสุด 24 ครั้ง, 80 ก้าว จาก solver
 C:20:23          # TITLE -> PLAY

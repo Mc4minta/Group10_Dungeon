@@ -1,7 +1,9 @@
 # เล่นเกมบนจอคอมด้วย Verilator + SDL2
 #   make          build (PGO: build -> ซ้อมรัน 300 เฟรม -> build ใหม่ด้วย profile, ~2 เท่าของเวลา build ปกติ)
 #   make PGO=0    build ครั้งเดียว ไม่ทำ PGO (เร็วกว่าตอน build แต่ sim ช้ากว่า ~10%)
-#   make run      build + เปิดหน้าต่าง
+#   make run      build + เปิดหน้าต่าง (ปริศนาสุ่มต่างกันทุกเกม)
+#   make seeded   build แบบ seed คงที่ (SEED=0x1234) -> obj_dir_seeded/Vtop สำหรับสคริปต์ใน scripts/
+#   make SEED=0x5678  seed อื่น (ทุก SEED != 0 ใช้ obj_dir_seeded/)
 # ต้องมี: verilator (5.x), libsdl2-dev / sdl2, g++/clang, make
 ROOT    := ../..
 RTL     := $(wildcard $(ROOT)/rtl/*.v)
@@ -19,7 +21,16 @@ OPT_NATIVE := -O3 -march=native -fno-stack-protector
 FAST_CLOCK ?= 1
 # profile-guided optimisation ของ g++ (+~10%): 1 = เปิด
 PGO        ?= 1
-PROF_DIR   := $(CURDIR)/obj_dir/pgo
+# seed ของปริศนา: 0 = สุ่มจาก LFSR (เล่นปกติ), อื่น ๆ = รูปแบบหลอด / ลำดับ Simon คงที่ (สคริปต์เล่นซ้ำ)
+SEED        ?= 0
+SCRIPT_SEED := 0x1234
+SEED_DEC    := $(shell printf '%d' $(SEED))
+ifeq ($(SEED_DEC),0)
+MDIR := obj_dir
+else
+MDIR := obj_dir_seeded
+endif
+PROF_DIR   := $(CURDIR)/$(MDIR)/pgo
 PGO_GEN    := -fprofile-generate -fprofile-dir=$(PROF_DIR)
 PGO_USE    := -fprofile-use -fprofile-dir=$(PROF_DIR) -fprofile-correction -Wno-missing-profile
 NOCONDA    := env -u CXXFLAGS -u CPPFLAGS -u CFLAGS -u DEBUG_CXXFLAGS -u DEBUG_CPPFLAGS
@@ -27,28 +38,31 @@ ovr = OPT_FAST="$(OPT_NATIVE) $(1)" OPT_SLOW="$(OPT_NATIVE) $(1)" OPT_GLOBAL="$(
 
 # debounce สั้นลงใน simulation (ของจริง 10 ms = 1,000,000 clock)
 VFLAGS  := --cc --exe -O3 -j 0 --top-module top -I$(ROOT)/rtl -Wno-fatal -Wno-lint -Wno-style \
-           -GDEBOUNCE=2000 -GCE_DIV=1 --x-assign fast --x-initial fast \
+           -GDEBOUNCE=2000 -GCE_DIV=1 -GSEED=$(SEED_DEC) --Mdir $(MDIR) --x-assign fast --x-initial fast \
            -CFLAGS "-DNDEBUG -DCE_DIV=1 -DFAST_CLOCK=$(FAST_CLOCK) $(SDL_CF)" -LDFLAGS "$(SDL_LD)"
 
-all: obj_dir/Vtop
+all: $(MDIR)/Vtop
 
-obj_dir/Vtop: $(RTL) $(VH) main.cpp
+seeded:
+	$(MAKE) SEED=$(SCRIPT_SEED)
+
+$(MDIR)/Vtop: $(RTL) $(VH) main.cpp
 	verilator $(VFLAGS) $(RTL) main.cpp
 ifeq ($(PGO),1)
 	rm -rf $(PROF_DIR)
-	$(NOCONDA) $(MAKE) -C obj_dir -f Vtop.mk -j$(shell nproc) $(call ovr,$(PGO_GEN))
-	cd $(ROOT)/mem && HEADLESS=1 $(CURDIR)/obj_dir/Vtop --frames 300 --script "C:20:23,R:40:191,C:200:260,U:261:300" > /dev/null
-	rm -f obj_dir/*.o obj_dir/Vtop obj_dir/*.a
-	$(NOCONDA) $(MAKE) -C obj_dir -f Vtop.mk -j$(shell nproc) $(call ovr,$(PGO_USE))
+	$(NOCONDA) $(MAKE) -C $(MDIR) -f Vtop.mk -j$(shell nproc) $(call ovr,$(PGO_GEN))
+	cd $(ROOT)/mem && HEADLESS=1 $(CURDIR)/$(MDIR)/Vtop --frames 300 --script "C:20:23,R:40:191,C:200:260,U:261:300" > /dev/null
+	rm -f $(MDIR)/*.o $(MDIR)/Vtop $(MDIR)/*.a
+	$(NOCONDA) $(MAKE) -C $(MDIR) -f Vtop.mk -j$(shell nproc) $(call ovr,$(PGO_USE))
 else
-	$(NOCONDA) $(MAKE) -C obj_dir -f Vtop.mk -j$(shell nproc) $(call ovr,)
+	$(NOCONDA) $(MAKE) -C $(MDIR) -f Vtop.mk -j$(shell nproc) $(call ovr,)
 endif
 
 # $readmemh หาไฟล์ .mem จากโฟลเดอร์ปัจจุบัน -> รันจาก mem/
-run: obj_dir/Vtop
-	cd $(ROOT)/mem && $(CURDIR)/obj_dir/Vtop $(ARGS)
+run: $(MDIR)/Vtop
+	cd $(ROOT)/mem && $(CURDIR)/$(MDIR)/Vtop $(ARGS)
 
 clean:
-	rm -rf obj_dir
+	rm -rf obj_dir obj_dir_seeded
 
-.PHONY: all run clean
+.PHONY: all run clean seeded
