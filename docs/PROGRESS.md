@@ -1,6 +1,6 @@
 # Group 10 — Progress Checklist
 
-อัปเดต: 2026-11-18 17:08
+อัปเดต: 2026-11-18 21:30
 
 ## วิธีใช้
 ติ๊กเมื่อโค้ดเสร็จและผ่าน test ส่วนการเช็คบนบอร์ดจริงมีข้อแยกท้ายทุก phase
@@ -13,7 +13,7 @@
 - [ ] **ศุกร์ 27/11 ส่งงาน:** วิดีโอ ≤ 7 นาที, report PDF, source code
 
 ## โค้ด P0–P7
-เสร็จ 35 จาก 45 ข้อ
+เสร็จ 37 จาก 45 ข้อ
 
 ### P0 ฐาน (17–18/11)
 - [x] 0.1 vga_sync 640×480 + ce 25 MHz + frame_tick (sim)
@@ -66,8 +66,8 @@
 - [x] 5.5 Font ROM + ข้อความหน้าจอ (sim) — `scripts/make_font.py`, TITLE / FLOOR CLEAR / ESCAPE! / YOU WIN + เวลา / GAME OVER
 
 ### P6 เสียง + รวม (25–26/11)
-- [ ] 6.1 SFX 10 แบบ + priority mux
-- [ ] 6.2 BGM 4 ทำนอง (ตัดก่อนถ้าไม่ทัน)
+- [x] 6.1 SFX 10 แบบ + priority mux (sim) — `audio.v`, `tb_audio`, `docs/audio/*.wav`; ยังไม่ได้ลองบนบอร์ด (ระดับ AUD_SD ยังไม่ยืนยันกับ manual)
+- [x] 6.2 BGM 4 ทำนอง (ตัดก่อนถ้าไม่ทัน) (sim) — ชั้น 1-3 + ESCAPE + jingle WIN / GAME OVER
 - [ ] 6.3 สลับ sprite จริงแทน placeholder ทั้งหมด
 - [ ] 6.4 เล่นทดสอบจบเกม 3 รอบ, ปรับ HP/ความเร็ว
 
@@ -99,7 +99,7 @@
 placeholder ตอนนี้มาจาก `scripts/make_placeholders.py` (tileset 3 ชั้น × 16 + ผู้เล่น 48 เฟรม + มอน A/B 2 เฟรม + กระสุน 2 แบบ + เอฟเฟกต์ฟัน 4 ทิศ + ของในห้องปริศนา 10 เฟรม)
 
 ## Data / ROM asset
-เสร็จ 10 จาก 13 ชิ้น
+เสร็จ 13 จาก 13 ชิ้น
 
 - [x] 1 Tile map 13 ห้อง (`mem/tilemap.mem`)
 - [x] 2 ห้อง Puzzle ชั้น 3 ใหม่ แผ่น Simon (`maps/12_f3_puzzle_simon.txt`)
@@ -109,9 +109,9 @@ placeholder ตอนนี้มาจาก `scripts/make_placeholders.py` (ti
 - [x] 6 ค่าต่อร่าง (ความเร็ว 2/2/3/3, Max HP 3/3/4/4, ดาเมจ 1/1/2/2, สี) · P2, ค่ายังรอยืนยัน (ตาราง `localparam` ใน `rtl/game_fsm.v`)
 - [x] 7 mask Light Bulb 0111/1011/1101/1110 · P4 (`rtl/params.vh`, ตรวจแล้วแก้ได้ทุกแบบ)
 - [x] 8 ตำแหน่งกล่อง Sokoban + เฉลย 24 ครั้ง · P4 (`maps/09_*`, `scripts/solve_sokoban.py` ยืนยันน้อยสุด 24)
-- [ ] 9 โน้ต Simon 4 โน้ต (ค่า divider) · P4
-- [ ] 10 ตาราง SFX 10 แบบ · P6
-- [ ] 11 BGM 4 ทำนอง (ชั้น 1–3 + ฉากหนี) · P6
+- [x] 9 โน้ต Simon 4 โน้ต (ค่า divider) · P4 (`SIMON_HP0..3` ใน `params.vh`: C5 E5 G5 C6)
+- [x] 10 ตาราง SFX 10 แบบ · P6 (`SFX_*` ใน `params.vh`)
+- [x] 11 BGM 4 ทำนอง (ชั้น 1–3 + ฉากหนี) · P6 (`mem/music.mem` จาก `scripts/make_music.py`)
 - [x] 12 Text ROM: ชื่อเกม, PRESS BTNC, YOU WIN, GAME OVER, FLOOR n · P5 (`mem/text.mem` + `rtl/text_layout.vh` จาก `make_font.py`; ชื่อเกมแก้ที่ GAME_NAME)
 - [x] 13 .xdc ครบ รวมไมค์ (ดู 0.6)
 

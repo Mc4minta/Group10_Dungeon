@@ -8,12 +8,13 @@ set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT/sim/verilator"
 [ -x obj_dir_seeded/Vtop ] || make seeded
-FRAMES=${FRAMES:-9800}
+FRAMES=${FRAMES:-9900}
 cd "$ROOT/mem"
 SHOT_ARGS=()
+[ -n "$WAVS" ] && SHOT_ARGS+=(--wav-seg 20:2300:../docs/audio/floor1.wav --wav-seg 9395:9840:../docs/audio/escape.wav)   # WAVS=1: บันทึกเสียงด้วย
 if [ -n "$SHOTS" ]; then
   mkdir -p /tmp/g10shots
-  SHOT_ARGS=(--shot-at 15:/tmp/g10shots/title.bmp --shot-at 2200:/tmp/g10shots/boss1.bmp
+  SHOT_ARGS+=(--shot-at 15:/tmp/g10shots/title.bmp --shot-at 2200:/tmp/g10shots/boss1.bmp
              --shot-at 5420:/tmp/g10shots/boss2_stunned.bmp --shot-at 6010:/tmp/g10shots/floor_clear.bmp
              --shot-at ${BOSS3_F:-9250}:/tmp/g10shots/boss3.bmp --shot-at ${ESC_F:-9420}:/tmp/g10shots/escape.bmp
              --shot-at $((FRAMES - 2)):/tmp/g10shots/win.bmp)
@@ -26,7 +27,7 @@ out=$(LOG=$((FRAMES)) ../sim/verilator/obj_dir_seeded/Vtop --frames "$FRAMES" \
       --script-file ../sim/verilator/scripts/full_game.txt "${SHOT_ARGS[@]}")
 t1=$(date +%s)
 echo "$out" | grep "^f=" | tail -1 | cut -c1-90
-echo "$out" | tail -1
+echo "$out" | tail -3
 echo "wall-clock: $((t1 - t0)) s"
 if [ -n "$SHOTS" ]; then
   python3 - <<'PY'
