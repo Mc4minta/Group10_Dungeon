@@ -2,7 +2,7 @@
 
 เกม dungeon crawler + ห้องปริศนา บน Digilent Nexys A7-100T, VGA 640×480 @ 60 Hz, Verilog
 
-สถานะ: **P0–P4 เสร็จใน simulation** — ภาพขึ้นจอ, เดิน 8 ทิศ, ชนกำแพง + ไถล + corner slide, เปลี่ยนห้อง flip-screen ครบ 3 ชั้น × 5 ห้อง, หลุม/ประตูบอส/ประตูทางออกเช็คตามร่าง, Game FSM (TITLE / PLAY / EVOLVE / FLOOR_CLEAR / WIN / GAME_OVER), 4 ร่าง + HP + เวลา mm.ss + sprint, การต่อสู้ (ฟัน/ยิง, มอน A ไล่ + มอน B ป้อมยิง 4 ทิศ, โดนตี knockback + อมตะ, ห้อง Combat ล็อกจนมอนตายหมด), ปริศนา 3 ห้อง (Light Bulb, Sokoban + ดันกล่อง, Simon) + ไอเทมจริง (EVOLVE + เปิดประตูบอส L) (ยังไม่ได้ลงบอร์ดจริง) — ดูความคืบหน้าที่ `docs/PROGRESS.md`
+สถานะ: **P0–P5 เสร็จใน simulation — เล่นจบเกมได้ใน sim** — ภาพขึ้นจอ, เดิน 8 ทิศ, ชนกำแพง + ไถล + corner slide, เปลี่ยนห้อง flip-screen ครบ 3 ชั้น × 5 ห้อง, หลุม/ประตูบอส/ประตูทางออกเช็คตามร่าง, Game FSM (TITLE / PLAY / EVOLVE / FLOOR_CLEAR / WIN / GAME_OVER), 4 ร่าง + HP + เวลา mm.ss + sprint, การต่อสู้ (ฟัน/ยิง, มอน A ไล่ + มอน B ป้อมยิง 4 ทิศ, โดนตี knockback + อมตะ, ห้อง Combat ล็อกจนมอนตายหมด), ปริศนา 3 ห้อง (Light Bulb, Sokoban + ดันกล่อง, Simon) + ไอเทมจริง (EVOLVE + เปิดประตูบอส L), บอส 3 ตัว + FLOOR_CLEAR จริง, ฉากหนี ESCAPE 30 วิ, ข้อความบนจอ, ไมค์ PDM (ตบมือ = บอส 2 มึน) (ยังไม่ได้ลงบอร์ดจริง) — ดูความคืบหน้าที่ `docs/PROGRESS.md`
 
 ## เริ่มใช้
 
@@ -35,7 +35,7 @@
 | อุปกรณ์ | ทำอะไร (DEBUG = 1) |
 | --- | --- |
 | SW0 | เปิดประตูบอส L ทุกชั้น (ทับ `has_item`) |
-| SW1 ยกขึ้น | `floor_done` → FLOOR_CLEAR 2 วิ → ชั้นถัดไป (ของจริง: บอสตาย P5) |
+| SW1 ยกขึ้น | ข้ามชั้น: `floor_done` → FLOOR_CLEAR 2 วิ → ชั้นถัดไป (ของจริงคือฆ่าบอส) · ตอน PLAY เดินเข้าประตู E = WIN ทันทีด้วย (ทางลัดเดิม) |
 | SW2 ยกขึ้น | ลบมอนทั้งห้อง → ห้องเคลียร์ (ใช้ย่อสคริปต์ทดสอบ) |
 | SW3 ยกขึ้น | `got_item` → EVOLVE (ของจริง: เก็บไอเทมในห้องปริศนา) |
 | SW4 ยกขึ้น | `take_hit` → HP −1 (ไม่มี knockback) |
@@ -63,7 +63,8 @@
 | LED14 / LED15 | sprint เปิดอยู่ / WIN |
 | RGB LED16 | สีตามร่าง เขียว/ฟ้า/ม่วง/ทอง · ขาวตอน EVOLVE |
 | RGB LED17 | แดง = เพิ่งโดนตี (ช่วง knockback + อมตะ 68 เฟรม) |
-| จอ VGA | TITLE = พื้นกรมท่า + ตัวละคร · GAME OVER = แดงเข้ม · WIN = ทอง (ยังไม่มีข้อความ รอ font ใน P5; ใน Verilator ดูสถานะที่ชื่อหน้าต่าง) |
+| จอ VGA | TITLE = ชื่อเกม + `PRESS BTNC` (กะพริบ) · FLOOR CLEAR = `FLOOR n CLEAR` · ESCAPE = `ESCAPE!` 2 วิแรก + จอสั่น · WIN = ทอง `YOU WIN` + เวลา `mm:ss` · GAME OVER = แดงเข้ม `GAME OVER` + `PRESS BTNC` |
+| ห้องบอส | LED0–7 = HP บอส (8 ดวงตามสัดส่วน) · ESCAPE: LED ทั้ง 16 ดวงกะพริบ 4 Hz, 7-seg 4 หลักขวา = นับถอยหลัง `ss.ff` (วินาที.เฟรม) |
 | 7-seg ในห้อง Simon | ยังแสดง HP ตามเดิม (เหยียบผิดเสีย HP) รอบที่ผ่านดูที่ LED0–2 |
 
 ค่าเกมที่ยัง *tentative* ทั้งหมดอยู่ใน `rtl/params.vh` ที่เดียว (บรรทัดละค่า) ค่าต่อร่าง:
@@ -87,6 +88,20 @@
 | ผู้เล่นโดนตี | HP −1, ถอย 16 px ใน 8 เฟรม (ประตูเป็นกำแพงระหว่างถอย), แล้วอมตะ 60 เฟรม (กะพริบ) — กระสุนศัตรูทะลุตอนอมตะ |
 | ห้อง Combat (C1, C2) | เข้าแล้วมีมอน = ประตู D ปิด · มอนตายหมด = cleared ประตูเปิด ไม่เกิดใหม่ · เริ่มเกมใหม่ = ล้าง cleared |
 
+## บอส ฉากหนี ไมค์ (P5)
+
+| บอส | ชั้น | HP | เคลื่อนที่ | โจมตี |
+| --- | --- | --- | --- | --- |
+| 1 | 1 | 10 | ไล่ช้า 1 px ทุก 2 เฟรม | ชนตัวอย่างเดียว |
+| 2 | 2 | 16 | เด้งทแยง 2 px/เฟรม ในวงรั้ว `F` | ยิง 4 ทิศทุก 120 เฟรม · **ตบมือ = มึน 2 วิ** แล้ว cooldown 5 วิ |
+| 3 | 3 | 24 | ไล่เร็ว 2 px/เฟรม | ยิง 4 ทิศทุก 60 เฟรม |
+
+- sprite 64×64, ชนตัว = HP −1, โดนกระสุน/ฟันแล้วกะพริบ, กระสุนผู้เล่นผ่านรั้ว `F` (ร่าง 2–4 ยิงบอส 2 ข้ามรั้วได้) · ค่าทั้งหมดอยู่ใน `rtl/params.vh`
+- เข้าห้องบอสตอนบอสยังอยู่ = ประตูปิด ออกไม่ได้จนบอสตาย (หรือผู้เล่นตาย) · บอสที่ตายแล้วตายถาวรจนเริ่มเกมใหม่
+- บอส 1, 2 ตาย → FLOOR CLEAR 2 วิ → ชั้นถัดไป · บอส 3 ตาย → **ESCAPE**: 30 วิ วิ่งกลับ ห้องบอส → C1 → START → ประตู `E` (ต้องร่าง 4 จากไอเทมชั้น 3) = WIN, หมดเวลา = GAME OVER
+- ไมค์บอร์ด: `M_CLK` J5 (2.5 MHz), `M_DATA` H5, `M_LRSEL` F5 (= 0, อ่านขอบขาขึ้น) · นับ bit 1 ทุก 4096 sample, |ones − 2048| > `MIC_TH` (600) = ตบมือ แล้วไม่สน 200 ms (`rtl/pdm_mic.v`) — ยังไม่ได้ลองกับไมค์จริง
+- ชื่อเกม (ตอนนี้ `DUNGEON`) แก้ที่ `GAME_NAME` ใน `scripts/make_font.py` ที่เดียว แล้วรันสคริปต์ใหม่
+
 ## โครงสร้าง
 
 ```
@@ -96,6 +111,9 @@ rtl/          Verilog
   world.v       ห้อง: floor, room, grid, ตารางประตู + จุดเกิด, load player
   game_fsm.v    TITLE/PLAY/EVOLVE/FLOOR_CLEAR/ESCAPE/WIN/GAME_OVER, ร่าง, HP, timer, sprint
   objects.v     slot มอน 6 / กระสุนผู้เล่น 2 / กระสุนศัตรู 16 / บอส 1, spawn, โจมตี, AABB, โดนตี, ห้องล็อก
+  boss.v        บอส 3 ตัว + boss_rom (ค่าต่อตัว), เดิน ยิง มึน HP bar
+  pdm_mic.v     ไมค์ PDM -> clap_pulse
+  text_layout.vh ตำแหน่งข้อความบนจอ (สร้างโดย make_font.py)
   objline.v     ชั้นภาพ object แบบ line buffer สองชุด (วาดบรรทัดถัดไประหว่างบรรทัดนี้) รวมของในห้องปริศนา
   puzzles.v     Light Bulb, Sokoban (ดันกล่อง), Simon, ไอเทม -> has_item / got_item
   puzzle_layout.vh  ตำแหน่งคันโยก หลอด กล่อง แผ่น gate ไอเทม (สร้างจาก maps/ โดย build_maps.py)
@@ -146,6 +164,7 @@ make run
 | 0–9 | สลับ SW0–SW9 |
 | F1–F6 | สลับ SW10–SW15 |
 | Backspace | CPU_RESETN |
+| C | ตบมือจำลอง (ไมค์ดัง 100 ms → `clap_pulse`; ชื่อหน้าต่างขึ้น `CLAP`, บอส 2 มึนขึ้น `STUN`) |
 | Esc | ออก |
 
 ติดตั้งครั้งแรก:
@@ -159,7 +178,17 @@ make run
 - **macOS**: `brew install verilator sdl2`
 - **Ubuntu/Debian**: `sudo apt install -y build-essential verilator libsdl2-dev` (ต้องเป็น Verilator 5.x — Ubuntu 22.04 ได้ 4.x ซึ่งเก่าไป ใช้ 24.04)
 
-ข้อแตกต่างจากบอร์ดจริง: simulator ตั้ง `CE_DIV=1` (pixel clock ทุก clock เพื่อให้เร็วขึ้น 4 เท่า) และ debounce สั้นลง ส่วน logic เกมเหมือนบอร์ดทุกอย่าง ความเร็วขึ้นกับเครื่อง (WSL2 ~20 fps หลังเพิ่ม object ใน P3) ถ้าช้ากว่า 60 fps เกมจะดูช้าลงตาม แต่ไม่ผิด
+ข้อแตกต่างจากบอร์ดจริง: simulator ตั้ง `CE_DIV=1` (pixel clock ทุก clock เพื่อให้เร็วขึ้น 4 เท่า) และ debounce สั้นลง ส่วน logic เกมเหมือนบอร์ดทุกอย่าง ความเร็วขึ้นกับเครื่อง (WSL2 ~16–21 fps) ถ้าช้ากว่า 60 fps เกมจะดูช้าลงตาม แต่ไม่ผิด
+
+ตัวเลือก build (ใน `sim/verilator`):
+
+| คำสั่ง | ทำอะไร |
+| --- | --- |
+| `make` / `make run` | build ปกติ: ปริศนาสุ่มทุกเกม, eval ครั้งเดียวต่อ clock + PGO (g++) → `obj_dir/Vtop` |
+| `make seeded` | build seed คงที่ (`SEED=0x1234`) → `obj_dir_seeded/Vtop` สำหรับสคริปต์ใน `sim/verilator/scripts/` (หลอด 1010, Simon w q q e q ทุกครั้ง) |
+| `make SEED=0x5678` | seed อื่น (ใช้ `obj_dir_seeded/` เหมือนกัน) |
+| `make PGO=0` | ไม่ทำ PGO: build เร็วกว่า ~2 เท่า แต่ sim ช้ากว่า ~10% |
+| `make FAST_CLOCK=0` | กลับไป eval 2 ครั้งต่อ clock (ถ้า Verilator รุ่นอื่น build ไม่ผ่าน เพราะใช้ชื่อตัวแปรภายในของ Verilator 5.x) |
 
 ทดสอบอัตโนมัติแบบไม่เปิดหน้าต่าง:
 ```
@@ -193,23 +222,27 @@ cd mem && SDL_VIDEODRIVER=dummy LOG=10 ../sim/verilator/obj_dir/Vtop --frames 90
   --shot-at 300:locked.bmp --shot-at 560:shooting.bmp --shot-at 815:cleared.bmp
 ```
 
-สคริปต์ทีละชั้น (P4) อยู่ใน `sim/verilator/scripts/` (ไฟล์ข้อความ: บรรทัดละรายการ `ปุ่ม:เฟรมเริ่ม:เฟรมจบ`, `#` = คอมเมนต์) เปิดดูได้ทั้งแบบหน้าต่างหรือไม่เปิดหน้าต่าง:
+สคริปต์อยู่ใน `sim/verilator/scripts/` (ไฟล์ข้อความ: บรรทัดละรายการ `ปุ่ม:เฟรมเริ่ม:เฟรมจบ`, `#` = คอมเมนต์; ปุ่ม `U D L R C`, สวิตช์ `0-9 a-f`, `K` = ตบมือ)
+**ทุกสคริปต์ต้องใช้ build แบบ seeded** (บอกไว้ที่หัวไฟล์):
 ```
-cd mem
-../sim/verilator/obj_dir/Vtop --script-file ../sim/verilator/scripts/floor1.txt            # ดูในหน้าต่าง
-SDL_VIDEODRIVER=dummy LOG=50 ../sim/verilator/obj_dir/Vtop --frames 1900 --script-file ../sim/verilator/scripts/floor1.txt
+cd sim/verilator && make seeded && cd ../../mem
+../sim/verilator/obj_dir_seeded/Vtop --script-file ../sim/verilator/scripts/full_game.txt      # ดูในหน้าต่าง
+SDL_VIDEODRIVER=dummy LOG=50 ../sim/verilator/obj_dir_seeded/Vtop --frames 1900 --script-file ../sim/verilator/scripts/floor1.txt
+./scripts/run_full_game.sh            # (จาก root) เล่นเต็มเกมแบบไม่เปิดหน้าต่าง ผ่านเมื่อจบที่ WIN (~10 นาที)
+SHOTS=1 ./scripts/run_full_game.sh    # + บันทึกภาพ docs/p5_*.png
 ```
 
 | สคริปต์ | เฟรม | ทำอะไร |
 | --- | --- | --- |
-| `floor1.txt` | ~1900 | START → C1 → C2 → Light Bulb (ตีคันโยก a, b) → ไอเทม 1 → EVOLVE → กลับ C2 → C1 → ประตู L → ห้องบอส |
+| `full_game.txt` | ~9800 | TITLE → ชั้น 1 (Light Bulb, บอส 1) → ชั้น 2 (Sokoban, บอส 2 + ตบมือ 2 ครั้ง) → ชั้น 3 (Simon, บอส 3) → ESCAPE → E → WIN · ไม่ใช้ SW1 / SW3 |
+| `floor1.txt` | ~2100 | START → C1 → C2 → Light Bulb (ตีคันโยก b, d) → ไอเทม 1 → EVOLVE → กลับ C2 → C1 → ประตู L → ห้องบอส |
 | `floor2.txt` | ~2400 | ข้ามชั้นด้วย SW1 → C1 → C2 → Sokoban เล่นตามคำตอบ solver 24 ครั้ง → gate เปิด → ไอเทม 2 (สร้างด้วย `scripts/make_floor2_script.py`) |
 | `floor3.txt` | ~2900 | ข้าม 2 ชั้น + SW3 เป็นร่าง 3 (บินข้ามหลุม) → C1 → C2 → Simon 3 รอบ → ไอเทม 3 |
 
-ห้อง Combat ในสคริปต์เหล่านี้เคลียร์ด้วย SW2 (DEBUG) ให้สั้น · รูปแบบหลอด/ลำดับ Simon สุ่มจาก LFSR แต่สคริปต์กดปุ่มที่เฟรมเดิมทุกครั้งจึงได้ค่าเดิม
-ถ้าแก้ RTL แล้วสคริปต์ไม่ผ่าน ให้ดู `bulbs=` / `seq=` ใน `LOG` แล้วแก้ช่วงปริศนาในสคริปต์
+ห้อง Combat ในสคริปต์เหล่านี้เคลียร์ด้วย SW2 (DEBUG) ให้สั้น (บอสสู้จริง) · build seeded ทำให้รูปแบบหลอด / ลำดับ Simon มาจาก `SEED` อย่างเดียว ไม่ขึ้นกับเวลาที่เข้าห้อง จึงไม่พังเมื่อแก้ RTL ที่ไม่เกี่ยวกับการเดิน
+`LOG=N` พิมพ์สถานะทุก N เฟรม (ห้อง, ตำแหน่ง, HP, ร่าง, หลอด, Simon, บอส `boss/bhp/bx/by/stun`, ESCAPE `esc`)
 
 ## ขั้นต่อไป (ตามแผน Implement)
 
-- P5 บอส 3 ตัว + FLOOR_CLEAR จริง (แทน SW1) + ไมค์ + ESCAPE + ข้อความบนจอ (font)
+- P6 เสียง (SFX + BGM, โน้ต Simon) + sprite จริง + เล่นทดสอบ · ลงบอร์ดจริง (Vivado build + timing)
 - งานคู่ขนาน: sprite จริง, ทดสอบไมค์ PDM
