@@ -1,6 +1,6 @@
 # Group 10 — Progress Checklist
 
-อัปเดต: 2026-11-18 21:30
+อัปเดต: 2026-11-18 23:57
 
 ## วิธีใช้
 ติ๊กเมื่อโค้ดเสร็จและผ่าน test ส่วนการเช็คบนบอร์ดจริงมีข้อแยกท้ายทุก phase
@@ -13,7 +13,7 @@
 - [ ] **ศุกร์ 27/11 ส่งงาน:** วิดีโอ ≤ 7 นาที, report PDF, source code
 
 ## โค้ด P0–P7
-เสร็จ 37 จาก 45 ข้อ
+เสร็จ 39 จาก 47 ข้อ
 
 ### P0 ฐาน (17–18/11)
 - [x] 0.1 vga_sync 640×480 + ce 25 MHz + frame_tick (sim)
@@ -22,6 +22,7 @@
 - [x] 0.4 Renderer ชั้น sprite, F0F โปร่งใส (sim)
 - [x] 0.5 debounce + edge ทุกปุ่ม (sim)
 - [x] 0.6 .xdc ครบทุก pin + เทียบกับ Master.xdc — 80 pin ตรง Master, เปิดไมค์ M_CLK/M_DATA/M_LRSEL (J5/H5/F5) + port ใน top.v แล้ว (P5)
+- [x] 0.7 timing hardening ก่อนลงบอร์ด (sim, pixel-identical) — renderer 4 stage ไม่มีตัวคูณ (LUT + shift-add), object select / near / clash แยก state, ROM เพลง synchronous; ภาพเทียบแล้ว 0 pixel ต่าง (iverilog CE_DIV=4 และ Verilator) ยังไม่มี timing report จริง
 - [ ] **เช็คบนบอร์ด:** build bitstream ผ่าน, timing ผ่าน, ภาพไม่เลื่อน 1–2 px, LED ตามปุ่ม
 
 ### P1 Movement + ห้อง (18–19/11)
@@ -62,6 +63,7 @@
 - [x] 5.1 Boss module + ROM พารามิเตอร์ 3 ตัว (sim) — `boss.v`, `tb_boss`
 - [x] 5.2 FLOOR_CLEAR → ชั้นถัดไป (เอา SW1 debug ออก) (sim) — บอส 1, 2 ตาย = FLOOR_CLEAR; SW1 เหลือเป็นทางลัด DEBUG เท่านั้น
 - [x] 5.3 ไมค์: clap_pulse → STUN บอส 2 (sim) — logic ไมค์ + ตบมือจำลองใน sim เท่านั้น ยังไม่ได้ลองไมค์จริง และขอบที่ใช้อ่าน (ขาขึ้น) ยังไม่ได้ยืนยันบนบอร์ด
+- [x] 5.3a ตัวทดสอบไมค์แยก `mic_test_top` (sim) — `tb_mic_test_top`, `scripts/create_mic_project.tcl`; ยังไม่ได้ลงบอร์ด (ดู `docs/BOARD_DAY.md`)
 - [x] 5.4 ESCAPE: นับถอยหลัง 30 วิ, จอสั่น, LED กะพริบ, WIN (sim)
 - [x] 5.5 Font ROM + ข้อความหน้าจอ (sim) — `scripts/make_font.py`, TITLE / FLOOR CLEAR / ESCAPE! / YOU WIN + เวลา / GAME OVER
 

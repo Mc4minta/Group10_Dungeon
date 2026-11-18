@@ -39,7 +39,9 @@ module tb_top;
     reg [9:0] h0, v0; reg act0, cap = 0;
     integer hs_low = 0, hs_len = 0, f, i, nwhite;
 
-    always @(posedge clk) if (dut.ce) begin h0 <= dut.hcount; v0 <= dut.vcount; act0 <= dut.active; end
+    // renderer + sync มี latency 4 clock (= 1 พิกเซลที่ CE_DIV = 4): ค่า RGB ที่ ce ถัดไปเป็นของพิกเซลก่อนหน้า -> หน่วงพิกัดอีก 1 ce
+    reg [9:0] h1, v1; reg act1;
+    always @(posedge clk) if (dut.ce) begin h1 <= dut.hcount; v1 <= dut.vcount; act1 <= dut.active; h0 <= h1; v0 <= v1; act0 <= act1; end
     // ค่า VGA ที่ register ตอน ce = สีของ (h0, v0)
     always @(negedge clk) if (cap && dut.ce_cnt == 2'd0 && act0) img[v0*640 + h0] = {R, G, B};
 

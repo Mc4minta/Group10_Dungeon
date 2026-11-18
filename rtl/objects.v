@@ -118,8 +118,9 @@ module objects (
     wire [3:0]  tda, tdb;
     tilemap_rom rom_a (.addr(ta), .data(tda));
     tilemap_rom rom_b (.addr(tb), .data(tdb));
+    `include "tilebase.vh"
     function [11:0] taddr(input [3:0] g, input [9:0] x, input [9:0] y);
-        taddr = g * 12'd300 + y[8:5] * 12'd20 + x[9:5];
+        taddr = rbase(g) + rowx20(y[8:5]) + x[9:5];
     endfunction
     // กระสุน: หยุดที่ # ประตูปิด (D ตอนล็อก, L ตอนยังไม่เปิด, E); ผ่าน H F
     function bpass(input [3:0] t);
@@ -157,7 +158,7 @@ module objects (
     localparam [4:0] S_IDLE = 5'd0, S_SPAWN = 5'd1, S_ATK = 5'd2, S_PB = 5'd3, S_EB = 5'd4,
                      S_MON = 5'd5, S_FIRE = 5'd6, S_CPB = 5'd7, S_CMEL = 5'd8, S_CPM = 5'd9,
                      S_CPE = 5'd10, S_END = 5'd11, S_BFIRE = 5'd12, S_BPB = 5'd13, S_BMEL = 5'd14, S_BPM = 5'd15,
-                     S_CLASH = 5'd16;
+                     S_CLASH = 5'd16, S_NEAR = 5'd17;
     reg [4:0] st = S_IDLE;
     reg [1:0] ph = 0;
     reg [3:0] i = 0, j = 0;                  // i = มอน / กระสุนผู้เล่น, j = กระสุนศัตรู
@@ -197,8 +198,10 @@ module objects (
     reg        pout;
     reg [10:0] fbx, fby; reg [6:0] fbw, fbh;
     reg        near, sp_done;
+    reg        near_r = 1'b0;
     reg [5:0]  freev;
     reg [15:0] clash;
+    reg [15:0] clash_r = 16'd0;
     reg [2:0]  sdir [0:2];
     integer    q, nsp;
 
@@ -256,8 +259,23 @@ module objects (
                 st <= S_SPAWN;
             end else if (frame_tick && run) begin
                 fcnt <= fcnt + 1'b1;
-                st <= S_ATK;
+                st <= S_NEAR;
             end
+        // ------------------------------------------------------------------
+        S_NEAR: begin                        // มีศัตรูในกล่องฟันหน้าตัวไหม (ผลเก็บใน near_r ให้ S_ATK ใช้; แยก state เพื่อไม่ให้ 7 overlap ต่อกับ logic ยิงใน clock เดียว)
+            fbx = (facing == 2'd2) ? {1'b0, px} + OFS - 11'd12 :
+                  (facing == 2'd3) ? {1'b0, px} + OFS + 11'd28 : {1'b0, px} + OFS + 11'd4;
+            fby = (facing == 2'd0) ? {1'b0, py} + OFS + 11'd28 :
+                  (facing == 2'd1) ? {1'b0, py} + OFS - 11'd12 : {1'b0, py} + OFS + 11'd4;
+            fbw = facing[1] ? 7'd16 : 7'd24;
+            fbh = facing[1] ? 7'd24 : 7'd16;
+            near = boss_act && ovl(fbx, fby, fbw, fbh, {1'b0, boss_x} + OFS + 11'd8, {1'b0, boss_y} + OFS + 11'd8, 7'd48, 7'd48);
+            for (q = 0; q < NM; q = q + 1)
+                if (m_act[q] && ovl(fbx, fby, fbw, fbh, {1'b0, m_xv[q*10 +: 10]} + OFS + 11'd4,
+                                    {1'b0, m_yv[q*10 +: 10]} + OFS + 11'd4, 7'd24, 7'd24)) near = 1'b1;
+            near_r <= near;
+            st <= S_ATK;
+        end
         // ------------------------------------------------------------------
         S_SPAWN: begin                       // 8 entry ต่อห้อง, 1 clock / entry
             if (sd[15] && !cleared[cur_idx] && slot < NM) begin
@@ -284,17 +302,7 @@ module objects (
             if (hurt_cnt != 0) hurt_cnt <= hurt_cnt - 1'b1;
             if (melee_cnt != 0) melee_cnt <= melee_cnt - 1'b1;
             atk_req <= 1'b0;
-            // มีศัตรูในกล่องฟันหน้าตัวไหม (ร่าง 2-4: กดแล้วฟันแทนยิง)
-            fbx = (facing == 2'd2) ? {1'b0, px} + OFS - 11'd12 :
-                  (facing == 2'd3) ? {1'b0, px} + OFS + 11'd28 : {1'b0, px} + OFS + 11'd4;
-            fby = (facing == 2'd0) ? {1'b0, py} + OFS + 11'd28 :
-                  (facing == 2'd1) ? {1'b0, py} + OFS - 11'd12 : {1'b0, py} + OFS + 11'd4;
-            fbw = facing[1] ? 7'd16 : 7'd24;
-            fbh = facing[1] ? 7'd24 : 7'd16;
-            near = boss_act && ovl(fbx, fby, fbw, fbh, {1'b0, boss_x} + OFS + 11'd8, {1'b0, boss_y} + OFS + 11'd8, 7'd48, 7'd48);
-            for (q = 0; q < NM; q = q + 1)
-                if (m_act[q] && ovl(fbx, fby, fbw, fbh, {1'b0, m_xv[q*10 +: 10]} + OFS + 11'd4,
-                                    {1'b0, m_yv[q*10 +: 10]} + OFS + 11'd4, 7'd24, 7'd24)) near = 1'b1;
+            // near_r (คำนวณใน S_NEAR): มีศัตรูในกล่องฟันหน้าตัวไหม (ร่าง 2-4: กดแล้วฟันแทนยิง)
             // ร่าง 4: นับเฟรมที่กดค้าง; ปล่อยหลังชาร์จเต็ม = ลูกใหญ่ (มีได้ทีละลูก)
             if (form == 2'd3 && chg_ok && atk_hold) begin
                 if (chg < CHARGE_FRAMES) chg <= chg + 1'b1;
@@ -313,7 +321,7 @@ module objects (
                 chg <= 0; chg_ok <= 1'b0;
             end
             if (cool != 0) cool <= cool - 1'b1;
-            else if (atk_req && (form == 2'd0 || near)) begin      // ฟันประชิด (ร่าง 1 เสมอ, ร่าง 2-4 เมื่อศัตรูอยู่ในกล่อง)
+            else if (atk_req && (form == 2'd0 || near_r)) begin      // ฟันประชิด (ร่าง 1 เสมอ, ร่าง 2-4 เมื่อศัตรูอยู่ในกล่อง)
                 melee_cnt <= MELEE_FRAMES; ev_melee <= 1'b1;
                 mel_dir   <= facing;
                 mel_mask  <= 0;
@@ -519,19 +527,25 @@ module objects (
             if (j == NE - 1) begin j <= 0; st <= S_CLASH; end
             else j <= j + 1'b1;
         end
-        S_CLASH: begin                       // กระสุนผู้เล่น j x กระสุนศัตรูทั้ง 16 (ขนานกัน 1 clock / นัด): ชนกันหายทั้งคู่, ลูกใหญ่ไปต่อ
+        S_CLASH: begin                       // กระสุนผู้เล่น j x กระสุนศัตรูทั้ง 16: ชนกันหายทั้งคู่, ลูกใหญ่ไปต่อ
             pk_k = p_kindv[j[2:0]*2 +: 2]; psz = (pk_k == 2'd3) ? 5'd16 : 5'd8;
-            clash = 0;
-            for (q = 0; q < NE; q = q + 1)
-                if (p_act[j[2:0]] && e_act[q] &&
-                    ovl({1'b0, p_xv[j[2:0]*10 +: 10]} + OFS, {1'b0, p_yv[j[2:0]*10 +: 10]} + OFS, {2'b00, psz}, {2'b00, psz},
-                        {1'b0, e_xv[q*10 +: 10]} + OFS, {1'b0, e_yv[q*10 +: 10]} + OFS, 7'd8, 7'd8)) clash[q] = 1'b1;
-            if (clash != 0) begin
-                e_act <= e_act & ~clash;
-                if (pk_k != 2'd3) p_act[j[2:0]] <= 1'b0;
+            if (ph == 0) begin               // phase 0: เทียบ 16 คู่ขนานกัน -> เก็บผลใน register clash_r
+                clash = 0;
+                for (q = 0; q < NE; q = q + 1)
+                    if (p_act[j[2:0]] && e_act[q] &&
+                        ovl({1'b0, p_xv[j[2:0]*10 +: 10]} + OFS, {1'b0, p_yv[j[2:0]*10 +: 10]} + OFS, {2'b00, psz}, {2'b00, psz},
+                            {1'b0, e_xv[q*10 +: 10]} + OFS, {1'b0, e_yv[q*10 +: 10]} + OFS, 7'd8, 7'd8)) clash[q] = 1'b1;
+                clash_r <= clash;
+                ph <= 1;
+            end else begin                   // phase 1: ใช้ผล (ไม่มี compare ใน clock นี้)
+                if (clash_r != 0) begin
+                    e_act <= e_act & ~clash_r;
+                    if (pk_k != 2'd3) p_act[j[2:0]] <= 1'b0;
+                end
+                ph <= 0;
+                if (j == NP - 1) begin j <= 0; fk <= 0; st <= S_BFIRE; end
+                else j <= j + 1'b1;
             end
-            if (j == NP - 1) begin j <= 0; fk <= 0; st <= S_BFIRE; end
-            else j <= j + 1'b1;
         end
         // ------------------------------------------------------------------ บอส
         S_BFIRE: begin                       // บอสยิง 4 ทิศ ลง slot กระสุนศัตรูที่ว่าง (1 clock / slot)

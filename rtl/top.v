@@ -283,17 +283,17 @@ module top #(
                   .t_floor({2'b00, floor} + 4'd1), .t_m1(m_t), .t_m0(m_o), .t_s1(s_t), .t_s0(s_o),
                   .color(color));
 
-    // renderer มี latency 3 clock -> หน่วง sync/active เท่ากัน ภาพตรงทั้ง CE_DIV = 1 และ 4
-    reg [2:0] hs_d = 3'b111, vs_d = 3'b111, act_d = 3'b000;
+    // renderer มี latency 4 clock (stage 0 พิกัด/ที่อยู่ tile, 1 ROM tile + เลือกชั้น, 2 BRAM, 3 mix) -> หน่วง sync/active เท่ากัน ภาพตรงทั้ง CE_DIV = 1 และ 4
+    reg [3:0] hs_d = 4'b1111, vs_d = 4'b1111, act_d = 4'b0000;
     always @(posedge clk) begin
-        hs_d  <= {hs_d[1:0], hsync};
-        vs_d  <= {vs_d[1:0], vsync};
-        act_d <= {act_d[1:0], active};
+        hs_d  <= {hs_d[2:0], hsync};
+        vs_d  <= {vs_d[2:0], vsync};
+        act_d <= {act_d[2:0], active};
     end
     always @(posedge clk) if (ce) begin
-        {VGA_R, VGA_G, VGA_B} <= act_d[2] ? color : 12'h000;
-        VGA_HS <= hs_d[2];
-        VGA_VS <= vs_d[2];
+        {VGA_R, VGA_G, VGA_B} <= act_d[3] ? color : 12'h000;
+        VGA_HS <= hs_d[3];
+        VGA_VS <= vs_d[3];
     end
 
     // ---------- 7-seg / LED / RGB ----------

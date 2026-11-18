@@ -115,7 +115,7 @@ localparam [17:0] SFX_STUN_HP = 18'd41667;  localparam signed [17:0] SFX_STUN_SL
 localparam [17:0] SFX_DIE_HP = 18'd100000;  localparam signed [17:0] SFX_DIE_SL = 22619;  localparam SFX_DIE_LEN = 14;   // 500->120 Hz
 localparam [17:0] SFX_ITEM_HP = 18'd62500;  localparam signed [17:0] SFX_ITEM_SL = -1339;  localparam SFX_ITEM_LEN = 28;   // 800->2000 Hz
 localparam [17:0] SFX_CLEAR_HP = 18'd83333;  localparam signed [17:0] SFX_CLEAR_SL = -1667;  localparam SFX_CLEAR_LEN = 20;   // 600->1000 Hz
-localparam [17:0] SFX_WRONG_HP = 18'd312500;  localparam signed [17:0] SFX_WRONG_SL = 1860;  localparam SFX_WRONG_LEN = 24;   // 160->140 Hz
+localparam [17:0] SFX_WRONG_HP = 18'd250000;  localparam signed [17:0] SFX_WRONG_SL = 1838;  localparam SFX_WRONG_LEN = 24;   // 200->170 Hz (160 Hz ไม่พอดี 18 bit)
 localparam [17:0] SFX_OK_HP = 18'd33333;  localparam signed [17:0] SFX_OK_SL = 0;  localparam SFX_OK_LEN = 5;   // 1500->1500 Hz
 localparam [17:0] SFX_MHIT_HP = 18'd55556;  localparam signed [17:0] SFX_MHIT_SL = 3968;  localparam SFX_MHIT_LEN = 4;   // 900->700 Hz
 localparam [17:0] SFX_SHOOT0_HP = 18'd27778;  localparam signed [17:0] SFX_SHOOT0_SL = 2778;  localparam SFX_SHOOT0_LEN = 5;   // 1800->1200 Hz

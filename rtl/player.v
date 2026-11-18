@@ -55,8 +55,9 @@ module player (
     wire [2:0] spd = kb_now ? KB_SPEED[2:0] : speed;
 
     // address ของ tile ที่พิกเซล (x, y)
+    `include "tilebase.vh"
     function [11:0] taddr(input [3:0] g, input [9:0] x, input [9:0] y);
-        taddr = g * 12'd300 + y[8:5] * 12'd20 + x[9:5];
+        taddr = rbase(g) + rowx20(y[8:5]) + x[9:5];
     endfunction
 
     // passable ตามสูตรใน Core Mechanics Bible

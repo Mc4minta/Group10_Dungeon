@@ -1,13 +1,15 @@
-// วาดภาพต่อพิกเซล (pipeline 3 clock ทุกชั้นเท่ากัน)
-//   ชั้น (ล่าง -> บน): tile < มอน < กระสุน < เอฟเฟกต์ฟัน < ผู้เล่น      F0F = โปร่งใส
+// วาดภาพต่อพิกเซล (pipeline 4 clock ทุกชั้นเท่ากัน — เดิม 3 ก่อน board prep)
+//   ชั้น (ล่าง -> บน): tile < ปริศนา/มอน/บอส/กระสุน/ฟัน (objline) < ผู้เล่น < ข้อความ      F0F = โปร่งใส
 //   screen: 0 เกม · 1 TITLE (พื้นกรมท่า + sprite ที่ px,py ที่ top ส่งมา) · 2 GAME OVER (แดงเข้ม) · 3 WIN (ทอง)
 //   hide_player: ซ่อน sprite (กะพริบตอน EVOLVE / อมตะหลังโดนตี)
 //
-// pipeline (สีของพิกเซล hcount/vcount ออกที่ color หลัง 3 clock -> top หน่วง hsync/vsync/active 3 clock ให้ตรงกัน)
-//   stage 1: tile map + ผู้เล่น -> register address ROM + flag
-//   stage 2: อ่าน ROM (BRAM sync) + หน่วง flag; ชั้น object มาจาก objline.v (line buffer) ตรงเวลานี้
+// pipeline (สีของพิกเซล hcount/vcount ออกที่ color หลัง 4 clock -> top หน่วง hsync/vsync/active 4 clock ให้ตรงกัน)
+//   stage 0: จอสั่น (hs, vs = hcount/vcount + offset) + ที่อยู่ tile = LUT(grid) + (ty << 4) + (ty << 2) + tx -> register;
+//            ข้อความ: ตำแหน่งในบรรทัด (ลบ/เทียบขอบ) -> register   (ไม่มีตัวคูณ ไม่มี ROM ใน stage นี้)
+//   stage 1: อ่าน tilemap (async ROM เล็ก) -> เลือกรูปประตู/แผ่น -> register address ของ tileset/ผู้เล่น; ข้อความ: อ่าน text ROM
+//   stage 2: อ่าน ROM (BRAM sync) + หน่วง flag; ชั้น object จาก objline.v (line buffer, หน่วงเพิ่ม 1 clock ให้ตรง)
 //   stage 3: เลือกชั้น -> register color
-// ที่ CE_DIV = 4 hcount ค้าง 4 clock, top จับสีตอน ce -> latency 3 ไม่ทำให้ภาพเลื่อน
+// ที่ CE_DIV = 4 hcount ค้าง 4 clock, top จับสีตอน ce -> latency 4 พอดี 1 พิกเซล, ภาพไม่เลื่อน (เทียบ pixel ต่อ pixel กับ 3 stage แล้ว)
 module renderer (
     input  wire         clk,
     input  wire         ce,
@@ -60,7 +62,15 @@ module renderer (
     // จอสั่น: ทุกชั้นภาพใช้พิกัดที่เลื่อนแล้ว (hs, vs); นอกจอ = ดำ
     wire [9:0] hs = hcount + sh_dx;
     wire [9:0] vs = vcount + sh_dy;
-    wire [11:0] taddr = grid * 12'd300 + vs[8:5] * 12'd20 + hs[9:5];
+    // stage 0 (P6 board prep): register shifted coordinates + tilemap address (grid*300 from a LUT, row*20 = shift-add)
+    `include "tilebase.vh"
+    reg [9:0]  hs_r = 0, vs_r = 0;
+    reg [11:0] taddr = 0;
+    always @(posedge clk) begin
+        hs_r  <= hs;
+        vs_r  <= vs;
+        taddr <= rbase(grid) + rowx20(vs[8:5]) + hs[9:5];
+    end
     tilemap_rom map (.addr(taddr), .data(tid));
     reg [3:0] tvis;
     always @* begin                  // สถานะประตูเลือกรูปเปิด/ปิด
@@ -74,9 +84,9 @@ module renderer (
     end
 
     // ----- player -----
-    wire [9:0] sx = hs - px;
-    wire [9:0] sy = vs - py;
-    wire in_spr = (hs >= px) && (sx < 10'd32) && (vs >= py) && (sy < 10'd32);
+    wire [9:0] sx = hs_r - px;
+    wire [9:0] sy = vs_r - py;
+    wire in_spr = (hs_r >= px) && (sx < 10'd32) && (vs_r >= py) && (sy < 10'd32);
 
     reg [15:0] r1_taddr = 0;
     reg [15:0] r1_paddr = 0;
@@ -95,8 +105,10 @@ module renderer (
     reg [6:0]  lb0, lb1, bb, ta_;
     reg [5:0]  code;
     reg [4:0]  colc;
+    // stage A: ตำแหน่งในบรรทัดข้อความ (ลบ + เทียบขอบ + เลือกบรรทัด) -> register; stage B: อ่านตัวอักษรจาก text ROM + เลขสด
+    reg [9:0]  a_rx = 0, a_ry = 0; reg a_in = 0, a_s4 = 0, a_kk = 0, a_on = 0; reg [6:0] a_bb = 0;
     always @(posedge clk) begin
-        r1_txt <= 1'b0;
+        a_on <= (txt_scr != 0);
         if (txt_scr != 0) begin
             case (txt_scr)
                 3'd1: begin ly0 = T10_Y; lx0 = T10_X; lw0 = T10_W; lh0 = T10_H; ls0 = T10_S; lb0 = T10_B; lk0 = T10_K;
@@ -112,8 +124,14 @@ module renderer (
             endcase
             rx0 = hcount - lx0; ry0 = vcount - ly0; in0 = (rx0 < lw0) && (ry0 < lh0);
             rx1 = hcount - lx1; ry1 = vcount - ly1; in1 = (rx1 < lw1) && (ry1 < lh1);
-            rx = in0 ? rx0 : rx1;  ry = in0 ? ry0 : ry1;
-            s4 = in0 ? ls0 : ls1;  bb = in0 ? lb0 : lb1;  kk = in0 ? lk0 : lk1;
+            a_rx <= in0 ? rx0 : rx1;  a_ry <= in0 ? ry0 : ry1;  a_in <= in0 || in1;
+            a_s4 <= in0 ? ls0 : ls1;  a_bb <= in0 ? lb0 : lb1;  a_kk <= in0 ? lk0 : lk1;
+        end
+    end
+    always @(posedge clk) begin
+        r1_txt <= 1'b0;
+        if (a_on) begin
+            rx = a_rx; ry = a_ry; s4 = a_s4; bb = a_bb; kk = a_kk;
             colc = s4 ? rx[9:5] : rx[8:4];
             ta_  = bb + colc;
             code = txtmem[ta_];
@@ -127,12 +145,12 @@ module renderer (
             endcase
             r1_faddr <= {code, s4 ? ry[4:2] : ry[3:1]};
             r1_gx    <= s4 ? rx[4:2] : rx[3:1];
-            r1_txt   <= (in0 || in1) && !(kk && txt_blink);
+            r1_txt   <= a_in && !(kk && txt_blink);
         end
     end
     always @(posedge clk) begin
-        r1_out   <= (hs >= 10'd640) || (vs >= 10'd480);
-        r1_taddr <= {floor * 6'd16 + {2'b00, tvis}, vs[4:0], hs[4:0]};
+        r1_out   <= (hs_r >= 10'd640) || (vs_r >= 10'd480);
+        r1_taddr <= {floor, tvis, vs_r[4:0], hs_r[4:0]};          // (floor*16 + tvis) = {floor, tvis}
         r1_paddr <= {pframe, sy[4:0], sx[4:0]};
         r1_p     <= in_spr && !hide_player;
         r1_tint  <= p_tint;
@@ -154,6 +172,8 @@ module renderer (
                       .boss_flash(boss_flash), .sh_dx(sh_dx), .sh_dy(sh_dy),
                       .px(px), .py(py), .obj_px(obj_px));
 
+    reg [11:0] obj_px_d = 12'hF0F;          // ชั้น object มาถึงเร็วกว่า tile 1 clock (tile มี stage 0 เพิ่ม) -> หน่วง 1 clock
+    always @(posedge clk) obj_px_d <= obj_px;
     reg r2_p = 0, r2_lit = 0, r2_red = 0, r2_out = 0, r2_txt = 0, r2_tint = 0;
     reg [1:0] r2_scr = 0;
     reg [2:0] r2_gx = 0;
@@ -173,7 +193,7 @@ module renderer (
         else if (r2_p && spr_px != C_T)              color <= r2_tint ? (spr_px | 12'hCCC) : spr_px;   // ชาร์จเต็ม: สว่าง
         else if (r2_scr == 2'd1)                     color <= C_NAVY;
         else if (r2_out)                             color <= 12'h000;    // จอสั่น: ขอบที่เลื่อนออก
-        else if (obj_px != C_T)                      color <= obj_px;   // มอน < กระสุน < ฟัน (เรียงใน objline)
+        else if (obj_px_d != C_T)                    color <= obj_px_d;   // มอน < กระสุน < ฟัน (เรียงใน objline)
         else if (r2_red)                             color <= {4'hF, 1'b0, tile_px[7:5], 1'b0, tile_px[3:1]};   // Simon ผิด: แดง
         else if (r2_lit)                             color <= {1'b1, tile_px[11:9], 1'b1, tile_px[7:5], 1'b1, tile_px[3:1]}; // สว่าง
         else                                         color <= tile_px;

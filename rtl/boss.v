@@ -72,8 +72,9 @@ module boss (
     wire [3:0]  tda, tdb;
     tilemap_rom rom_a (.addr(ta), .data(tda));
     tilemap_rom rom_b (.addr(tb), .data(tdb));
+    `include "tilebase.vh"
     function [11:0] taddr(input [3:0] g, input [9:0] x, input [9:0] y);
-        taddr = g * 12'd300 + y[8:5] * 12'd20 + x[9:5];
+        taddr = rbase(g) + rowx20(y[8:5]) + x[9:5];
     endfunction
     function bpass(input [3:0] t);           // พื้น / แผ่น / แผ่น Simon; รั้วผ่านได้ถ้าไม่ใช่บอส 2
         bpass = (t == 4'h1) || (t == 4'h7) || (t >= 4'hB) || (t == 4'h6 && !p_fence);

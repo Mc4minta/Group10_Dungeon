@@ -119,7 +119,7 @@
 | 3 | มอน / บอสตาย | 500 → 120 Hz | 14 |
 | 4 | เก็บไอเทม / evolve | 800 → 2000 Hz | 28 |
 | 5 | เคลียร์ห้อง / ประตูเปิด / gate เปิด | 600 → 1000 Hz | 20 |
-| 6 | ปริศนาผิด (Simon) | 160 → 140 Hz | 24 |
+| 6 | ปริศนาผิด (Simon) | 200 → 170 Hz | 24 |
 | 7 | ปริศนาถูก (คันโยก / กล่องเลื่อน / Simon เหยียบถูก) | 1500 Hz | 5 |
 | 8 | ศัตรูโดนตี | 900 → 700 Hz | 4 |
 | 9 | ยิง: ร่าง 2 / กระจาย / นัดเร็ว / ลูกใหญ่ | 1800→1200 / 1400→1000 / 2400→1600 / 600→250 Hz | 5 / 6 / 4 / 16 |
@@ -155,6 +155,9 @@ rtl/          Verilog
   objects.v     slot มอน 6 / กระสุนผู้เล่น 2 / กระสุนศัตรู 16 / บอส 1, spawn, โจมตี, AABB, โดนตี, ห้องล็อก
   boss.v        บอส 3 ตัว + boss_rom (ค่าต่อตัว), เดิน ยิง มึน HP bar
   pdm_mic.v     ไมค์ PDM -> clap_pulse
+  mic_test_top.v ตัวทดสอบไมค์แยก (LED bar, peak, ตัวนับ, TH จากสวิตช์) + bin2bcd.v — ดู docs/BOARD_DAY.md
+  audio.v       เสียง: PWM, SFX 10 แบบ, BGM
+  tilebase.vh   ที่อยู่ tile ไม่ใช้ตัวคูณ (LUT 13 ห้อง + shift-add)
   text_layout.vh ตำแหน่งข้อความบนจอ (สร้างโดย make_font.py)
   objline.v     ชั้นภาพ object แบบ line buffer สองชุด (วาดบรรทัดถัดไประหว่างบรรทัดนี้) รวมของในห้องปริศนา
   puzzles.v     Light Bulb, Sokoban (ดันกล่อง), Simon, ไอเทม -> has_item / got_item
@@ -277,6 +280,7 @@ SHOTS=1 ./scripts/run_full_game.sh    # + บันทึกภาพ docs/p5_*.
 | สคริปต์ | เฟรม | ทำอะไร |
 | --- | --- | --- |
 | `full_game.txt` | ~9800 | TITLE → ชั้น 1 (Light Bulb, บอส 1) → ชั้น 2 (Sokoban, บอส 2 + ตบมือ 2 ครั้ง) → ชั้น 3 (Simon, บอส 3) → ESCAPE → E → WIN · ไม่ใช้ SW1 / SW3 |
+| `weapons_demo.txt` | 600 | ร่าง 1 ฟัน → 2 ยิง → 3 กระจาย → 4 ชาร์จ/ลูกใหญ่ → ยิงชนกระสุนป้อม (ภาพ `docs/p6t_*.png`; ใช้ SW3 / SW2 DEBUG) |
 | `floor1.txt` | ~2100 | START → C1 → C2 → Light Bulb (ตีคันโยก b, d) → ไอเทม 1 → EVOLVE → กลับ C2 → C1 → ประตู L → ห้องบอส |
 | `floor2.txt` | ~2400 | ข้ามชั้นด้วย SW1 → C1 → C2 → Sokoban เล่นตามคำตอบ solver 24 ครั้ง → gate เปิด → ไอเทม 2 (สร้างด้วย `scripts/make_floor2_script.py`) |
 | `floor3.txt` | ~2900 | ข้าม 2 ชั้น + SW3 เป็นร่าง 3 (บินข้ามหลุม) → C1 → C2 → Simon 3 รอบ → ไอเทม 3 |

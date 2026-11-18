@@ -108,7 +108,8 @@ module audio #(
     reg [7:0]  dur_cnt = 0;
     reg [17:0] b_hp = 0;
     reg        b_done = 1'b0;
-    wire [31:0] ent = mrom[{cur_track, pos}];
+    reg  [31:0] ent = 32'd0;                       // อ่าน ROM แบบ synchronous (1 register stage): ใช้ได้เพราะ frame_tick ห่างกันหลายล้าน clock
+    always @(posedge clk) ent <= mrom[{cur_track, pos}];
     wire        loop = (cur_track < 3'd4);
     always @(posedge clk) begin
         if (rst || !bgm_en) begin
