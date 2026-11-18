@@ -16,6 +16,8 @@
    (หรือสั่ง build ทีเดียว: `vivado -mode batch -source scripts/create_project.tcl -tclargs build`)
 4. ต่อจอ VGA แล้วกดเล่น
 
+> **วันลงบอร์ด:** ขั้นตอน build / checklist ทดสอบ / ทดสอบเสียงและไมค์ / ของที่ต้องส่งกลับ อยู่ที่ [`docs/BOARD_DAY.md`](docs/BOARD_DAY.md) (ตัวทดสอบไมค์แยก: `scripts/create_mic_project.tcl`)
+
 **ก่อน build ครั้งแรก** เทียบ pin ใน `constraints/nexys_a7.xdc` กับ `Nexys-A7-100T-Master.xdc` ของ Digilent อีกรอบ
 
 ## ปุ่มตอนนี้ (มีปุ่ม debug ชั่วคราว)
