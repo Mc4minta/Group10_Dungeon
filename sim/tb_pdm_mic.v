@@ -17,7 +17,8 @@ module tb_pdm_mic;
     real t_first, t_second;
 
     pdm_mic #(.CLK_DIV(MIC_CLK_DIV), .WINDOW(MIC_WINDOW), .TH(MIC_TH), .HOLDOFF(MIC_HOLDOFF)) dut (
-        .clk(clk), .rst(rst), .m_clk(m_clk), .m_data(m_data), .m_lrsel(m_lrsel), .clap_pulse(clap), .amplitude(amp));
+        .clk(clk), .rst(rst), .m_clk(m_clk), .m_data(m_data), .m_lrsel(m_lrsel), .clap_pulse(clap), .amplitude(amp),
+        .win_pulse(), .holdoff(), .th_dyn(12'd0), .use_dyn(1'b0));
 
     // ไมค์จำลอง: เปลี่ยน bit ที่ขอบขาลงของ M_CLK (ADMP421 ช่องซ้าย) ความน่าจะเป็น 50% หรือ 90%
     always @(negedge m_clk) begin

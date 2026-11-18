@@ -185,7 +185,8 @@ module top #(
              .fire(b_fire), .died(b_died), .dead(b_dead), .hp(b_hp), .hp_bar(b_hpbar), .anim(b_anim), .busy(b_busy));
     pdm_mic #(.CLK_DIV(MIC_CLK_DIV), .WINDOW(MIC_WINDOW), .TH(MIC_TH), .HOLDOFF(MIC_HOLDOFF)) mic (
              .clk(clk), .rst(rst), .m_clk(M_CLK), .m_data(M_DATA), .m_lrsel(M_LRSEL),
-             .clap_pulse(clap), .amplitude(mic_amp));
+             .clap_pulse(clap), .amplitude(mic_amp),
+             .win_pulse(), .holdoff(), .th_dyn(12'd0), .use_dyn(1'b0));
 
     puzzles #(.SEED(SEED)) pz (.clk(clk), .rst(rst), .frame_tick(frame_tick), .run(run),
                  .restart(restart), .room_load(load), .floor(floor), .grid(grid), .px(px), .py(py),

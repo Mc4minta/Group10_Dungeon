@@ -19,7 +19,11 @@ module pdm_mic #(
     input  wire        m_data,
     output wire        m_lrsel,
     output reg         clap_pulse = 1'b0,
-    output reg  [11:0] amplitude = 0       // ค่าล่าสุด (debug / LED)
+    output reg  [11:0] amplitude = 0,      // ค่าล่าสุด (debug / LED)
+    output reg         win_pulse = 1'b0,   // pulse 1 clock ทุกครั้งที่ amplitude ถูกอัปเดต (ทุก WINDOW sample)
+    output wire        holdoff,            // 1 ระหว่าง 200 ms หลังตบมือ
+    input  wire [11:0] th_dyn,             // threshold ที่ปรับได้ (ใช้เมื่อ use_dyn = 1; top เกมใช้พารามิเตอร์ TH)
+    input  wire        use_dyn
 );
     assign m_lrsel = 1'b0;
 
@@ -27,12 +31,15 @@ module pdm_mic #(
     reg        d0 = 1'b0, d1 = 1'b0;      // sync 2 FF
     reg [12:0] nsamp = 0, ones = 0;
     reg [24:0] hold = 0;
+    wire [11:0] th_eff = use_dyn ? th_dyn : TH;
+    assign holdoff = (hold != 0);
     wire [12:0] half = WINDOW / 2;
 
     always @(posedge clk) begin
         d0 <= m_data;
         d1 <= d0;
         clap_pulse <= 1'b0;
+        win_pulse <= 1'b0;
         if (hold != 0) hold <= hold - 1'b1;
 
         if (rst) begin
@@ -44,7 +51,8 @@ module pdm_mic #(
             if (div == CLK_DIV / 2 + 1) begin                       // ขาขึ้น + 2 clock: ค่าที่ผ่าน 2 FF
                 if (nsamp == WINDOW - 1) begin
                     amplitude <= ((ones + d1) > half) ? (ones + d1 - half) : (half - ones - d1);
-                    if ((((ones + d1) > half) ? (ones + d1 - half) : (half - ones - d1)) > TH && hold == 0) begin
+                    win_pulse <= 1'b1;
+                    if ((((ones + d1) > half) ? (ones + d1 - half) : (half - ones - d1)) > th_eff && hold == 0) begin
                         clap_pulse <= 1'b1;
                         hold <= HOLDOFF;
                     end
