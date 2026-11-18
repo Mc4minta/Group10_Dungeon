@@ -1,5 +1,5 @@
 ## Nexys A7-100T — ตัวทดสอบไมค์ (rtl/mic_test_top.v) เฉพาะ pin ที่ใช้
-## คัดลอกบรรทัดจาก constraints/nexys_a7.xdc ซึ่งเทียบกับ Digilent Nexys-A7-100T-Master.xdc แล้ว 80/80 pin ตรง (รวมไมค์ J5 / H5 / F5)
+## คัดลอกบรรทัดจาก constraints/nexys_a7.xdc (pin ไมค์ J5 M_CLK, H5 M_DATA, F5 M_LRSEL ยังไม่ได้เทียบกับ Digilent master xdc ในรอบนี้ — เว็บ Digilent บล็อกการดึงอัตโนมัติ)
 
 set_property -dict { PACKAGE_PIN E3  IOSTANDARD LVCMOS33 } [get_ports CLK100MHZ]
 create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports CLK100MHZ]
