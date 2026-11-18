@@ -14,6 +14,9 @@
 //   --frames N        ออกหลัง N เฟรม
 //   --shot file.bmp   บันทึกภาพเฟรมสุดท้าย
 //   --shot-at N:file.bmp   บันทึกภาพ ณ เฟรม N (ใช้ซ้ำได้หลายครั้ง)
+//   --wav-seg A:B:file.wav บันทึกเสียงเฉพาะเฟรม A..B ที่ 12207 Hz (ไฟล์เล็ก ใช้ซ้ำได้หลายช่วง)
+//   --wav file.wav         บันทึกเสียงทั้งรัน (ความเร็วเวลาเกมจริง 48828 Hz mono) — ใช้ได้ทั้งแบบ headless
+//   เสียงสด: คีย์ M = ปิด/เปิดเสียง, AUDIO_RATE=<Hz> ตั้งอัตราเล่น (ค่าเริ่ม 12207 = ช้ากว่าจริง 4 เท่า ตรงความเร็ว sim ~15 fps), NOAUDIO=1 ปิดอุปกรณ์เสียง
 //   --script-file scripts/floor1.txt   อ่านสคริปต์จากไฟล์ (รูปแบบเดียวกัน, # = คอมเมนต์, ขึ้นบรรทัดใหม่ = คั่น)
 //   --script "R:10:80,U:90:120,1:200"   กดปุ่มตามช่วงเฟรม (U D L R C) / สลับสวิตช์ที่เฟรมนั้น (0-9 = SW0-9, a-f = SW10-15)
 //   --headless | HEADLESS=1   ไม่เรียก SDL เลย, รัน 300 เฟรม (หรือ --frames N) แล้วพิมพ์ fps
@@ -87,8 +90,32 @@ static void draw_char(uint32_t* px, int x, int y, char ch, uint32_t c) {
 }
 
 static int clap_until = -1;    // เฟรมสุดท้ายที่แสดง CLAP ในชื่อหน้าต่าง
+// ---------- เสียง ----------
+// AUD_PWM เฉลี่ยทุก 512 clock (= 2 คาบ carrier 256 clock) -> 1 sample; AUD_SD = 0 -> เงียบ
+// sim ตั้ง CE_DIV = 1 (เฟรมเกมสั้นลง 4 เท่าต่อ clock และ audio.v ย่อ half-period 4 เท่าตาม)
+// -> 1 sample = 512 clock = 20.5 us ของ "เวลาเกม" -> อัตรา 48828 Hz เทียบเวลาเกมจริง
+static const int AUD_WIN = 512;
+static const int AUD_RATE = 100000000 / (AUD_WIN * 4 / CE_DIV);   // CE_DIV = 1: 48828 Hz
+static std::vector<int16_t> wav;     // --wav: เก็บทุก sample (เวลาเกมจริง ไม่ใช่เวลาผนัง)
+struct WavSeg { int a, b; std::string path; std::vector<int16_t> d; int acc = 0, n = 0; };   // --wav-seg A:B:file (เฟรม A..B, เฉลี่ย 4 sample = 12207 Hz ไฟล์เล็ก)
+static std::vector<WavSeg> segs;
+static int cur_frame = 0;
+static bool want_wav = false, muted = false;
+static std::vector<int16_t> aq;      // คิวสำหรับ SDL
+static SDL_AudioDeviceID adev = 0;
+static int aud_acc = 0, aud_n = 0;
 static long clap_left = 0;      // clock ที่เหลือของเสียงตบมือจำลอง (คีย์ C / สคริปต์ K)
 static unsigned rng = 12345;
+static void write_wav(const char* path, const std::vector<int16_t>& wav, int rate_div = 1) {
+    FILE* f = fopen(path, "wb"); if (!f) { fprintf(stderr, "cannot write %s\n", path); return; }
+    uint32_t n = (uint32_t)wav.size() * 2, rate = AUD_RATE / rate_div, br = rate * 2, riff = 36 + n;
+    uint16_t fmt = 1, ch = 1, ba = 2, bps = 16; uint32_t sz = 16;
+    fwrite("RIFF", 1, 4, f); fwrite(&riff, 4, 1, f); fwrite("WAVEfmt ", 1, 8, f); fwrite(&sz, 4, 1, f);
+    fwrite(&fmt, 2, 1, f); fwrite(&ch, 2, 1, f); fwrite(&rate, 4, 1, f); fwrite(&br, 4, 1, f);
+    fwrite(&ba, 2, 1, f); fwrite(&bps, 2, 1, f); fwrite("data", 1, 4, f); fwrite(&n, 4, 1, f);
+    fwrite(wav.data(), 2, wav.size(), f); fclose(f);
+}
+
 int main(int argc, char** argv) {
     Verilated::commandArgs(argc, argv);
     int max_frames = -1;
@@ -96,6 +123,7 @@ int main(int argc, char** argv) {
     std::vector<std::pair<int, std::string>> shots;   // --shot-at N:file
     std::vector<Act> script;
     bool headless = false;
+    const char* wav_path = nullptr;
     int skip = 1;
     if (const char* e = getenv("HEADLESS")) headless = atoi(e) != 0;
     if (const char* e = getenv("FRAMESKIP")) skip = atoi(e);
@@ -105,6 +133,13 @@ int main(int argc, char** argv) {
         else if (!strcmp(argv[i], "--headless")) headless = true;
         else if (!strcmp(argv[i], "--skip") && i + 1 < argc) skip = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--shot") && i + 1 < argc) shot = argv[++i];
+        else if (!strcmp(argv[i], "--wav") && i + 1 < argc) { want_wav = true; wav_path = argv[++i]; }
+        else if (!strcmp(argv[i], "--wav-seg") && i + 1 < argc) {      // --wav-seg A:B:file.wav
+            std::string t = argv[++i]; WavSeg sg; size_t c1 = t.find(':'), c2 = t.find(':', c1 + 1);
+            if (c1 != std::string::npos && c2 != std::string::npos) {
+                sg.a = atoi(t.c_str()); sg.b = atoi(t.c_str() + c1 + 1); sg.path = t.substr(c2 + 1); segs.push_back(sg);
+            }
+        }
         else if (!strcmp(argv[i], "--shot-at") && i + 1 < argc) {
             std::string t = argv[++i]; size_t c = t.find(':');
             if (c != std::string::npos) shots.push_back({atoi(t.c_str()), t.substr(c + 1)});
@@ -143,7 +178,14 @@ int main(int argc, char** argv) {
     if (headless && max_frames <= 0) max_frames = 300;
     SDL_Window* win = nullptr; SDL_Renderer* ren = nullptr; SDL_Texture* tex = nullptr;
     if (!headless) {
-        SDL_Init(SDL_INIT_VIDEO);
+        SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
+        if (!getenv("NOAUDIO")) {          // เล่นสด: เปิดอุปกรณ์ที่อัตรา AUDIO_RATE (ค่าเริ่ม = AUD_RATE/4 ให้ตรงความเร็ว sim ~0.25x)
+            SDL_AudioSpec want{}, have{};
+            want.freq = getenv("AUDIO_RATE") ? atoi(getenv("AUDIO_RATE")) : AUD_RATE / 4;
+            want.format = AUDIO_S16SYS; want.channels = 1; want.samples = 1024;
+            adev = SDL_OpenAudioDevice(nullptr, 0, &want, &have, 0);
+            if (adev) SDL_PauseAudioDevice(adev, 0);
+        }
         win = SDL_CreateWindow("Group10 Dungeon (Verilator)", SDL_WINDOWPOS_CENTERED,
                                SDL_WINDOWPOS_CENTERED, W * SCALE, (H + PANEL) * SCALE, 0);
         // ไม่ใช้ PRESENTVSYNC (จะล็อก fps ที่ 60 และหน่วงลูป)
@@ -183,6 +225,23 @@ int main(int argc, char** argv) {
         top->CLK100MHZ = 1; top->eval();
 #endif
         cyc++;
+        aud_acc += top->AUD_PWM;
+        if (++aud_n == AUD_WIN) {
+            int16_t smp = top->AUD_SD ? (int16_t)((aud_acc * 2 - AUD_WIN) * 96) : 0;
+            aud_acc = 0; aud_n = 0;
+            if (want_wav) wav.push_back(smp);
+            for (auto& sg : segs) if (cur_frame >= sg.a && cur_frame <= sg.b) {
+                sg.acc += smp;
+                if (++sg.n == 4) { sg.d.push_back((int16_t)(sg.acc / 4)); sg.acc = 0; sg.n = 0; }
+            }
+            if (adev) {
+                aq.push_back(muted ? 0 : smp);
+                if (aq.size() >= 1024) {
+                    if (SDL_GetQueuedAudioSize(adev) > 1 << 17) SDL_ClearQueuedAudio(adev);   // ช้าเกินไป: ทิ้งของค้าง
+                    SDL_QueueAudio(adev, aq.data(), aq.size() * 2); aq.clear();
+                }
+            }
+        }
         // ไมค์จำลอง: PDM สุ่ม ~50% ones, ตอนตบมือ ~90%
         rng ^= rng << 13; rng ^= rng >> 17; rng ^= rng << 5;
         top->M_DATA = clap_left > 0 ? ((rng & 127) < 115) : (rng & 1);
@@ -208,7 +267,7 @@ int main(int argc, char** argv) {
         if (prev_hs && !hs) x = 656;                   // ขอบหน้า hsync = h 656
         if (prev_vs && !vs) {                          // ขอบหน้า vsync = v 490 -> จบเฟรม
             y = 490; x = 0;
-            frame++;
+            frame++; cur_frame = frame;
             static const int logn = getenv("LOG") ? atoi(getenv("LOG")) : 0;
             if (logn > 0 && frame % logn == 0) {
                 auto* r = top->rootp;
@@ -288,6 +347,7 @@ int main(int argc, char** argv) {
                         else if (k == SDLK_SPACE) kC = d;
                         else if (k == SDLK_ESCAPE && d) quit = true;
                         else if (k == SDLK_c && d && !e.key.repeat) clap_left = 10000000;   // ตบมือ 100 ms
+                        else if (k == SDLK_m && d && !e.key.repeat) muted = !muted;           // M = ปิด/เปิดเสียง
                         else if (k == SDLK_BACKSPACE) top->CPU_RESETN = !d;
                         else if (d && !e.key.repeat && k == SDLK_LEFTBRACKET) { if (skip > 1) skip--; }
                         else if (d && !e.key.repeat && k == SDLK_RIGHTBRACKET) { if (skip < 64) skip++; }
@@ -329,8 +389,11 @@ int main(int argc, char** argv) {
         double dt = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
         printf("headless: frames=%d  time=%.3f s  %.2f fps  (%.1f Mclk/s)\n", frame, dt, frame / dt, cyc / dt / 1e6);
     } else printf("frames=%d  last-window %.1f fps\n", frame, fps);
+    for (auto& sg : segs) { write_wav(sg.path.c_str(), sg.d, 4); printf("wav-seg frames %d..%d: %zu samples -> %s\n", sg.a, sg.b, sg.d.size(), sg.path.c_str()); }
+    if (want_wav && wav_path) { write_wav(wav_path, wav); printf("wav: %zu samples (%.1f s game time) -> %s\n", wav.size(), wav.size() / (double)AUD_RATE, wav_path); }
     top->final();
     delete top;
+    if (adev) SDL_CloseAudioDevice(adev);
     if (!headless) SDL_Quit();
     return 0;
 }
