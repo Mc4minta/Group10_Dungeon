@@ -94,6 +94,8 @@ module top #(
     wire [5:0] pb_act;
     wire [11:0] pb_kind;
     wire       charged;
+    wire       ev_shoot, ev_melee, ev_mdmg, ev_mdie, ev_ok;
+    wire [1:0] ev_shoot_k;
     wire [2:0] alive;
     wire [5:0] mon_act, mon_type, mon_flash;
     wire [59:0] mon_x, mon_y;
@@ -171,6 +173,7 @@ module top #(
                  .invuln(invuln), .player_blink(obj_blink), .busy(),
                  .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
                  .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .pb_kind(pb_kind), .charged(charged),
+                 .ev_shoot(ev_shoot), .ev_shoot_k(ev_shoot_k), .ev_melee(ev_melee), .ev_mdmg(ev_mdmg), .ev_mdie(ev_mdie),
                  .eb_act(eb_act), .eb_x(eb_x), .eb_y(eb_y), .melee_on(melee_on), .melee_dir(melee_dir));
 
     // ---------- ปริศนา + ไอเทม ----------
@@ -188,7 +191,7 @@ module top #(
                  .restart(restart), .room_load(load), .floor(floor), .grid(grid), .px(px), .py(py),
                  .up(bu), .down(bd), .left(bl), .right(br), .melee_on(melee_on), .melee_dir(melee_dir),
                  .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .soko_reset(sw13_rise),
-                 .got_item(pz_got), .hit(pz_hit), .has_item(has_item),
+                 .got_item(pz_got), .hit(pz_hit), .ev_ok(ev_ok), .has_item(has_item),
                  .blk0(blk0), .blk1(blk1), .blk2(blk2), .blk_en(blk_en),
                  .pz_act(pz_act), .pz_x(pz_x), .pz_y(pz_y), .pz_frame(pz_frame),
                  .pbox0(pbox0), .pbox1(pbox1), .pbox_en(pbox_en),
@@ -321,6 +324,18 @@ module top #(
     assign LED17_R = dim & invuln;                // แดงตอนโดนตี (knockback + อมตะ)
     assign {LED17_G, LED17_B} = 2'b00;
 
-    assign AUD_PWM = 1'b0;                        // P6: เสียง
-    assign AUD_SD  = 1'b0;
+    // ---------- เสียง (audio.v) ----------
+    // เหตุการณ์ -> pulse 1 clock; ขอบขึ้นของสัญญาณระดับ (มึน, ประตูเปิด, gate เปิด) ตรวจที่นี่
+    reg stun_d = 1'b0, doors_d = 1'b1, gate_d = 1'b0;
+    always @(posedge clk) begin stun_d <= b_stunned; doors_d <= doors_open; gate_d <= gate_open; end
+    wire [10:1] aud_ev = {ev_melee, ev_shoot, ev_mdmg | b_dmg, ev_ok, pz_hit,
+                          (doors_open & ~doors_d) | (gate_open & ~gate_d), pz_got | sw3_rise,
+                          ev_mdie | b_died, b_stunned & ~stun_d, obj_hit | sw4_rise};
+    wire [2:0] bgm_track = is_esc ? 3'd4 - 3'd1 : is_win ? 3'd4 : (state == S_GAME_OVER) ? 3'd5 : {1'b0, floor};
+    localparam AUD_TSHIFT = (CE_DIV == 1) ? 2 : (CE_DIV == 2) ? 1 : 0;   // sim CE_DIV = 1: เฟรมสั้นลง 4 เท่า -> ย่อ half-period
+    wire [7:0] aud_sample;
+    audio #(.TSHIFT(AUD_TSHIFT)) aud (.clk(clk), .rst(rst), .frame_tick(frame_tick), .ev(aud_ev), .shoot_k(ev_shoot_k),
+              .simon_note_on(simon_note_on), .simon_note(simon_note),
+              .bgm_en(!is_title), .bgm_track(bgm_track),
+              .pwm(AUD_PWM), .sd(AUD_SD), .sample(aud_sample));
 endmodule

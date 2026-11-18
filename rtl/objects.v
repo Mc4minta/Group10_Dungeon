@@ -59,6 +59,11 @@ module objects (
     output wire [5:0]   pb_act,           // กระสุนผู้เล่น 6 slot
     output wire [59:0]  pb_x, pb_y,
     output wire [11:0]  pb_kind,          // 0 ร่าง 2, 1 กระจาย (ร่าง 3), 2 เร็ว (ร่าง 4), 3 ลูกใหญ่ 16x16
+    output reg          ev_shoot = 1'b0,  // pulse (เสียง): ยิงกระสุนผู้เล่น
+    output reg  [1:0]   ev_shoot_k = 2'd0,// 0 ร่าง 2, 1 กระจาย, 2 นัดเร็ว, 3 ลูกใหญ่
+    output reg          ev_melee = 1'b0,  // pulse: ฟัน
+    output reg          ev_mdmg = 1'b0,   // pulse: มอนโดนตี
+    output reg          ev_mdie = 1'b0,   // pulse: มอนตาย
     output wire         charged,          // ร่าง 4 ชาร์จเต็มแล้ว (ให้ผู้เล่นกะพริบ)
     output wire [15:0]  eb_act,
     output wire [159:0] eb_x, eb_y,
@@ -225,6 +230,7 @@ module objects (
         end
         hit <= 1'b0;
         kb_start <= 1'b0;
+        ev_shoot <= 1'b0; ev_melee <= 1'b0; ev_mdmg <= 1'b0; ev_mdie <= 1'b0;
         if (atk_press && run) atk_req <= 1'b1;
         if (!run) atk_req <= 1'b0;
         if (room_load) spawn_req <= 1'b1;
@@ -301,14 +307,14 @@ module objects (
                         if (!sp_done && !p_act[q]) begin
                             p_act[q] <= 1'b1; p_kindv[q*2 +: 2] <= 2'd3; p_dirv[q*3 +: 3] <= {1'b0, facing};
                             p_xv[q*10 +: 10] <= px + 10'd8; p_yv[q*10 +: 10] <= py + 10'd8;
-                            big_mask <= 0; sp_done = 1'b1;
+                            big_mask <= 0; sp_done = 1'b1; ev_shoot <= 1'b1; ev_shoot_k <= 2'd3;
                         end
                 end
                 chg <= 0; chg_ok <= 1'b0;
             end
             if (cool != 0) cool <= cool - 1'b1;
             else if (atk_req && (form == 2'd0 || near)) begin      // ฟันประชิด (ร่าง 1 เสมอ, ร่าง 2-4 เมื่อศัตรูอยู่ในกล่อง)
-                melee_cnt <= MELEE_FRAMES;
+                melee_cnt <= MELEE_FRAMES; ev_melee <= 1'b1;
                 mel_dir   <= facing;
                 mel_mask  <= 0;
                 mel_boss  <= 1'b0;
@@ -327,6 +333,7 @@ module objects (
                         p_xv[q*10 +: 10] <= px + 10'd12; p_yv[q*10 +: 10] <= py + 10'd12;
                         nsp = nsp + 1;
                     end
+                if (nsp != 0) begin ev_shoot <= 1'b1; ev_shoot_k <= pk_k; end
                 if (nsp != 0) cool <= (form == 2'd1) ? PB_COOLDOWN - 1 : (form == 2'd2) ? SPREAD_COOLDOWN - 1 : TAP_COOLDOWN - 1;
                 if (form == 2'd3 && atk_req) begin chg_ok <= 1'b1; chg <= 0; end
             end
@@ -468,8 +475,8 @@ module objects (
                     {1'b0, m_xv[(i)*10 +: 10]} + OFS + 11'd4, {1'b0, m_yv[(i)*10 +: 10]} + OFS + 11'd4, 7'd24, 7'd24)) begin
                 if (pk_k == 2'd3) big_mask[i] <= 1'b1;
                 else p_act[j[2:0]] <= 1'b0;
-                m_flv[(i)*4 +: 4] <= MON_FLASH;
-                if (m_hpv[(i)*3 +: 3] <= bdmg(pk_k)) begin m_hpv[(i)*3 +: 3] <= 0; m_act[i] <= 1'b0; end
+                m_flv[(i)*4 +: 4] <= MON_FLASH; ev_mdmg <= 1'b1;
+                if (m_hpv[(i)*3 +: 3] <= bdmg(pk_k)) begin m_hpv[(i)*3 +: 3] <= 0; m_act[i] <= 1'b0; ev_mdie <= 1'b1; end
                 else m_hpv[(i)*3 +: 3] <= m_hpv[(i)*3 +: 3] - bdmg(pk_k);
             end
             if (i == NM - 1) begin
@@ -483,8 +490,8 @@ module objects (
                 ovl(mbx, mby, mbw, mbh,
                     {1'b0, m_xv[(i)*10 +: 10]} + OFS + 11'd4, {1'b0, m_yv[(i)*10 +: 10]} + OFS + 11'd4, 7'd24, 7'd24)) begin
                 mel_mask[i] <= 1'b1;
-                m_flv[(i)*4 +: 4] <= MON_FLASH;
-                if (m_hpv[(i)*3 +: 3] <= damage) begin m_hpv[(i)*3 +: 3] <= 0; m_act[i] <= 1'b0; end
+                m_flv[(i)*4 +: 4] <= MON_FLASH; ev_mdmg <= 1'b1;
+                if (m_hpv[(i)*3 +: 3] <= damage) begin m_hpv[(i)*3 +: 3] <= 0; m_act[i] <= 1'b0; ev_mdie <= 1'b1; end
                 else m_hpv[(i)*3 +: 3] <= m_hpv[(i)*3 +: 3] - damage;
             end
             if (i == NM - 1) begin i <= 0; st <= S_CPM; end

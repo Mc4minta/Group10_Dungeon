@@ -98,3 +98,28 @@ localparam TAP_COOLDOWN    = 15;           // ร่าง 4: เฟรมระ
 localparam CHARGE_FRAMES   = 45;           // ร่าง 4: กดค้างกี่เฟรมถึงชาร์จเต็ม (0.75 วิ)
 localparam BIG_SPEED       = 4;            // ร่าง 4 ลูกใหญ่ 16x16 px/เฟรม
 localparam BIG_DMG         = 4;            // ร่าง 4 ลูกใหญ่: ดาเมจ (ทะลุมอน, โดนแต่ละตัวครั้งเดียว)
+
+// ---------- เสียง (P6) ----------
+localparam AUD_PWM_BITS    = 8;            // PWM 8 bit, carrier = 100 MHz / 256 = 390 kHz
+localparam SFX_AMP         = 48;           // แอมพลิจูดเสียงเอฟเฟกต์ (รอบ 128)
+localparam BGM_AMP         = 18;           // แอมพลิจูดเพลงพื้นหลัง (เบากว่า SFX)
+localparam AUD_SD_ON       = 1;            // ระดับ AUD_SD ที่เปิดแอมป์ (Nexys A7: 1 = เปิด — ตามความจำของ demo ของ Digilent ยังไม่ได้ยืนยันกับ manual)
+localparam [17:0] SIMON_HP0 = 18'd95556;   // โน้ต Simon q = C5 523 Hz (half-period ที่ 100 MHz)
+localparam [17:0] SIMON_HP1 = 18'd75844;   // w = E5 659 Hz
+localparam [17:0] SIMON_HP2 = 18'd63776;   // e = G5 784 Hz
+localparam [17:0] SIMON_HP3 = 18'd47778;   // r = C6 1047 Hz
+// SFX: HP = half-period เริ่มต้น (clock), SL = ขยับ half-period ต่อเฟรม (ลบ = เสียงสูงขึ้น), LEN = เฟรม
+// ลำดับความสำคัญ: เลขน้อย = สำคัญกว่า (1 hurt, 2 stun, 3 die, 4 item, 5 clear, 6 wrong, 7 ok, 8 mhit, 9 shoot, 10 melee)
+localparam [17:0] SFX_HURT_HP = 18'd151515;  localparam signed [17:0] SFX_HURT_SL = 16835;  localparam SFX_HURT_LEN = 18;   // 330->110 Hz
+localparam [17:0] SFX_STUN_HP = 18'd41667;  localparam signed [17:0] SFX_STUN_SL = 1736;  localparam SFX_STUN_LEN = 24;   // 1200->600 Hz
+localparam [17:0] SFX_DIE_HP = 18'd100000;  localparam signed [17:0] SFX_DIE_SL = 22619;  localparam SFX_DIE_LEN = 14;   // 500->120 Hz
+localparam [17:0] SFX_ITEM_HP = 18'd62500;  localparam signed [17:0] SFX_ITEM_SL = -1339;  localparam SFX_ITEM_LEN = 28;   // 800->2000 Hz
+localparam [17:0] SFX_CLEAR_HP = 18'd83333;  localparam signed [17:0] SFX_CLEAR_SL = -1667;  localparam SFX_CLEAR_LEN = 20;   // 600->1000 Hz
+localparam [17:0] SFX_WRONG_HP = 18'd312500;  localparam signed [17:0] SFX_WRONG_SL = 1860;  localparam SFX_WRONG_LEN = 24;   // 160->140 Hz
+localparam [17:0] SFX_OK_HP = 18'd33333;  localparam signed [17:0] SFX_OK_SL = 0;  localparam SFX_OK_LEN = 5;   // 1500->1500 Hz
+localparam [17:0] SFX_MHIT_HP = 18'd55556;  localparam signed [17:0] SFX_MHIT_SL = 3968;  localparam SFX_MHIT_LEN = 4;   // 900->700 Hz
+localparam [17:0] SFX_SHOOT0_HP = 18'd27778;  localparam signed [17:0] SFX_SHOOT0_SL = 2778;  localparam SFX_SHOOT0_LEN = 5;   // 1800->1200 Hz
+localparam [17:0] SFX_SHOOT1_HP = 18'd35714;  localparam signed [17:0] SFX_SHOOT1_SL = 2381;  localparam SFX_SHOOT1_LEN = 6;   // 1400->1000 Hz
+localparam [17:0] SFX_SHOOT2_HP = 18'd20833;  localparam signed [17:0] SFX_SHOOT2_SL = 2604;  localparam SFX_SHOOT2_LEN = 4;   // 2400->1600 Hz
+localparam [17:0] SFX_SHOOT3_HP = 18'd83333;  localparam signed [17:0] SFX_SHOOT3_SL = 7292;  localparam SFX_SHOOT3_LEN = 16;   // 600->250 Hz
+localparam [17:0] SFX_MELEE_HP = 18'd111111;  localparam signed [17:0] SFX_MELEE_SL = 12698;  localparam SFX_MELEE_LEN = 7;   // 450->250 Hz

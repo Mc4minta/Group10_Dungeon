@@ -31,6 +31,7 @@ module puzzles #(
     input  wire        soko_reset,           // SW13 rise
     output reg         got_item = 1'b0,      // pulse -> game_fsm (EVOLVE)
     output reg         hit = 1'b0,           // pulse -> game_fsm take_hit (Simon ผิด)
+    output reg         ev_ok = 1'b0,         // pulse (เสียง): คันโยกสลับ / กล่องเลื่อน / Simon เหยียบถูก
     output wire [2:0]  has_item,             // [floor] -> ประตู L ชั้นนั้นเปิด
     // ช่องที่กันการเดิน (address tile แบบเดียวกับ tilemap_rom รวม grid แล้ว): กล่อง 0, กล่อง 1, gate
     output reg  [11:0] blk0 = 0, blk1 = 0, blk2 = 0,
@@ -191,6 +192,7 @@ module puzzles #(
         end
         got_item <= 1'b0;
         hit <= 1'b0;
+        ev_ok <= 1'b0;
         if (room_load) enter_req <= 1'b1;
         if (!melee_on) mel_used <= 0;
         for (jb = 0; jb < 6; jb = jb + 1)
@@ -250,7 +252,7 @@ module puzzles #(
                         ovl({1'b0, pb_x[jb*10 +: 10]} + OFS, {1'b0, pb_y[jb*10 +: 10]} + OFS, 7'd8, 7'd8, lvpx, lvpy, 7'd32, 7'd32))
                         hit_b0 = 1'b1;
                 if (grid == G_LB && lb_init && !lb_ok && (hit_m || hit_b0 || hit_b1)) begin
-                    levers[k] <= ~levers[k];
+                    levers[k] <= ~levers[k]; ev_ok <= 1'b1;
                     bulbs <= bulbs ^ lmask;
                 end
                 if (hit_m)  mel_used[k] <= 1'b1;
@@ -276,8 +278,8 @@ module puzzles #(
                 if ((td == 4'h1 || td == 4'h7) && dx < 5'd20 && dy < 4'd15 &&
                     !(dx == GATE_TX && dy == GATE_TY) &&
                     !(dbox ? (dx == b0x && dy == b0y) : (dx == b1x && dy == b1y))) begin
-                    if (dbox) begin b1x <= dx; b1y <= dy; sc1 <= BOX_SLIDE_FRAMES; sd1 <= ddir; end
-                    else      begin b0x <= dx; b0y <= dy; sc0 <= BOX_SLIDE_FRAMES; sd0 <= ddir; end
+                    if (dbox) begin b1x <= dx; b1y <= dy; sc1 <= BOX_SLIDE_FRAMES; sd1 <= ddir; ev_ok <= 1'b1; end
+                    else      begin b0x <= dx; b0y <= dy; sc0 <= BOX_SLIDE_FRAMES; sd0 <= ddir; ev_ok <= 1'b1; end
                 end
                 st <= P_SLIDE;
             end
@@ -315,7 +317,7 @@ module puzzles #(
                     on_prev <= (td >= 4'hC);
                     if (td >= 4'hC && !on_prev) begin                // ก้าวขึ้นแผ่นใหม่
                         if (td[1:0] == note_i) begin
-                            lit_on <= 1'b1; lit <= td[1:0]; fb <= SIMON_FEEDBACK;
+                            lit_on <= 1'b1; lit <= td[1:0]; fb <= SIMON_FEEDBACK; ev_ok <= 1'b1;
                             if (sidx == slen - 1) begin sm <= SM_OK; stmr <= SIMON_PRE - 1; end
                             else sidx <= sidx + 1'b1;
                         end else begin
