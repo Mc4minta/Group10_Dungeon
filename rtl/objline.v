@@ -15,8 +15,9 @@ module objline (
     input  wire [5:0]   mon_act, mon_type, mon_flash,
     input  wire [59:0]  mon_x, mon_y,
     input  wire         mon_anim,
-    input  wire [1:0]   pb_act,
-    input  wire [19:0]  pb_x, pb_y,
+    input  wire [5:0]   pb_act,
+    input  wire [59:0]  pb_x, pb_y,
+    input  wire [11:0]  pb_kind,           // 0 ร่าง 2, 1 กระจาย, 2 เร็ว, 3 ลูกใหญ่ 16x16
     input  wire [15:0]  eb_act,
     input  wire [159:0] eb_x, eb_y,
     input  wire [8:0]   pz_act,
@@ -33,7 +34,7 @@ module objline (
     output reg  [11:0]  obj_px = 12'hF0F
 );
     localparam [11:0] C_T = 12'hF0F;
-    localparam NOBJ = 35;                    // 0-8 ปริศนา, 9-14 มอน, 15 บอส, 16-31 กระสุนศัตรู, 32-33 กระสุนผู้เล่น, 34 ฟัน
+    localparam NOBJ = 39;                    // 0-8 ปริศนา, 9-14 มอน, 15 บอส, 16-31 กระสุนศัตรู, 32-37 กระสุนผู้เล่น, 38 ฟัน
 
     // ---------- line buffer x2 ----------
     reg [11:0] lb0 [0:1023];
@@ -60,7 +61,7 @@ module objline (
     reg [9:0]  w_x = 0;
 
     reg  [11:0] maddr = 0, eaddr = 0;
-    reg  [6:0]  baddr = 0;
+    reg  [10:0] baddr = 0;
     reg  [13:0] paddr = 0;
     reg  [14:0] gaddr = 0;
     wire [11:0] mdat, edat, bdat, pdat, gdat;
@@ -125,9 +126,15 @@ module objline (
                 end else if (o < 6'd32) begin
                     s_act = eb_act[o - 6'd16]; s_x = eb_x[(o - 6'd16)*10 +: 10]; s_y = eb_y[(o - 6'd16)*10 +: 10];
                     s_size = 7'd8; s_kind = 3'd1; s_frame = 4'd1;
-                end else if (o < 6'd34) begin
+                end else if (o < 6'd38) begin
                     s_act = pb_act[o - 6'd32]; s_x = pb_x[(o - 6'd32)*10 +: 10]; s_y = pb_y[(o - 6'd32)*10 +: 10];
-                    s_size = 7'd8; s_kind = 3'd1; s_frame = 4'd0;
+                    s_kind = 3'd1;
+                    case (pb_kind[(o - 6'd32)*2 +: 2])
+                        2'd0: begin s_size = 7'd8;  s_frame = 4'd0; end
+                        2'd1: begin s_size = 7'd8;  s_frame = 4'd2; end
+                        2'd2: begin s_size = 7'd8;  s_frame = 4'd3; end
+                        default: begin s_size = 7'd16; s_frame = 4'd4; end
+                    endcase
                 end else begin
                     s_act = melee_on; s_kind = 3'd2; s_frame = {2'b00, melee_dir};
                     s_x = (melee_dir == 2'd2) ? px - 10'd24 : (melee_dir == 2'd3) ? px + 10'd24 : px;
@@ -146,7 +153,7 @@ module objline (
                 // อ่าน ROM คอลัมน์ col, เขียนใน clock ถัดไป
                 maddr <= {oframe[1:0], orow[4:0], col[4:0]};
                 eaddr <= {oframe[1:0], orow[4:0], col[4:0]};
-                baddr <= {oframe[0], orow[2:0], col[2:0]};
+                baddr <= {oframe[2:0], orow[3:0], col[3:0]};
                 paddr <= {oframe, orow[4:0], col[4:0]};
                 gaddr <= {oframe[2:0], orow, col[5:0]};
                 w_on <= ((ox + col) < 10'd640);                // 10 bit wrap: x ติดลบ (เช่น 1000 + 30) ได้ 6

@@ -90,11 +90,14 @@ module top #(
     wire [1:0] form, damage;
     wire       freeze, fsm_hide;
     wire       obj_hit, kb_start, invuln, obj_blink, melee_on, mon_anim;
-    wire [1:0] kb_dir, melee_dir, pb_act;
+    wire [1:0] kb_dir, melee_dir;
+    wire [5:0] pb_act;
+    wire [11:0] pb_kind;
+    wire       charged;
     wire [2:0] alive;
     wire [5:0] mon_act, mon_type, mon_flash;
     wire [59:0] mon_x, mon_y;
-    wire [19:0] pb_x, pb_y;
+    wire [59:0] pb_x, pb_y;
     wire [15:0] eb_act;
     wire [159:0] eb_x, eb_y;
     wire        pz_got, pz_hit, pz_busy, simon_lit_on, simon_wrong, simon_note_on, room_led_on;
@@ -115,7 +118,8 @@ module top #(
     // บอส
     wire        b_act, b_flash, b_stunned, b_fire, b_died, b_anim, b_busy, b_dmg;
     wire [9:0]  b_x, b_y;
-    wire [1:0]  b_kind, b_dmg_amt;
+    wire [1:0]  b_kind;
+    wire [2:0]  b_dmg_amt;
     wire [2:0]  b_dead;
     wire [4:0]  b_hp;
     wire [7:0]  b_hpbar;
@@ -166,7 +170,7 @@ module top #(
                  .doors_open(doors_open), .alive(alive), .hit(obj_hit), .kb_start(kb_start), .kb_dir(kb_dir),
                  .invuln(invuln), .player_blink(obj_blink), .busy(),
                  .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
-                 .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y),
+                 .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .pb_kind(pb_kind), .charged(charged),
                  .eb_act(eb_act), .eb_x(eb_x), .eb_y(eb_y), .melee_on(melee_on), .melee_dir(melee_dir));
 
     // ---------- ปริศนา + ไอเทม ----------
@@ -262,7 +266,8 @@ module top #(
                   .screen(screen), .hide_player(fsm_hide | (obj_blink && !is_title)),
                   .px(rpx), .py(rpy), .pframe(pframe),
                   .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
-                  .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y),
+                  .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .pb_kind(pb_kind),
+                  .p_tint(charged && fc[2]),
                   .eb_act(eb_act), .eb_x(eb_x), .eb_y(eb_y), .melee_on(melee_on), .melee_dir(melee_dir),
                   .pz_act(pz_act), .pz_x(pz_x), .pz_y(pz_y), .pz_frame(pz_frame),
                   .pbox0(pbox0), .pbox1(pbox1), .pbox_en(pbox_en),

@@ -24,8 +24,10 @@ module renderer (
     input  wire [5:0]   mon_act, mon_type, mon_flash,
     input  wire [59:0]  mon_x, mon_y,
     input  wire         mon_anim,
-    input  wire [1:0]   pb_act,
-    input  wire [19:0]  pb_x, pb_y,
+    input  wire [5:0]   pb_act,
+    input  wire [59:0]  pb_x, pb_y,
+    input  wire [11:0]  pb_kind,
+    input  wire         p_tint,           // ผู้เล่นสว่าง (ร่าง 4 ชาร์จเต็ม)
     input  wire [15:0]  eb_act,
     input  wire [159:0] eb_x, eb_y,
     input  wire [8:0]   pz_act,
@@ -78,7 +80,7 @@ module renderer (
 
     reg [15:0] r1_taddr = 0;
     reg [15:0] r1_paddr = 0;
-    reg        r1_p = 0, r1_lit = 0, r1_red = 0, r1_out = 0;
+    reg        r1_p = 0, r1_lit = 0, r1_red = 0, r1_out = 0, r1_tint = 0;
     reg [1:0]  r1_scr = 0;
     // ----- ข้อความ: ไม่เกิน 2 บรรทัดต่อหน้าจอ, ฟอนต์ 8x8 ขยาย 2x / 4x (คิดเฉพาะตอนมีข้อความบนจอ) -----
     reg [5:0]  txtmem [0:127];
@@ -133,6 +135,7 @@ module renderer (
         r1_taddr <= {floor * 6'd16 + {2'b00, tvis}, vs[4:0], hs[4:0]};
         r1_paddr <= {pframe, sy[4:0], sx[4:0]};
         r1_p     <= in_spr && !hide_player;
+        r1_tint  <= p_tint;
         r1_scr   <= screen;
         r1_lit   <= simon_lit_on && (tid == {2'b11, simon_lit});
         r1_red   <= simon_wrong && (tid >= 4'hC);
@@ -144,19 +147,19 @@ module renderer (
     player_rom  pspr (.clk(clk), .addr(r1_paddr), .data(spr_px));
     objline     objl (.clk(clk), .ce(ce), .hcount(hcount), .vcount(vcount),
                       .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
-                      .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y),
+                      .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .pb_kind(pb_kind),
                       .eb_act(eb_act), .eb_x(eb_x), .eb_y(eb_y), .melee_on(melee_on), .melee_dir(melee_dir),
                       .pz_act(pz_act), .pz_x(pz_x), .pz_y(pz_y), .pz_frame(pz_frame),
                       .boss_act(boss_act), .boss_x(boss_x), .boss_y(boss_y), .boss_frame(boss_frame),
                       .boss_flash(boss_flash), .sh_dx(sh_dx), .sh_dy(sh_dy),
                       .px(px), .py(py), .obj_px(obj_px));
 
-    reg r2_p = 0, r2_lit = 0, r2_red = 0, r2_out = 0, r2_txt = 0;
+    reg r2_p = 0, r2_lit = 0, r2_red = 0, r2_out = 0, r2_txt = 0, r2_tint = 0;
     reg [1:0] r2_scr = 0;
     reg [2:0] r2_gx = 0;
     reg [7:0] r2_font = 0;
     always @(posedge clk) begin
-        r2_p <= r1_p; r2_scr <= r1_scr; r2_lit <= r1_lit; r2_red <= r1_red; r2_out <= r1_out;
+        r2_p <= r1_p; r2_tint <= r1_tint; r2_scr <= r1_scr; r2_lit <= r1_lit; r2_red <= r1_red; r2_out <= r1_out;
         r2_txt <= r1_txt; r2_gx <= r1_gx;
         r2_font <= fontmem[r1_faddr];
     end
@@ -167,7 +170,7 @@ module renderer (
         if (txt_on)                                  color <= 12'hFFF;    // ข้อความอยู่บนสุด
         else if (r2_scr == 2'd2)                     color <= C_OVER;
         else if (r2_scr == 2'd3)                     color <= C_WIN;
-        else if (r2_p && spr_px != C_T)              color <= spr_px;
+        else if (r2_p && spr_px != C_T)              color <= r2_tint ? (spr_px | 12'h888) : spr_px;   // ชาร์จเต็ม: สว่าง
         else if (r2_scr == 2'd1)                     color <= C_NAVY;
         else if (r2_out)                             color <= 12'h000;    // จอสั่น: ขอบที่เลื่อนออก
         else if (obj_px != C_T)                      color <= obj_px;   // มอน < กระสุน < ฟัน (เรียงใน objline)

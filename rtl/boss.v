@@ -44,7 +44,7 @@ module boss (
     input  wire [3:0]  grid,
     input  wire [9:0]  px, py,           // ผู้เล่น (มุมซ้ายบน sprite)
     input  wire        dmg,              // pulse จาก objects.v: โดนกระสุน / ฟัน
-    input  wire [1:0]  dmg_amt,
+    input  wire [2:0]  dmg_amt,
     input  wire        clap,             // pulse จาก pdm_mic.v
     output reg         act = 1'b0,
     output reg  [9:0]  bx = 0, by = 0,   // มุมซ้ายบน sprite 64x64

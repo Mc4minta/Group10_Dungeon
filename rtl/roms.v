@@ -56,13 +56,14 @@ module effect_rom (
     always @(posedge clk) data <= mem[addr];
 endmodule
 
-// กระสุน: 2 เฟรม (ผู้เล่น, ศัตรู) x 64 px x 12 bit, address = kind*64 + y*8 + x
+// กระสุน: 8 เฟรม 16x16 x 12 bit (กระสุน 8x8 อยู่มุมซ้ายบนของช่อง), address = frame*256 + y*16 + x
+// เฟรม 0 ผู้เล่นร่าง 2, 1 ศัตรู, 2 กระจาย (ร่าง 3), 3 นัดเร็ว (ร่าง 4), 4 ลูกใหญ่ 16x16 (ร่าง 4 ชาร์จ)
 module bullet_rom (
     input  wire        clk,
-    input  wire [6:0]  addr,
+    input  wire [10:0] addr,
     output reg  [11:0] data
 );
-    reg [11:0] mem [0:127];
+    reg [11:0] mem [0:2047];
     initial $readmemh("bullet.mem", mem);
     always @(posedge clk) data <= mem[addr];
 endmodule

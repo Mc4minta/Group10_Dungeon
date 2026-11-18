@@ -88,3 +88,13 @@ localparam MIC_WINDOW      = 4096;         // นับ bit 1 ทุกกี่
 localparam MIC_TH          = 600;          // |ones - 2048| > TH = ตบมือ (เงียบ ~ +-100, ตบมือดังกว่ามาก)
 localparam MIC_HOLDOFF     = 20000000;     // หลังตบมือ ไม่สนกี่ clock (200 ms ที่ 100 MHz)
 localparam BOSS_DELAY      = 300;          // boss.v เริ่มงานต่อเฟรมหลัง frame_tick กี่ clock (หลัง objects.v)
+
+// ---------- อาวุธต่อร่าง (P6) ----------
+localparam SPREAD_SPEED    = 4;            // ร่าง 3 กระสุนกระจาย: ทางตรง px/เฟรม
+localparam SPREAD_DIAG     = 3;            // ร่าง 3: ทแยง 45 องศา px/เฟรม ต่อแกน
+localparam SPREAD_COOLDOWN = 20;           // ร่าง 3: เฟรมระหว่างชุด (3 นัด)
+localparam TAP_SPEED       = 6;            // ร่าง 4 กดครั้งเดียว: กระสุนเร็ว px/เฟรม
+localparam TAP_COOLDOWN    = 15;           // ร่าง 4: เฟรมระหว่างนัด
+localparam CHARGE_FRAMES   = 45;           // ร่าง 4: กดค้างกี่เฟรมถึงชาร์จเต็ม (0.75 วิ)
+localparam BIG_SPEED       = 4;            // ร่าง 4 ลูกใหญ่ 16x16 px/เฟรม
+localparam BIG_DMG         = 4;            // ร่าง 4 ลูกใหญ่: ดาเมจ (ทะลุมอน, โดนแต่ละตัวครั้งเดียว)

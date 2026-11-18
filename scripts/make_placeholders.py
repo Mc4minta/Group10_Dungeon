@@ -5,7 +5,7 @@ mem/tileset.mem : 3 ชั้น x 16 tile x 32x32, address = (floor*16 + tile)*
 mem/player.mem  : 4 ร่าง x 4 ทิศ x 3 ท่า = 48 เฟรม 32x32, address = frame*1024 + y*32 + x
                   frame = form*12 + dir*3 + pose  (dir: 0 ลง 1 ขึ้น 2 ซ้าย 3 ขวา, pose: 0 idle 1 ก้าวA 2 ก้าวB)
 mem/monster.mem : 4 เฟรม 32x32 = มอน A เฟรม 0,1 แล้วมอน B เฟรม 0,1 (frame = type*2 + anim)
-mem/bullet.mem  : 2 เฟรม 8x8 = กระสุนผู้เล่น, กระสุนศัตรู (address = kind*64 + y*8 + x)
+mem/bullet.mem  : 8 เฟรม 16x16 = ร่าง 2, ศัตรู, ร่าง 3 กระจาย, ร่าง 4 เร็ว, ร่าง 4 ลูกใหญ่ (address = frame*256 + y*16 + x)
 mem/effect.mem  : เอฟเฟกต์ฟันประชิด 4 เฟรม 32x32 ตามทิศ (0 ลง 1 ขึ้น 2 ซ้าย 3 ขวา)
                   วาดที่ (px, py+24) / (px, py-24) / (px-24, py) / (px+24, py) ทับ hit box 24x16
 ทุกสีเป็น RGB444 (hex 3 หลัก), F0F = โปร่งใส
@@ -144,8 +144,18 @@ def monster(kind, anim):
 
 
 def bullet(kind):
-    img = [[T] * 8 for _ in range(8)]
-    outer, inner = (0x0AF, 0xFFF) if kind == 0 else (0xE20, 0xFE4)   # ผู้เล่น ฟ้า-ขาว / ศัตรู แดง-เหลือง
+    """กระสุน 16x16 ต่อเฟรม: 0 ร่าง 2 ฟ้า-ขาว, 1 ศัตรู แดง-เหลือง, 2 ร่าง 3 เขียว, 3 ร่าง 4 นัดเร็ว เหลือง-ขาว (8x8 มุมซ้ายบน)
+    4 ลูกใหญ่ร่าง 4 (16x16 ส้ม-ขาว มีขอบเรือง)"""
+    img = [[T] * 16 for _ in range(16)]
+    if kind == 4:
+        for y in range(16):
+            for x in range(16):
+                d = (x - 7.5) ** 2 + (y - 7.5) ** 2
+                if d <= 60: img[y][x] = 0xF60
+                if d <= 36: img[y][x] = 0xFA2
+                if d <= 12: img[y][x] = 0xFFF
+        return img
+    outer, inner = [(0x0AF, 0xFFF), (0xE20, 0xFE4), (0x2C3, 0xBFB), (0xEE0, 0xFFF)][kind]
     for y in range(8):
         for x in range(8):
             d = (x - 3.5) ** 2 + (y - 3.5) ** 2
@@ -293,10 +303,10 @@ write_mem(players, os.path.join(ROOT, 'mem', 'player.mem'))
 to_png(tiles, 16, os.path.join(ROOT, 'docs', 'tileset_preview.png'))
 to_png(players, 12, os.path.join(ROOT, 'docs', 'player_preview.png'))
 monsters = [monster(k, a) for k in range(2) for a in range(2)]
-bullets = [bullet(k) for k in range(2)]
+bullets = [bullet(k) for k in range(5)]
 effects = [effect(d) for d in range(4)]
 write_mem(monsters, os.path.join(ROOT, 'mem', 'monster.mem'))
-write_mem(bullets, os.path.join(ROOT, 'mem', 'bullet.mem'))
+write_mem(bullets + [[[T] * 16 for _ in range(16)]] * 3, os.path.join(ROOT, 'mem', 'bullet.mem'))   # 8 เฟรม (address 11 bit)
 write_mem(effects, os.path.join(ROOT, 'mem', 'effect.mem'))
 puzzles = [puzzle(i) for i in range(10)]
 write_mem(puzzles + [blank(T)] * 6, os.path.join(ROOT, 'mem', 'puzzle.mem'))   # เติมให้ครบ 16 เฟรม (address 14 bit)
@@ -305,6 +315,6 @@ bosses = [boss(k, f) for k in range(3) for f in range(2)]
 write_mem(bosses + [[[T] * 64 for _ in range(64)]] * 2, os.path.join(ROOT, 'mem', 'boss.mem'))   # 8 เฟรม (address 15 bit)
 to_png(bosses, 6, os.path.join(ROOT, 'docs', 'boss_preview.png'), size=64)
 to_png(monsters + effects, 8, os.path.join(ROOT, 'docs', 'objects_preview.png'))
-to_png(bullets, 2, os.path.join(ROOT, 'docs', 'bullet_preview.png'), size=8)
+to_png(bullets, 5, os.path.join(ROOT, 'docs', 'bullet_preview.png'), size=16)
 print(f'tileset: {len(tiles)} tiles, player: {len(players)} frames, '
       f'monster: {len(monsters)}, bullet: {len(bullets)}, effect: {len(effects)} frames')
