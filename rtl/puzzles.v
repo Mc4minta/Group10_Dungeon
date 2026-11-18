@@ -26,8 +26,8 @@ module puzzles #(
     input  wire        up, down, left, right,
     input  wire        melee_on,
     input  wire [1:0]  melee_dir,
-    input  wire [1:0]  pb_act,
-    input  wire [19:0] pb_x, pb_y,
+    input  wire [5:0]  pb_act,               // กระสุนผู้เล่น 6 slot
+    input  wire [59:0] pb_x, pb_y,
     input  wire        soko_reset,           // SW13 rise
     output reg         got_item = 1'b0,      // pulse -> game_fsm (EVOLVE)
     output reg         hit = 1'b0,           // pulse -> game_fsm take_hit (Simon ผิด)
@@ -92,7 +92,9 @@ module puzzles #(
     reg        lb_init = 1'b0;
     reg [3:0]  levers = 0;
     reg [3:0]  mel_used = 0;
-    reg [7:0]  pb_used = 0;                  // [j*4 + k] กระสุน j โดนคันโยก k แล้ว
+    reg [23:0] pb_used = 0;                  // [j*4 + k] กระสุน j โดนคันโยก k แล้ว
+    reg [3:0]  hit_bv;                       // กระสุนที่โดนคันโยก k รอบนี้
+    integer    jb;
     reg [4:0]  b0x = BOX0_TX, b1x = BOX1_TX;
     reg [3:0]  b0y = BOX0_TY, b1y = BOX1_TY;
     reg [4:0]  sc0 = 0, sc1 = 0;             // เฟรมเลื่อนที่เหลือ
@@ -191,8 +193,8 @@ module puzzles #(
         hit <= 1'b0;
         if (room_load) enter_req <= 1'b1;
         if (!melee_on) mel_used <= 0;
-        if (!pb_act[0]) pb_used[3:0] <= 4'd0;
-        if (!pb_act[1]) pb_used[7:4] <= 4'd0;
+        for (jb = 0; jb < 6; jb = jb + 1)
+            if (!pb_act[jb]) pb_used[jb*4 +: 4] <= 4'd0;
 
         if (rst || restart) begin
             picked <= 0; lb_init <= 1'b0; lb_ok <= 1'b0; bulbs <= 0; levers <= 0;
@@ -242,24 +244,27 @@ module puzzles #(
             // ---- Light Bulb: คันโยก k ----
             P_LEV: begin
                 hit_m  = melee_on && !mel_used[k] && ovl(mbx, mby, mbw, mbh, lvpx, lvpy, 7'd32, 7'd32);
-                hit_b0 = pb_act[0] && !pb_used[k] &&
-                         ovl({1'b0, pb_x[9:0]} + OFS, {1'b0, pb_y[9:0]} + OFS, 7'd8, 7'd8, lvpx, lvpy, 7'd32, 7'd32);
-                hit_b1 = pb_act[1] && !pb_used[4 + k] &&
-                         ovl({1'b0, pb_x[19:10]} + OFS, {1'b0, pb_y[19:10]} + OFS, 7'd8, 7'd8, lvpx, lvpy, 7'd32, 7'd32);
+                hit_b0 = 1'b0; hit_b1 = 1'b0;
+                for (jb = 0; jb < 6; jb = jb + 1)
+                    if (pb_act[jb] && !pb_used[jb*4 + k] &&
+                        ovl({1'b0, pb_x[jb*10 +: 10]} + OFS, {1'b0, pb_y[jb*10 +: 10]} + OFS, 7'd8, 7'd8, lvpx, lvpy, 7'd32, 7'd32))
+                        hit_b0 = 1'b1;
                 if (grid == G_LB && lb_init && !lb_ok && (hit_m || hit_b0 || hit_b1)) begin
                     levers[k] <= ~levers[k];
                     bulbs <= bulbs ^ lmask;
                 end
                 if (hit_m)  mel_used[k] <= 1'b1;
-                if (hit_b0) pb_used[k] <= 1'b1;
-                if (hit_b1) pb_used[4 + k] <= 1'b1;
+                for (jb = 0; jb < 6; jb = jb + 1)
+                    if (pb_act[jb] && !pb_used[jb*4 + k] &&
+                        ovl({1'b0, pb_x[jb*10 +: 10]} + OFS, {1'b0, pb_y[jb*10 +: 10]} + OFS, 7'd8, 7'd8, lvpx, lvpy, 7'd32, 7'd32))
+                        pb_used[jb*4 + k] <= 1'b1;
                 if (k == 2'd3) begin k <= 0; st <= P_PUSHA; end
                 else k <= k + 1'b1;
             end
             // ---- Sokoban: ตรวจดันกล่อง k ----
             P_PUSHA: begin
                 if (grid == G_LB && lb_init && bulbs == 4'b1111) lb_ok <= 1'b1;
-                if (grid == G_SOKO && !sliding && in_one && touch(kbx, kby, in_dir)) begin
+                if (grid == G_SOKO && !gate_open && !sliding && in_one && touch(kbx, kby, in_dir)) begin   // gate เปิด = กล่องล็อก
                     dx <= nbx; dy <= nby; ddir <= in_dir; dbox <= k[0];
                     ta <= tad(grid, nbx, nby);
                     st <= P_PUSHB;
