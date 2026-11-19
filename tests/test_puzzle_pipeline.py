@@ -47,9 +47,11 @@ def sha(p):
         return hashlib.sha256(f.read()).hexdigest()
 
 
-def indep(png, scale=2, cut=()):
-    """independent: exact integer upscale, centred in 32x32, see-through -> key; None if empty"""
+def indep(png, scale=2, cut=(), cell=None):
+    """independent: exact integer upscale, centred in 32x32, see-through -> key; None if empty. cell = [row, col] of a 32x32-cell sheet"""
     im = Image.open(png).convert("RGBA")
+    if cell:
+        im = im.crop((cell[1] * 32, cell[0] * 32, cell[1] * 32 + 32, cell[0] * 32 + 32))
     w, h = im.size
     out, opq = [KEY] * 1024, 0
     ox, oy = (32 - w * scale) // 2, (32 - h * scale) // 2
@@ -123,7 +125,7 @@ class RealProject(unittest.TestCase):
             if "mem" in spec:
                 exp = indep_mem(os.path.join(ROOT, spec["mem"]), spec["frame"], self.cfg["scale"])
             else:
-                exp = indep(os.path.join(ROOT, spec["file"]), self.cfg["scale"], set(spec["cut"]))
+                exp = indep(os.path.join(ROOT, spec["file"]), spec.get("scale", self.cfg["scale"]), set(spec["cut"]), spec.get("cell"))
             self.assertEqual(self.mem[i * N:(i + 1) * N], exp, PZ.NAMES[i])
 
     def test_bulbs_come_from_the_torch_mem_and_differ(self):
@@ -225,6 +227,15 @@ class Fallbacks(unittest.TestCase):
         self.assertEqual(w[0:N], self.v1[0:N])
         self.assertNotEqual(w[N:2 * N], self.v1[N:2 * N])
 
+    def test_switch_cell_outside_sheet_falls_back(self):
+        self.c["frames"]["2"] = {"file": self.c["frames"]["2"]["file"], "cell": [7, 7], "scale": 1}
+        jsave(self.cfgp, self.c)
+        rc, out = run_build(self.t)
+        w = self.ok_shape()
+        self.assertEqual(rc, 0)
+        self.assertIn("is outside it", out)
+        self.assertEqual(w[2 * N:3 * N], self.v1[2 * N:3 * N])
+
     def test_skip_and_bad_config(self):
         self.c["frames"]["9"] = {"skip": True}
         jsave(self.cfgp, self.c)
@@ -234,7 +245,9 @@ class Fallbacks(unittest.TestCase):
         self.assertEqual(w[9 * N:10 * N], self.v1[9 * N:10 * N])
         for bad in ("{oops", json.dumps({"frames": {"99": {"skip": True}}}), json.dumps({"scale": 9}),
                     json.dumps({"frames": {"0": {"file": "x", "tint": "nope"}}}),
-                    json.dumps({"frames": {"0": {"file": "x", "cut": [[1, 2]]}}})):
+                    json.dumps({"frames": {"0": {"file": "x", "cut": [[1, 2]]}}}),
+                    json.dumps({"frames": {"0": {"file": "x", "cell": [1]}}}),
+                    json.dumps({"frames": {"0": {"file": "x", "scale": 9}}})):
             with open(self.cfgp, "w") as fh:
                 fh.write(bad)
             if os.path.exists(self.out):

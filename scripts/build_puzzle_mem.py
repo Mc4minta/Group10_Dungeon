@@ -87,7 +87,15 @@ def load_config(path, root):
         if not (isinstance(cut, list) and all(isinstance(c, list) and len(c) == 3 and
                                               all(isinstance(q, int) and not isinstance(q, bool) and 0 <= q <= 255 for q in c) for c in cut)):
             raise ConfigError(f'frames."{k}".cut must be a list of [r,g,b] colours (0-255) that become see-through')
-        frames[int(k)] = {"file": v["file"], "tint": t, "cut": [tuple(c) for c in cut]}
+        spec = {"file": v["file"], "tint": t, "cut": [tuple(c) for c in cut]}
+        if "cell" in v:                                   # the file is a sheet of 32x32 cells: use cell [row, col] (both from 0)
+            c = v["cell"]
+            if not (isinstance(c, list) and len(c) == 2 and all(isinstance(q, int) and not isinstance(q, bool) and q >= 0 for q in c)):
+                raise ConfigError(f'frames."{k}".cell must be [row, col] (integers >= 0)')
+            spec["cell"] = tuple(c)
+        if "scale" in v:
+            spec["scale"] = P._int(v["scale"], 1, 4, f'frames."{k}".scale')
+        frames[int(k)] = spec
     cfg["frames"] = frames
     return cfg
 
@@ -193,6 +201,13 @@ def make_frame(spec, root, cfg):
     except Exception as e:
         msg = f"cannot read {P.shortpath(path)}: {e}"
         return None, None, None, msg, msg
+    cell_note = ""
+    if spec.get("cell"):
+        r, c = spec["cell"]
+        if (c + 1) * 32 > im.width or (r + 1) * 32 > im.height:
+            return None, None, None, f"{os.path.basename(path)} is {im.width}x{im.height}: cell row{r} col{c} (32x32) is outside it", None
+        im = im.crop((c * 32, r * 32, c * 32 + 32, r * 32 + 32))
+        cell_note = f" r{r}c{c}"
     if spec.get("cut"):                                        # exact background colours -> see-through (floor shows through)
         px = im.load()
         cut = set(spec["cut"])
@@ -202,7 +217,7 @@ def make_frame(spec, root, cfg):
                     px[x, y] = (0, 0, 0, 0)
     if spec.get("tint"):
         im = P.apply_tint(im, cfg["tints"][spec["tint"]])
-    sc = cfg["scale"]
+    sc = spec.get("scale", cfg["scale"])
     w, h = im.size
     if w * sc > 32 or h * sc > 32:
         return None, None, None, f"{os.path.basename(path)} is {w}x{h}: x{sc} = {w * sc}x{h * sc} does not fit the 32x32 frame", None
@@ -212,7 +227,7 @@ def make_frame(spec, root, cfg):
     words, stats = P.convert_cell(cell, cfg["key"], cfg["alpha"], 1)
     if stats["opaque"] == 0:
         return None, None, None, f"{os.path.basename(path)} fully transparent", None
-    label = os.path.basename(path) + (f" ({spec['tint']})" if spec.get("tint") else "") + f" x{sc}"
+    label = os.path.basename(path) + cell_note + (f" ({spec['tint']})" if spec.get("tint") else "") + f" x{sc}"
     return words, stats, label, None, None
 
 

@@ -1,6 +1,6 @@
 # Sprite status - what is final, what is a placeholder, what you still need to find or edit
 
-**Updated every time a sprite, ROM or map changes.** Last update: after commit `2c8bfaa` (lightbulbs = your `torch.mem`).
+**Updated every time a sprite, ROM or map changes.** Last update: levers = your `picture/new_switch.png` (frame 1 = lever up, frame 4 = lever down).
 Legend: **FINAL** = real art you are happy with. **PLACEHOLDER** = real art but a stand-in (wrong meaning, recoloured, borrowed). **OLD ART** = the original programmer placeholder from the first version (`*_v1.mem`), nothing new yet.
 
 How to change any sprite: see `sprites/README.md`. One command for everything: `scripts/update_sprites.sh` (Windows: `scripts\update_sprites.bat`).
@@ -14,7 +14,7 @@ How to change any sprite: see `sprites/README.md`. One command for everything: `
 | 1 | **Form 4 hero** (the final form) | PLACEHOLDER: Human sheets recoloured gold | 4x4 walk sheet (128x128, rows: front-Right, front-Left, back-Right, back-Left), optional 16-column idle sheet. Same layout as `Human/Walk.png` | put the PNGs in `picture/`, list them under `forms."4".sheets` in `sprites/sprites.json`, delete the `"tint"` line |
 | 2 | **Player bullets and enemy bullets** | OLD ART (8x8 squares) | 8x8 px sprites in a 16x16 cell, frames: 0 form-2 shot, 1 enemy shot, 2 form-3 spread, 3 form-4 fast shot, 4 form-4 big charged shot (full 16x16) | needs a new pipeline (pack arrows are 16x32, too big): tell me and I add it |
 | 3 | **Melee slash** (form 1 attack effect) | OLD ART (white arc) | 4 arcs, one per direction, 32x32 | same: I add the pipeline |
-| 4 | **Levers** (lightbulb puzzle) | PLACEHOLDER: closed / open chest | 2 frames 16x16: lever up, lever down | `picture/props/` + `sprites/puzzle.json` frames 2, 3 |
+| 4 | **Levers** (lightbulb puzzle) | FINAL art from `picture/new_switch.png`, but the two states differ by only 12 pixels (the inner yellow dash moves 2 px) so it is hard to see on screen | optional: redraw with a bigger knob travel / a colour change between left and right | `picture/new_switch.png` (cells [0,0] and [1,0]) + `sprites/puzzle.json` frames 2, 3 |
 | 5 | **Title screen / GAME OVER / WIN screens** | OLD ART: plain colour fills + text | optional: a logo/background (needs a ROM + renderer change, Verilog) | later |
 | 6 | **Angel size** | FINAL art but small (1x, wings 22 px wide) | optional: redraw with a narrower wingspan so it can use 2x like Human and Orc | `sprites/sprites.json` `forms."3".scale` |
 | 7 | **Orc / Angel idle sheets** | none (idle = walk frame 0) | optional: idle sheets like `Human/Idle.png` | `forms."2"/"3".sheets.idle` |
@@ -60,7 +60,7 @@ Unused enemy art in `picture/enemies/`: attack, death and damage strips for all 
 | Frame | Art | Status |
 |---|---|---|
 | bulb on / bulb off | **your** `picture/props/torch.mem` (frame 0 lit, frame 7 smouldering) | FINAL |
-| lever up / down | chest closed / chest open | **PLACEHOLDER** (needs #4 above) |
+| lever up / down | **your** `picture/new_switch.png`: frame 1 (cell r0 c0, fully left) = up, frame 4 (cell r1 c0, fully right) = down; frames 2,3,5,6 are in-between animation (the game has no lever animation, so unused); frame 7 = fully left again | FINAL art, but the left/right difference is tiny (see #4) |
 | box | iron crate | FINAL |
 | gate closed / open | spikes up / retracted (background cut out) | FINAL |
 | item floor 1 / 2 / 3 | gold key / silver key / red shield | FINAL |
