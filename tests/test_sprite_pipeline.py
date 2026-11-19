@@ -51,19 +51,23 @@ def sha(path):
         return hashlib.sha256(f.read()).hexdigest()
 
 
-def indep_frame(png, row1, col):
-    """independent RGB444 conversion of one cell (does not use build code); None if empty"""
+def indep_frame(png, row1, col, scale=1):
+    """independent conversion of one cell (does not use build code), exact integer upscale about the cell centre; None if empty"""
     im = Image.open(png).convert("RGBA")
-    out, opaque = [], 0
+    out, opaque = [KEY] * 1024, 0
     for y in range(32):
         for x in range(32):
             r, g, b, a = im.getpixel((col * 32 + x, (row1 - 1) * 32 + y))
             if a < 128:
-                out.append(KEY)
-            else:
-                v = (((r * 15 + 127) // 255) << 8) | (((g * 15 + 127) // 255) << 4) | ((b * 15 + 127) // 255)
-                out.append(v ^ 1 if v == KEY else v)
-                opaque += 1
+                continue
+            v = (((r * 15 + 127) // 255) << 8) | (((g * 15 + 127) // 255) << 4) | ((b * 15 + 127) // 255)
+            v = v ^ 1 if v == KEY else v
+            opaque += 1
+            for dy in range(scale):
+                for dx in range(scale):
+                    X, Y = scale * (x - 16) + 16 + dx, scale * (y - 16) + 16 + dy
+                    if 0 <= X < 32 and 0 <= Y < 32:
+                        out[Y * 32 + X] = v
     return out if opaque else None
 
 
@@ -110,7 +114,7 @@ class RealProject(unittest.TestCase):
                 continue
             sname, row, col = r["src"]
             png = os.path.join(ROOT, self.cfg["forms"][r["form"]]["sheets"][sname])
-            exp = indep_frame(png, row, col)
+            exp = indep_frame(png, row, col, self.cfg["forms"][r["form"]]["scale"])
             i = r["idx"]
             self.assertEqual(self.mem[i * N:(i + 1) * N], exp, r["name"])
 
@@ -306,6 +310,42 @@ class Fallbacks(unittest.TestCase):
         w = self.ok_shape()
         exp = indep_frame(os.path.join(self.t, "picture", "form1_walk.png"), 3, 0)   # up.idle
         self.assertEqual(w[3 * N:4 * N], exp)
+
+    def test_scale2_is_exact_integer_upscale(self):
+        c = jload(self.cfgp)
+        c["forms"]["1"]["scale"] = 2
+        jsave(self.cfgp, c)
+        rc, out = run_build(self.t)
+        self.assertEqual(rc, 0)
+        w = self.ok_shape()
+        self.assertNotIn("CUT OFF", out)
+        self.assertIn("x2", out)
+        exp = indep_frame(os.path.join(self.t, "picture", "form1_walk.png"), 1, 1, 2)       # down.A = walk r1 c1
+        self.assertEqual(w[1 * N:2 * N], exp)
+        f = w[1 * N:2 * N]
+        for y in range(0, 32, 2):                                    # every pixel is a 2x2 block
+            for x in range(0, 32, 2):
+                self.assertTrue(f[y * 32 + x] == f[y * 32 + x + 1] == f[(y + 1) * 32 + x] == f[(y + 1) * 32 + x + 1])
+        w2 = words_of(self.out)
+        exp3 = indep_frame(os.path.join(self.t, "picture", "form2_walk.png"), 1, 1, 1)      # other forms unchanged (scale 1)
+        self.assertEqual(w2[13 * N:14 * N], exp3)
+
+    def test_scale_too_big_reports_cut_off_pixels(self):
+        c = jload(self.cfgp)
+        c["forms"]["2"]["scale"] = 4
+        jsave(self.cfgp, c)
+        rc, out = run_build(self.t)
+        self.assertEqual(rc, 0)
+        self.ok_shape()
+        self.assertIn("CUT OFF", out)
+
+    def test_bad_scale_is_config_error(self):
+        for bad in (0, 9, "2", 1.5):
+            c = jload(self.cfgp)
+            c["forms"]["1"]["scale"] = bad
+            jsave(self.cfgp, c)
+            rc, _ = run_build(self.t)
+            self.assertEqual(rc, 2, bad)
 
     def test_check_writes_nothing(self):
         rc, _ = run_build(self.t, "--check")

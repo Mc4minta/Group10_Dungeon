@@ -4,6 +4,7 @@
     "Rebuild: python scripts/build_player_mem.py   (see sprites/README.md)",
     "Rows are numbered 1-4 (top to bottom), columns 0-3 (left to right) inside a sheet.",
     "Anything missing / transparent / wrong size falls back to mem/player_v1.mem (old art) with a warning.",
+    "forms.N.scale = exact integer upscale of every sheet of that form about the cell centre (1 = as drawn, 2 = each pixel becomes 2x2). Pixels that would leave the 32x32 frame are cut off and reported.",
     "Keys starting with _ are comments and are ignored."
   ],
   "key_color": "F0F",
@@ -14,6 +15,7 @@
     "1": {
       "enabled": true,
       "cell": 32,
+      "scale": 2,
       "sheets": {
         "walk": "picture/Character/Human/Walk.png",
         "idle": "picture/Character/Human/Idle.png",
@@ -25,7 +27,7 @@
         "spin_die": "picture/Character/Human/SpinDie.png"
       }
     },
-    "2": { "enabled": true, "cell": 32, "sheets": { "walk": "picture/Character/ORc/form2_Walk.png" } },
+    "2": { "enabled": true, "cell": 32, "scale": 2, "sheets": { "walk": "picture/Character/ORc/form2_Walk.png" } },
     "3": { "enabled": true, "cell": 32, "sheets": { "walk": "picture/Character/Angel/Angel_walk.png.png" } },
     "4": { "enabled": true, "cell": 32, "sheets": {} }
   },

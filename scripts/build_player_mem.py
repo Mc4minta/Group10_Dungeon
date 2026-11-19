@@ -135,7 +135,8 @@ def load_config(path, root):
         enabled = e.get("enabled", True)
         if not isinstance(enabled, bool):
             raise ConfigError(f'forms."{n}".enabled must be true or false')
-        forms[n] = {"cell": cell, "enabled": enabled,
+        scale = _int(e.get("scale", 1), 1, 4, f'forms."{n}".scale')
+        forms[n] = {"cell": cell, "enabled": enabled, "scale": scale,
                     "sheets": {k: v for k, v in sheets.items() if not k.startswith("_")}}
     cfg["forms"] = forms
 
@@ -249,16 +250,17 @@ def to_rgb444(r, g, b):
     return (((r * 15 + 127) // 255) << 8) | (((g * 15 + 127) // 255) << 4) | ((b * 15 + 127) // 255)
 
 
-def convert_cell(cell, key, alpha_thr):
-    """RGBA 32x32 -> (list of 1024 RGB444 ints, stats). Nearest colour, no resize."""
+def convert_cell(cell, key, alpha_thr, scale=1):
+    """RGBA 32x32 -> (list of 1024 RGB444 ints, stats). Nearest colour, no smoothing.
+    scale > 1: exact integer upscale about the cell centre (each source pixel becomes scale x scale pixels,
+    destination = scale*(p - 16) + 16). Pixels that would land outside the 32x32 frame are cut off and counted in stats["clipped"]."""
     px = cell.load()
-    out = []
-    opaque = outside = nudged = semi = 0
+    out = [key] * FRAME_WORDS
+    opaque = outside = nudged = semi = clipped = 0
     for y in range(FRAME_PX):
         for x in range(FRAME_PX):
             r, g, b, a = px[x, y]
             if a < alpha_thr:
-                out.append(key)
                 continue
             if a < 255:
                 semi += 1
@@ -266,19 +268,26 @@ def convert_cell(cell, key, alpha_thr):
             if c == key:                       # real art must not turn into the key colour
                 c = key ^ 0x001
                 nudged += 1
-            out.append(c)
             opaque += 1
-            if not (HIT_LO <= x <= HIT_HI and HIT_LO <= y <= HIT_HI):
-                outside += 1
-    return out, {"opaque": opaque, "outside": outside, "nudged": nudged, "semi": semi}
+            for dy in range(scale):
+                for dx in range(scale):
+                    X = scale * (x - 16) + 16 + dx
+                    Y = scale * (y - 16) + 16 + dy
+                    if not (0 <= X < FRAME_PX and 0 <= Y < FRAME_PX):
+                        clipped += 1
+                        continue
+                    out[Y * FRAME_PX + X] = c
+                    if not (HIT_LO <= X <= HIT_HI and HIT_LO <= Y <= HIT_HI):
+                        outside += 1
+    return out, {"opaque": opaque, "outside": outside, "nudged": nudged, "semi": semi, "clipped": clipped}
 
 
-def get_cell_words(sheet, row, col, cfg):
+def get_cell_words(sheet, row, col, cfg, scale=1):
     """-> (words|None, stats|None, reason|None)"""
     st, res = sheet.cell(row, col)
     if st == "fail":
         return None, None, res
-    words, stats = convert_cell(res, cfg["key"], cfg["alpha"])
+    words, stats = convert_cell(res, cfg["key"], cfg["alpha"], scale)
     if stats["opaque"] == 0:
         return None, None, f"{sheet.label} row{row} col{col} fully transparent"
     return words, stats, None
@@ -354,13 +363,13 @@ def build_main(cfg, sheets, fallback):
                         if sh is None:                       # sheet not listed for this form: just try the next candidate
                             unconf.append(f"sheet '{sname}' not configured for form{n}")
                             continue
-                        w, stats, why = get_cell_words(sh, row, col, cfg)
+                        w, stats, why = get_cell_words(sh, row, col, cfg, fc["scale"])
                         if w is None:
                             reasons.append(why)
                             continue
                         words = w
                         info["stats"] = stats
-                        info["source"] = f"{sh.label} r{row} c{col}"
+                        info["source"] = f"{sh.label} r{row} c{col}" + (f" x{fc['scale']}" if fc["scale"] > 1 else "")
                         info["src"] = (sname, row, col)
                         if reasons:
                             info["notes"].append("used after: " + "; ".join(reasons))
@@ -400,6 +409,8 @@ def print_table(result, out_words, previous):
             note = list(r["notes"])
             if s["outside"]:
                 note.append(f"{s['outside']} px outside hitbox area {HIT_LO}-{HIT_HI}")
+            if s["clipped"]:
+                note.append(f"WARNING {s['clipped']} px CUT OFF at the frame edge (scale too big for this art)")
             if s["nudged"]:
                 note.append(f"{s['nudged']} px nudged off key colour")
             if s["semi"]:

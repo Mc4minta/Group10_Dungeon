@@ -52,6 +52,10 @@ do not exist fall back. A size that is not a multiple of 32 makes the whole shee
 
 ## Things you edit (all in `sprites/sprites.json`)
 
+* **Make a form bigger (exact upscale):** `"forms"` -> `"1"` -> `"scale": 2` (integer 1-4, default 1). Every pixel of every sheet of that form
+  becomes 2x2 (no smoothing), scaled about the cell centre. Now: Human (form 1) and Orc (form 2) use `scale 2`, Angel stays at 1 because its wings
+  (22 px wide) would be cut off. If a scaled pixel would leave the 32x32 frame the table prints `WARNING n px CUT OFF` - lower the scale or redraw.
+
 * **Redraw a frame:** replace the PNG (same name), run the build.
 * **Add form 4 art:** copy sheets into `picture/`, then put them under `"forms"` -> `"4"` -> `"sheets"`:
   `{ "walk": "picture/form4_walk.png" }` (optionally `"idle"`), run the build.

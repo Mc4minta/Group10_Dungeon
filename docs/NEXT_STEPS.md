@@ -12,7 +12,7 @@ Already done (for reference): player art (forms 1-3), tileset, enemies, bosses, 
 
 ## A. Before the presentation (low risk: config / art / tuning, no Verilog)
 
-- [ ] **A1. Bigger player sprite.** The drawn hero is only about 8x8 px inside the 32x32 cell (Human bbox x 12-19, y 11-18). Options:
+- [x] **A1. Bigger player sprite.** DONE: per-form `scale` in sprites.json; Human + Orc 2x, Angel 1x (wings would be cut off). Original notes: The drawn hero is only about 8x8 px inside the 32x32 cell (Human bbox x 12-19, y 11-18). Options:
   - redraw the sheets at about 16-20 px, or
   - add an exact integer upscale option for the player sheets in `sprites/sprites.json` (e.g. `"scale": 2` = each pixel becomes 2x2, same idea as tiles/bosses; needs the source art to be about 16 px so the result still fits the 24x24 hitbox area).
   Check: art stays inside pixels 4-27 (the build prints a note), re-run `tests/test_sprite_pipeline.py`.
