@@ -22,12 +22,12 @@ module tb_player_frame;
     initial begin
         repeat (4) @(posedge clk); rst <= 0; repeat (2) @(posedge clk);
         // ---- idle loop (human, standing): picture k advances every IDLE_STEP = 2 frames, per facing
-        facing = 2'd2;
+        facing = 2'd2; #1;
         chk(sel == 3'd1 && af == {2'd2, 4'd0}, "idle: starts at picture 0, left");
         frames(2); chk(sel == 3'd1 && af == {2'd2, 4'd1}, "idle: picture 1 after 2 frames");
         frames(2); chk(sel == 3'd1 && af == {2'd2, 4'd2}, "idle: picture 2 after 4 frames");
         frames(28); chk(sel == 3'd1 && af == {2'd2, 4'd0}, "idle: loop wraps after 16 pictures");
-        facing = 2'd3; chk(af[5:4] == 2'd3, "idle: follows the facing direction");
+        facing = 2'd3; #1; chk(af[5:4] == 2'd3, "idle: follows the facing direction");
         // ---- walking uses the normal pictures and restarts the idle loop
         moving = 1; frames(1); chk(sel == 3'd0, "moving: normal walking picture");
         moving = 0; frames(1); chk(sel == 3'd1 && af[3:0] == 4'd0, "stopped again: idle restarts at 0");

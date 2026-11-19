@@ -30,6 +30,13 @@ case "${1:-player}" in
   sprites) run tb_sprites ../sim/tb_sprites.v ../rtl/roms.v ;;
   tileset) run tb_tileset ../sim/tb_tileset.v ../rtl/roms.v ;;
   facelock) run tb_facelock ../sim/tb_facelock.v ../rtl/face_lock.v ;;
+  playerframe) iverilog -g2012 -I../sim/anim_on -I../rtl -I../sim -o ../sim/tb_player_frame.vvp ../sim/tb_player_frame.v ../rtl/player_frame.v
+          vvp ../sim/tb_player_frame.vvp | tee /tmp/run_sim_tb_player_frame.log
+          if grep -q "FAIL" /tmp/run_sim_tb_player_frame.log; then echo "== tb_player_frame: FAILED"; exit 1; fi ;;
+  topanim) iverilog -g2012 -I../sim/anim_on -I../rtl -I../sim -o ../sim/tb_top_anim.vvp ../sim/tb_top.v ../rtl/*.v
+          vvp ../sim/tb_top_anim.vvp | tee /tmp/run_sim_tb_top_anim.log
+          if grep -q "FAIL" /tmp/run_sim_tb_top_anim.log; then echo "== tb_top (animations ON): FAILED"; exit 1; fi ;;
+  animroms) run tb_anim_roms ../sim/tb_anim_roms.v ../rtl/roms.v ;;
   puzzleart) run tb_puzzleart ../sim/tb_puzzleart.v ../rtl/roms.v ;;
   monster) run tb_monster ../sim/tb_monster.v ../rtl/roms.v ;;
   bosssprites) run tb_bosssprites ../sim/tb_bosssprites.v ../rtl/roms.v ;;
