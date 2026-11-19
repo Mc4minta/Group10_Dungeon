@@ -16,6 +16,10 @@ echo == 2b/4 build mem\monster.mem + previews
 python scripts\build_monster_mem.py --preview
 if %ERRORLEVEL%==2 (echo == STOP: monsters config broken, mem\monster.mem NOT changed.& exit /b 2)
 echo.
+echo == 2c/4 build mem\boss.mem + previews
+python scripts\build_boss_mem.py --preview
+if %ERRORLEVEL%==2 (echo == STOP: bosses config broken, mem\boss.mem NOT changed.& exit /b 2)
+echo.
 echo == 3/4 iverilog sprite test
 where iverilog >nul 2>nul
 if %ERRORLEVEL%==0 (
@@ -31,6 +35,7 @@ echo == 4/4 python checks
 python tests\test_sprite_pipeline.py
 python tests\test_tileset_pipeline.py
 python tests\test_monster_pipeline.py
+python tests\test_boss_pipeline.py
 echo.
 echo Done. Look at: preview\tileset_all_floors.png preview\tileset_rooms.png (map)  preview\all_forms.png  preview\form1_contact.png ... form4_contact.png
 echo        preview\form^<N^>_^<dir^>_walk.gif  (red border = old art / fallback)

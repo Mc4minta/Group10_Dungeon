@@ -30,6 +30,7 @@ case "${1:-player}" in
   sprites) run tb_sprites ../sim/tb_sprites.v ../rtl/roms.v ;;
   tileset) run tb_tileset ../sim/tb_tileset.v ../rtl/roms.v ;;
   monster) run tb_monster ../sim/tb_monster.v ../rtl/roms.v ;;
+  bosssprites) run tb_bosssprites ../sim/tb_bosssprites.v ../rtl/roms.v ;;
   fsm)    run tb_game_fsm ../sim/tb_game_fsm.v ../rtl/game_fsm.v ;;
   puzzles) run tb_puzzles ../sim/tb_puzzles.v ../rtl/puzzles.v ../rtl/objects.v ../rtl/player.v ../rtl/game_fsm.v ../rtl/roms.v ;;
   audio)  run tb_audio ../sim/tb_audio.v ../rtl/audio.v ;;
