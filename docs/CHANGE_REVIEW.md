@@ -21,7 +21,7 @@ Rules that every change follows: Rule 1 (the game always builds; missing or inva
 | Puzzle objects (torch bulbs, lever, crate, spikes gate, keys, shield) | `my_asset/props/*`, `my_asset/new_switch.png`, `sprites/puzzle.json` | `mem/puzzle.mem` | `mem/puzzle_v1.mem` | `python scripts/build_puzzle_mem.py` |
 | Room layouts + decoration | `maps/*.txt`, `scripts/build_maps.py` | `mem/tilemap.mem` (objects, monsters, puzzle layout unchanged) | `maps_v1/` | `python scripts/build_maps.py` |
 
-Features of the player builder: several sheets per form (walk, idle, ...), fallback chains per pose, per-form exact integer `scale` (Human and Orc 2x, Angel 1x because its wings would be cut off),
+Features of the player builder: several sheets per form (walk, idle, ...), fallback chains per pose, per-form exact integer `scale` (Human, Orc and Angel 2x; the Angel wing tips are cut flat at the 32 px frame edge),
 luminance `tint` (form 4 = Human sheets recoloured gold), labelled previews, colour and bounding-box reports, a clean copy of the oddly named `Angel_walk.png.png`.
 Features of the tile builder: 16x16 cells scaled exactly 2x, `base` tiles (see-through cells show the floor), per-floor `recolor` and `gain` (floor 1 purple, 2 teal, 3 olive), per-tile overrides.
 Floor decoration (`, ; : \`` = crack, bones, skull, rubble) uses tile ids 12-15, which the game treats like floor everywhere except inside the Simon puzzle, so they are only allowed in rooms 00, 03-08 (`build_maps.py` refuses them elsewhere).
@@ -75,7 +75,7 @@ All four flags are `false` in `sprites/sprites.json`, so the build is exactly th
 
 ## 3. Things to know (honest notes)
 
-1. The new player sprites are small: the drawn hero is about 8x8 px inside the 32x32 cell (16 px after 2x). Angel stays small (1x). Bosses are drawn smaller than the old blobs.
+1. The new player sprites are small: the drawn hero is about 8x8 px inside the 32x32 cell (16 px after 2x). Angel is now 2x like the others (wing tips cut at the frame edge). Bosses are drawn smaller than the old blobs.
 2. The two lever states differ by only 12 pixels in `new_switch.png` (a 2 px shift), so they are hard to tell apart on screen.
 3. Row 4 of each walk sheet (back facing left) is unused: the game has only 4 directions.
 4. Bullets, the melee slash, text and the title / win / game over screens still use the original placeholders (no fitting art yet).

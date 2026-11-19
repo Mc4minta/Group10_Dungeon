@@ -166,17 +166,17 @@ module tb_objects;
         check(state == 1 && alive == 0 && doors_open, "PLAY in START: no monsters, doors open");
 
         // ================= 1. AABB ขอบแตะ vs ซ้อน (กระสุนศัตรูวิ่งลง) =================
-        // hitbox ผู้เล่น x 292..315 y 228..251
+        // hitbox ผู้เล่น (ที่โดนตี) = HURT_BOX 16 กลาง sprite: x 296..311 y 232..247
         clear_all; hits = 0;
-        put_eb(0, 284, 233, 0);              // หลังเดิน 3 px: y 236, x 284..291 แตะขอบซ้าย
+        put_eb(0, 288, 233, 0);              // หลังเดิน 3 px: y 236, x 288..295 แตะขอบซ้าย
         frames(1);
         check(hits == 0, "AABB: bullet touching left edge (x+8 == hitbox x) -> no hit");
         clear_all;
-        put_eb(0, 292, 217, 0);              // หลังเดิน: y 220..227 แตะขอบบน
+        put_eb(0, 296, 221, 0);              // หลังเดิน: y 224..231 แตะขอบบน
         frames(1);
         check(hits == 0, "AABB: bullet touching top edge -> no hit");
         clear_all;
-        put_eb(0, 292, 218, 0);              // หลังเดิน: y 221..228 ซ้อน 1 px
+        put_eb(0, 296, 222, 0);              // หลังเดิน: y 225..232 ซ้อน 1 px
         frames(1);
         check(hits == 1 && eb_act[0] == 0, "AABB: 1 px overlap from above -> hit, bullet removed");
         // knockback จากด้านบน -> ถอยลง

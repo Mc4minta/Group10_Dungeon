@@ -10,11 +10,12 @@ Tick `[x]` when an item is done and update `docs/SPRITE_STATUS.md` / `docs/SOUND
 
 | Area | What | Where to read |
 |---|---|---|
-| Art pipeline | player forms 1-3 (Human / Orc 2x, Angel 1x), form 4 = gold Human, tileset (3 floors recoloured), enemies, 3 bosses, puzzle objects, new lever, map decoration | `docs/SPRITE_STATUS.md`, `sprites/README.md` |
+| Art pipeline | player forms 1-3 (Human / Orc / Angel 2x), form 4 = gold Human, tileset (3 floors recoloured), enemies, 3 bosses, puzzle objects, new lever, map decoration | `docs/SPRITE_STATUS.md`, `sprites/README.md` |
 | Folder rename | `picture/` is now `my_asset/` (all paths updated) | `docs/README.md` |
 | Difficulty (easier) | HP 4, 90 invulnerable frames, chasers at half speed | `docs/BOARD_TEST_STEPS.md` |
 | Controls / feel | BTNC face lock, SW14 facing lock, screen shake on hit | `docs/BOARD_TEST_STEPS.md` |
 | Sound | 12 sound effects (2 new), 7 music tracks (Connect on floors 1-3), `audio_to_music.py` | `docs/SOUND_PLAN.md` |
+| Hitbox | player can only be HURT inside a centred 16x16 box (`HURT_BOX` in `rtl/params.vh`, was 24x24); walking collision unchanged | `rtl/params.vh` |
 | Health display | on-screen hearts (player) + health bar (boss), `hud.v`, `mem/hud.mem`, about +3 Block RAM | `docs/SPRITE_STATUS.md` section 5b |
 | Animations | Human idle / attack / hurt / death built, **OFF by default** (flags in `sprites.json`) | item P3.1 below |
 | Tooling | `scripts/check_all.sh`, one-command rebuild + preview `scripts/update_sprites.sh`, 8 Python test suites, iverilog suite | `docs/README.md` |
