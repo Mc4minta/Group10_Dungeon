@@ -50,6 +50,14 @@ Tick `[x]` when an item is done and update `docs/SPRITE_STATUS.md` / `docs/SOUND
 - [ ] **P3.6 Feedback polish:** brighter evolve flash. **Third enemy type:** deliberately not done (new state bits in `objects.v`, more monster frames, and it makes the game harder).
 - [ ] **P3.7 Form 4 charge shot art** from `ChargedAttack.png` (the charge loop while the button is held).
 
+## Design plan items (19/11 design notes) - PLAN ONLY, see `docs/DESIGN_PLAN.md`
+
+- [ ] **Phase A (small):** W1 door = spike trap, W2 pressure plate = tulip plate (needs your picture), W3 charged shot stops on hit, W4 clap on the board (mic debug), W6 new start screen, W9a prologue screen.
+- [ ] **Phase B (bosses):** W10 boss 1 fast + clap stun, W11 boss 2 summon (hurt only while minions live), W12 boss 3 armour + charge + big attack, W13 form 3 AOE split.
+- [ ] **Phase C:** W5 breakable block, trap, solid decoration (overlay layer). **Phase D:** W7 key -> door -> Ball in a Maze (accelerometer) -> WIN. **Phase E:** W9b story.
+- [x] W8 hearts + boss bar (done).
+- Answer the defaults in `docs/DESIGN_PLAN.md` section 6 first.
+
 ## Housekeeping (small)
 
 - [ ] Merge `sprite-zip` into `main` when the owner says "merge" (main is still the old version).

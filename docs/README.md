@@ -13,6 +13,7 @@ This page is the index. Last full refresh: branch `sprite-zip`, tag `board-test-
 | **See every sound and the music**, change them, or learn how to use an MP3 | `docs/SOUND_PLAN.md`, `docs/SOUND_PIPELINE_PLAN.md` |
 | **See what changed on this branch** (all features, how they were verified, risks) | `docs/CHANGE_REVIEW.md` |
 | **Know what to do next** (backlog by priority) | `docs/NEXT_STEPS.md` |
+| **The master design (bosses, forms, endgame) and the plan to implement it** (not implemented yet) | `docs/DESIGN_PLAN.md` |
 | **Game rules, buttons, simulation, original design** (Thai) | `README.md` (root), `docs/PROGRESS.md`, `docs/BOARD_DAY.md` |
 | **Old plan documents** (history only) | `docs/archive/` |
 
