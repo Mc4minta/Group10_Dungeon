@@ -129,3 +129,10 @@ localparam [17:0] SFX_SHOOT3_HP = 18'd83333;  localparam signed [17:0] SFX_SHOOT
 localparam [17:0] SFX_DOOR_HP = 18'd50000;  localparam signed [17:0] SFX_DOOR_SL = 0;  localparam SFX_DOOR_LEN = 4;   // 1000 Hz
 localparam [17:0] SFX_BOSS_HP = 18'd200000;  localparam signed [17:0] SFX_BOSS_SL = 1500;  localparam SFX_BOSS_LEN = 30;   // 250->204 Hz
 localparam [17:0] SFX_MELEE_HP = 18'd111111;  localparam signed [17:0] SFX_MELEE_SL = 12698;  localparam SFX_MELEE_LEN = 7;   // 450->250 Hz
+// ---------- on-screen health display (hud.v; art = mem/hud.mem, drawn at exactly 2x) ----------
+// player = one heart per max HP (full = HP left, empty = lost); boss = health bar (fill = hp / max hp)
+localparam HUD_HEART_X    = 8;        // left edge of heart 0 (pixels)
+localparam HUD_HEART_Y    = 4;        // top edge of the hearts
+localparam HUD_HEART_STEP = 36;       // heart spacing (a heart is 34 px wide)
+localparam HUD_BAR_X      = 504;      // left edge of the boss bar (128 px wide)
+localparam HUD_BAR_Y      = 4;        // top edge of the boss bar (34 px high)

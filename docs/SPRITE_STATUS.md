@@ -1,6 +1,6 @@
 # Sprite status - what is final, what is a placeholder, what you still need to find or edit
 
-**Updated every time a sprite, ROM or map changes.** Last update: project cleanup, branch `sprite-zip`, tag `board-test-2` (nothing changed in the art; Human animations are built but OFF, see section 2b).
+**Updated every time a sprite, ROM or map changes.** Last update: on-screen health display added (section 5b: hearts for the player, health bar for the boss). Human animations are built but OFF, see section 2b.
 Legend: **FINAL** = real art you are happy with. **PLACEHOLDER** = real art but a stand-in (wrong meaning, recoloured, borrowed). **OLD ART** = the original programmer placeholder from the first version (`*_v1.mem`), nothing new yet.
 
 How to change any sprite: see `sprites/README.md`. One command for everything: `scripts/update_sprites.sh` (Windows: `scripts\update_sprites.bat`).
@@ -79,9 +79,19 @@ Unused enemy art in `my_asset/enemies/`: attack, death and damage strips for all
 | gate closed / open | spikes up / retracted (background cut out) | FINAL |
 | item floor 1 / 2 / 3 | gold key / silver key / red shield | FINAL |
 
+## 5b. Health display (mem/hud.mem, `scripts/build_hud_mem.py`, `sprites/hud.json`)
+
+| Part | Art | Status |
+|---|---|---|
+| player hearts (top left, one per max HP; full = HP left, dark = lost) | **your** `my_asset/ui/Hearts/PNG/basic/` (background + heart + border layers), drawn 2x = 34 px | FINAL |
+| boss health bar (top right, boss room only, fill = hp / max hp) | **your** `my_asset/ui/Hearts/PNG/health_bar/` (frame + fill, fill 14 px right of the frame start), drawn 2x | FINAL |
+| `my_asset/ui/MediavelFree.png` (UI sheet: wood panel, buttons, candle, sword, health bar) | copied in, not used yet (candidate for title / story panels) | UNUSED |
+
+Positions and spacing: `HUD_*` in `rtl/params.vh`. Costs about 3 Block RAM tiles. Preview: `preview/hud_sheet.png`.
+
 ## 6. Still the original placeholders (OLD ART, never replaced)
 
-`mem/bullet.mem`, `mem/effect.mem`, `mem/font.mem` + `mem/text.mem` (text), title/GAME OVER/WIN backgrounds (colour fills), the HUD strip. Everything else in the game is new art.
+`mem/bullet.mem`, `mem/effect.mem`, `mem/font.mem` + `mem/text.mem` (text), title/GAME OVER/WIN backgrounds (colour fills). Everything else in the game is new art.
 
 ---
 

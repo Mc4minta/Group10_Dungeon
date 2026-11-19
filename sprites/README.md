@@ -211,6 +211,16 @@ The Human (form 1) can show an idle loop, an attack swing, a hurt picture and a 
 * Only form 1 has these pictures; forms 2-4 keep the walking pictures. The death picture is drawn above the GAME OVER colour.
 * Tests: `./scripts/run_sim.sh playerframe` (which picture is chosen), `animroms` (ROMs load), `topanim` (whole system with all flags ON).
 
+# Health display (hud.mem): hearts + boss bar
+
+**Source of truth:** `my_asset/ui/Hearts/PNG/...` and `sprites/hud.json`. **Generated:** `mem/hud.mem`.
+
+    python scripts/build_hud_mem.py --preview       # rebuild + preview/hud_sheet.png
+
+* Player = one heart per max HP at the top left (full = HP left). Boss = health bar at the top right while the boss is alive. Everything is drawn at exactly 2x.
+* To use other pictures change the paths in `sprites/hud.json` (each picture at most 64x32; the layers of one heart must have the same size).
+* Missing / unreadable / too big picture = a plain built-in heart or bar with a warning. Positions: `HUD_*` in `rtl/params.vh`. Test: `scripts/run_sim.sh hud`.
+
 # Check everything
 
 `scripts/check_all.sh` rebuilds every generated file, checks nothing is stale, runs all the Python tests and (in WSL / Linux) the iverilog suite. Run it before every commit.

@@ -25,7 +25,7 @@ update_compile_order -fileset sources_1
 catch {reset_run synth_1}
 puts "---------------------------------------------------------------"
 puts "Project updated: $added file(s) added. Required modules present:"
-foreach m {face_lock player_frame audio objects boss puzzles objline renderer} {
+foreach m {face_lock player_frame hud audio objects boss puzzles objline renderer} {
     puts [format "  %-13s %s" $m [expr {[llength [get_files -quiet $root/rtl/$m.v]] ? "OK" : "MISSING"}]]
 }
 puts "Now click Generate Bitstream."

@@ -9,6 +9,7 @@
 #   ./scripts/run_sim.sh audio    ทดสอบเสียง: PWM, SFX 10 แบบ, priority, โน้ต Simon, BGM (~1 นาที)
 #   ./scripts/run_sim.sh mic      ทดสอบไมค์ PDM: เงียบ / ตบมือ / holdoff 200 ms (~1 นาที)
 #   ./scripts/run_sim.sh boss     ทดสอบบอส 3 ตัว, มึน, ห้องล็อก, FLOOR_CLEAR, ESCAPE -> WIN / GAME_OVER
+#   ./scripts/run_sim.sh hud      ทดสอบ hud.v (หัวใจผู้เล่น + แถบเลือดบอส) เทียบ mem/hud.mem ทุกพิกเซล
 #   ./scripts/run_sim.sh debug    ทดสอบ parameter DEBUG (สวิตช์ debug ใช้ได้เฉพาะ DEBUG = 1)
 #   ./scripts/run_sim.sh top      จำลองทั้งระบบ บันทึกภาพ 3 เฟรมเป็น sim/*.ppm (~1 นาที)
 #   ./scripts/run_sim.sh all      player + world + fsm + objects + puzzles + mic + mictop + audio + boss + debug + top (ล้มเหลวถ้ามี FAIL / errors != 0)
@@ -37,6 +38,7 @@ case "${1:-player}" in
           vvp ../sim/tb_top_anim.vvp | tee /tmp/run_sim_tb_top_anim.log
           if grep -q "FAIL" /tmp/run_sim_tb_top_anim.log; then echo "== tb_top (animations ON): FAILED"; exit 1; fi ;;
   animroms) run tb_anim_roms ../sim/tb_anim_roms.v ../rtl/roms.v ;;
+  hud) run tb_hud ../sim/tb_hud.v ../rtl/hud.v ../rtl/roms.v ;;
   puzzleart) run tb_puzzleart ../sim/tb_puzzleart.v ../rtl/roms.v ;;
   monster) run tb_monster ../sim/tb_monster.v ../rtl/roms.v ;;
   bosssprites) run tb_bosssprites ../sim/tb_bosssprites.v ../rtl/roms.v ;;
@@ -51,6 +53,6 @@ case "${1:-player}" in
   top)    iverilog -g2012 -I../rtl -o ../sim/tb_top.vvp ../sim/tb_top.v ../rtl/*.v
           vvp ../sim/tb_top.vvp | tee /tmp/run_sim_tb_top.log
           if grep -q "FAIL" /tmp/run_sim_tb_top.log; then echo "== tb_top: FAILED"; exit 1; fi ;;
-  all)    "$SELF" player && "$SELF" world && "$SELF" fsm && "$SELF" objects && "$SELF" puzzles && "$SELF" mic && "$SELF" mictop && "$SELF" audio && "$SELF" boss && "$SELF" debug && "$SELF" top && echo "== ALL OK" ;;
+  all)    "$SELF" player && "$SELF" world && "$SELF" fsm && "$SELF" objects && "$SELF" puzzles && "$SELF" mic && "$SELF" mictop && "$SELF" audio && "$SELF" boss && "$SELF" hud && "$SELF" debug && "$SELF" top && echo "== ALL OK" ;;
   *) echo "usage: $0 [player|world|fsm|top|all]"; exit 1 ;;
 esac

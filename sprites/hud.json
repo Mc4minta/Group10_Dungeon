@@ -1,0 +1,21 @@
+{
+  "_help": [
+    "On-screen health display. mem/hud.mem is GENERATED from this file + the PNGs.  Rebuild: python scripts/build_hud_mem.py",
+    "4 pages of 32x64 words (y 0-31, x 0-63): 0 heart full, 1 heart empty, 2 boss bar frame, 3 boss bar fill. The game draws everything at exactly 2x.",
+    "Player = hearts (one per HP). Boss = health bar (fill is clipped to hp/max_hp). Positions: HUD_* in rtl/params.vh.",
+    "heart_full = background + heart + border layers; heart_empty = background + border. The bar fill sits 14 source pixels right of the frame start (info.txt in the Hearts pack).",
+    "Any missing / unreadable file -> that page falls back to a plain drawn heart / bar with a WARNING (the game always builds)."
+  ],
+  "key_color": "F0F",
+  "alpha_threshold": 128,
+  "output_mem": "mem/hud.mem",
+  "heart": {
+    "background": "my_asset/ui/Hearts/PNG/basic/background.png",
+    "heart": "my_asset/ui/Hearts/PNG/basic/heart.png",
+    "border": "my_asset/ui/Hearts/PNG/basic/border.png"
+  },
+  "bar": {
+    "frame": "my_asset/ui/Hearts/PNG/health_bar/health_bar_decoration.png",
+    "fill": "my_asset/ui/Hearts/PNG/health_bar/health_bar.png"
+  }
+}

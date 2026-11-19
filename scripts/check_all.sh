@@ -15,8 +15,8 @@ GEN="mem/*.mem mem/objects.txt rtl/sprite_cfg.vh rtl/bgm_cfg.vh rtl/puzzle_layou
 snapshot() { for f in $GEN; do [ -f "$f" ] && printf '%s %s\n' "$(tr -d '\r' < "$f" | cksum)" "$f"; done; }
 BEFORE=$(snapshot)
 
-step "1/4 rebuild every generated file (art, tiles, monsters, bosses, puzzle objects, maps, music)"
-for b in player tileset monster boss puzzle; do
+step "1/4 rebuild every generated file (art, tiles, monsters, bosses, puzzle objects, health display, maps, music)"
+for b in player tileset monster boss puzzle hud; do
   $PY scripts/build_${b}_mem.py > /tmp/check_all_$b.log 2>&1; rc=$?
   [ $rc -ge 2 ] && { echo "FAIL: build_${b}_mem.py exit code $rc"; tail -3 /tmp/check_all_$b.log; fail=1; }
 done
