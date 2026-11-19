@@ -41,6 +41,18 @@
     "14": { "cell": [8, 6], "base": 1, "recolor": "rgb", "gain": 1.0 },
     "15": { "cell": [8, 8], "base": 1, "recolor": "rgb", "gain": 1.0 }
   },
+  "wall_variants": {
+    "_help": "Wall pictures chosen by tile POSITION (needs Verilog: rtl/renderer.v, +16 tiles of tileset BRAM). enabled=false = every wall is tile 0 as before and tileset.mem stays 48 tiles. After changing: rebuild (regenerates rtl/tileset_cfg.vh) and re-synthesise.",
+    "enabled": false,
+    "torch_x": [4, 15],
+    "tiles": {
+      "top":    { "cell": [0, 2] },
+      "bottom": { "cell": [5, 2] },
+      "left":   { "cell": [1, 0] },
+      "right":  { "cell": [2, 5] },
+      "torch":  { "cell": [9, 0], "base": "top" }
+    }
+  },
   "overrides": {
     "_decor": "tile ids 12-15 are decoration (crack, bones, skull, rubble) on floors 1 and 2; floor 3 keeps them as the Simon plates",
     "f1.t12": { "cell": [0, 7] },

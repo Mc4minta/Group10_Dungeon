@@ -29,6 +29,29 @@ FLOORS, TILES = 3, 16
 TILE_PX = 32
 TILE_WORDS = TILE_PX * TILE_PX
 TOTAL_TILES = FLOORS * TILES
+VARIANTS = ["top", "bottom", "left", "right", "torch"]      # wall variants (tile ids 48 + floor*5 + index)
+VAR_BASE = TOTAL_TILES                                       # first variant tile index (48)
+OUT_TILES_ON = 64                                            # tileset.mem tiles when wall variants are enabled (63 used + 1 spare)
+
+
+def wall_variant(tx, ty, torch_xs):
+    """Which wall picture a plain wall tile (id 0) at tile column tx (0..19) / row ty (0..14) uses.
+    MUST match rtl/renderer.v: top row, bottom row, left column, right column; a torch on the top row at the torch columns. None = normal wall."""
+    if ty == 0:
+        return "torch" if tx in torch_xs else "top"
+    if ty == 14:
+        return "bottom"
+    if tx == 0:
+        return "left"
+    if tx == 19:
+        return "right"
+    return None
+
+
+def variant_tile_index(floor, name):
+    return VAR_BASE + (floor - 1) * len(VARIANTS) + VARIANTS.index(name)
+
+
 ROOT_DEFAULT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _ROOT = [os.getcwd()]
 
@@ -144,6 +167,32 @@ def load_config(path, root):
         ov[(int(m.group(1)), int(m.group(2)))] = _spec(v, f'override "{k}"')
     cfg["overrides"] = ov
     cfg["names"] = {int(k): v for k, v in raw.get("tile_names", {}).items() if k.isdigit()}
+    wv = raw.get("wall_variants", {})
+    if not isinstance(wv, dict):
+        raise ConfigError('"wall_variants" must be an object')
+    en = wv.get("enabled", False)
+    if not isinstance(en, bool):
+        raise ConfigError("wall_variants.enabled must be true or false")
+    tx = wv.get("torch_x", [4, 15])
+    if not (isinstance(tx, list) and all(isinstance(q, int) and not isinstance(q, bool) and 0 <= q <= 19 for q in tx)):
+        raise ConfigError("wall_variants.torch_x must be a list of tile columns 0..19")
+    vt = {}
+    for name, v in wv.get("tiles", {}).items():
+        if name.startswith("_"):
+            continue
+        if name not in VARIANTS:
+            raise ConfigError(f'wall_variants.tiles: unknown variant "{name}" (valid: {", ".join(VARIANTS)})')
+        bname = None
+        if isinstance(v, dict) and isinstance(v.get("base"), str):
+            bname = v["base"]
+            if bname not in VARIANTS or bname == name:
+                raise ConfigError(f'wall_variants.tiles."{name}".base must be another variant name or a tile id')
+            v = {k: q for k, q in v.items() if k != "base"}
+        sp = _spec(v, f'wall_variants.tiles."{name}"')
+        sp["base_name"] = bname
+        vt[name] = sp
+    cfg["wall_var"] = {"enabled": en, "torch_x": tx, "tiles": vt}
+    cfg["cfg_vh"] = os.path.join(root, raw.get("verilog_cfg", "rtl/tileset_cfg.vh"))
     return cfg
 
 
@@ -233,7 +282,8 @@ def build(cfg, root):
             b.sheets[p] = sh
             if sh.status == "unreadable":
                 b.unreadable.append(sh.detail)
-    b.out = [0] * (TOTAL_TILES * TILE_WORDS)
+    out_tiles = OUT_TILES_ON if cfg["wall_var"]["enabled"] else TOTAL_TILES
+    b.out = [0] * (out_tiles * TILE_WORDS)
     b.result = {}
     for n in range(1, FLOORS + 1):
         fc = cfg["floors"][n]
@@ -283,7 +333,75 @@ def build(cfg, root):
 
         for t in range(TILES):
             resolve(t)
+    b.var_result = {}
+    if cfg["wall_var"]["enabled"]:
+        for n in range(1, FLOORS + 1):
+            fc = cfg["floors"][n]
+            sheet = b.sheets[os.path.join(root, fc["sheet"])]
+            wall = b.out[tidx(n, 0) * TILE_WORDS:(tidx(n, 0) + 1) * TILE_WORDS]
+            made = {}
+            for name in VARIANTS:                            # "top" must come before "torch" (torch sits on the top wall)
+                spec = cfg["wall_var"]["tiles"].get(name)
+                info = {"floor": n, "name": name, "source": None, "fallback": None}
+                words = None
+                if not fc["enabled"]:
+                    info["fallback"] = "floor disabled in config"
+                elif spec is None:
+                    info["fallback"] = "variant not configured"
+                elif spec.get("skip"):
+                    info["fallback"] = "config skip"
+                else:
+                    base = None
+                    if spec.get("base_name"):
+                        base = made.get(spec["base_name"])
+                    elif spec.get("base") is not None:
+                        base = b.out[tidx(n, spec["base"]) * TILE_WORDS:(tidx(n, spec["base"]) + 1) * TILE_WORDS]
+                    cell, why = sheet.cell(spec["cell"][0], spec["cell"][1], cfg["cell"])
+                    if cell is None:
+                        info["fallback"] = why
+                    else:
+                        w, _ = cell_words(cell, cfg["scale"], spec.get("recolor", fc["recolor"]), cfg["alpha"], base, spec.get("gain", fc["gain"]))
+                        if w is None:
+                            info["fallback"] = f"{sheet.label} row{spec['cell'][0]} col{spec['cell'][1]} fully transparent"
+                        elif any(v is None for v in w):
+                            info["fallback"] = (f"{sheet.label} row{spec['cell'][0]} col{spec['cell'][1]} has see-through pixels but no \"base\"")
+                        else:
+                            words = w
+                            info["source"] = f"r{spec['cell'][0]} c{spec['cell'][1]}"
+                if words is None:
+                    words = wall                              # fallback = the plain wall of that floor (same as before)
+                made[name] = words
+                i = variant_tile_index(n, name)
+                b.out[i * TILE_WORDS:(i + 1) * TILE_WORDS] = words
+                b.var_result[(n, name)] = info
+        spare = OUT_TILES_ON - 1
+        b.out[spare * TILE_WORDS:(spare + 1) * TILE_WORDS] = b.out[0:TILE_WORDS]
     return b
+
+
+def make_cfg_vh(cfg):
+    wv = cfg["wall_var"]
+    tx = (wv["torch_x"] + [31, 31])[:2]                      # renderer supports 2 torch columns (31 = none)
+    return "\n".join([
+        "// GENERATED by scripts/build_tileset_mem.py from sprites/tileset.json - do not edit by hand.",
+        "// Wall variants are chosen by tile position in rtl/renderer.v (top / bottom / left / right edge + torches on the top row).",
+        "localparam WALL_VAR_EN    = " + ("1" if wv["enabled"] else "0") + ";",
+        "localparam TILESET_WORDS  = " + str((OUT_TILES_ON if wv["enabled"] else TOTAL_TILES) * TILE_WORDS) + ";",
+        "localparam [4:0] TORCH_X0 = 5'd" + str(tx[0]) + ";",
+        "localparam [4:0] TORCH_X1 = 5'd" + str(tx[1]) + ";",
+        ""])
+
+
+def write_text_if_changed(path, text):
+    try:
+        with open(path, "r", encoding="utf-8", newline="") as f:
+            if f.read() == text:
+                return False
+    except OSError:
+        pass
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        f.write(text)
+    return True
 
 
 def write_mem(path, words, nl):
@@ -316,6 +434,12 @@ def report(cfg, b, previous):
             r = b.result[(n, t)]
             st = f"FALLBACK ({r['fallback']})" if r["fallback"] else "ok"
             print(f"{tidx(n, t):>3} {n:>5} {t:>4}  {names.get(t, ''):<20} {(r['source'] or 'old art (tileset_v1)'):<18} {st}")
+    for (n, name), r in b.var_result.items():
+        if r["fallback"]:
+            print(f"WARNING: wall variant '{name}' floor {n} -> FALLBACK plain wall: {r['fallback']}")
+    if b.var_result:
+        print("\nWall variants (chosen by tile position in the renderer): " + ", ".join(
+            f"floor{n}.{name}={'ok' if not r['fallback'] else 'FALLBACK'}" for (n, name), r in b.var_result.items()))
     nfb = sum(1 for r in b.result.values() if r["fallback"])
     print(f"\nSummary: {TOTAL_TILES - nfb} new-art tiles, {nfb} fallback tiles (old art)")
     for n in range(1, FLOORS + 1):
@@ -414,9 +538,10 @@ def make_previews(cfg, b, root):
             for ty in range(15):
                 for tx in range(20):
                     t = tm[g * 300 + ty * 20 + tx]
-                    k = (floor, t)
+                    vname = wall_variant(tx, ty, cfg["wall_var"]["torch_x"]) if (cfg["wall_var"]["enabled"] and t == 0) else None
+                    k = (floor, t, vname)
                     if k not in cache:
-                        cache[k] = tile_img(b.out, tidx(floor, t), 1)
+                        cache[k] = tile_img(b.out, variant_tile_index(floor, vname) if vname else tidx(floor, t), 1)
                     room.paste(cache[k], (tx * 32, ty * 32))
             rooms.paste(room, ((g % 4) * 648, (g // 4) * 488))
         rooms.resize((rooms.width // 2, rooms.height // 2), Image.NEAREST).save(os.path.join(pdir, "tileset_rooms.png"))
@@ -442,12 +567,14 @@ def main(argv=None):
         print(f"ERROR: {u}  (its tiles use old art)")
     previous = read_words_quiet(cfg["output"])
     report(cfg, b, previous)
-    assert len(b.out) == TOTAL_TILES * TILE_WORDS
+    assert len(b.out) == (OUT_TILES_ON if cfg["wall_var"]["enabled"] else TOTAL_TILES) * TILE_WORDS
     if a.check:
         print("\n--check: nothing written.")
     else:
         write_mem(cfg["output"], b.out, b.nl)
         print(f"\nWrote {shortpath(cfg['output'])}  ({len(b.out)} words)")
+        if write_text_if_changed(cfg["cfg_vh"], make_cfg_vh(cfg)):
+            print(f"Wrote {shortpath(cfg['cfg_vh'])}  (wall variant switch changed)")
     if a.preview:
         make_previews(cfg, b, root)
     return 1 if b.unreadable else 0
