@@ -30,7 +30,8 @@ module player (
     output reg  [1:0]  facing = 0,             // 0 ลง 1 ขึ้น 2 ซ้าย 3 ขวา
     output reg  [1:0]  pose = 0,               // 0 idle 1 ก้าว A 2 ก้าว B
     output reg         door_evt = 0,           // pulse 1 clock
-    output reg  [1:0]  door_dir = 0            // 0 ลง 1 ขึ้น 2 ซ้าย 3 ขวา (ขอบจอที่ประตูอยู่)
+    output reg  [1:0]  door_dir = 0,           // 0 ลง 1 ขึ้น 2 ซ้าย 3 ขวา (ขอบจอที่ประตูอยู่)
+    output wire        moving_o                // 1 = กำลังเดิน (ใช้เลือกภาพ idle เท่านั้น ไม่กระทบเกม)
 );
     localparam S_WAIT = 3'd0, S_XA = 3'd1, S_XB = 3'd2, S_YA = 3'd3,
                S_YB = 3'd4, S_DA = 3'd5, S_DB = 3'd6;
@@ -83,6 +84,7 @@ module player (
     endfunction
 
     wire moving = dxs[1] | dys[1];
+    assign moving_o = moving;
     wire [9:0] cx = px + 10'd16, cy = py + 10'd16;   // จุดกลาง hitbox
 
     always @(posedge clk) begin

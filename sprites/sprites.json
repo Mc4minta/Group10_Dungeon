@@ -45,6 +45,17 @@
     "_help": "tint = recolour by luminance: black outlines stay dark, everything else is a ramp from dark to light. Used per form with forms.N.tint",
     "gold": { "dark": [110, 66, 0], "light": [255, 226, 90] }
   },
+  "animations": {
+    "_help": "Extra Human (form 1) animations, each needs Verilog + BRAM (about 22 / 6 / 6 / 6 RAMB36). All OFF = exactly the old behaviour. After changing a flag: rebuild (this regenerates rtl/sprite_cfg.vh) and re-synthesise.",
+    "idle_anim": false,
+    "attack_anim": false,
+    "hurt_anim": false,
+    "death_anim": false,
+    "death_sheet": "soul_die",
+    "idle_step_frames": 6,
+    "hurt_step_frames": 4,
+    "death_step_frames": 6
+  },
   "mapping": {
     "dir_row": { "down": 1, "up": 3, "left": 2, "right": 1 },
     "pose": {

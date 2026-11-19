@@ -91,6 +91,51 @@ module player_rom (
     always @(posedge clk) data <= mem[addr];
 endmodule
 
+// ---- animation ROMs for the Human (form 1), instantiated only when the flag in rtl/sprite_cfg.vh is 1 (no BRAM otherwise) ----
+// idle: 4 directions x 16 pictures, address = ((dir*16 + k)*1024) + y*32 + x
+module player_idle_rom (
+    input  wire        clk,
+    input  wire [15:0] addr,
+    output reg  [11:0] data
+);
+    reg [11:0] mem [0:65535];
+    initial $readmemh("player_idle.mem", mem);
+    always @(posedge clk) data <= mem[addr];
+endmodule
+
+// attack: 4 directions x 4 pictures, address = ((dir*4 + k)*1024) + y*32 + x
+module player_attack_rom (
+    input  wire        clk,
+    input  wire [13:0] addr,
+    output reg  [11:0] data
+);
+    reg [11:0] mem [0:16383];
+    initial $readmemh("player_attack.mem", mem);
+    always @(posedge clk) data <= mem[addr];
+endmodule
+
+// hurt: 4 directions x 4 pictures, same layout as attack
+module player_hurt_rom (
+    input  wire        clk,
+    input  wire [13:0] addr,
+    output reg  [11:0] data
+);
+    reg [11:0] mem [0:16383];
+    initial $readmemh("player_hurt.mem", mem);
+    always @(posedge clk) data <= mem[addr];
+endmodule
+
+// die: 12 pictures (16 reserved), address = (k*1024) + y*32 + x
+module player_die_rom (
+    input  wire        clk,
+    input  wire [13:0] addr,
+    output reg  [11:0] data
+);
+    reg [11:0] mem [0:16383];
+    initial $readmemh("player_die.mem", mem);
+    always @(posedge clk) data <= mem[addr];
+endmodule
+
 // บอส 3 ตัว x 2 เฟรม = 6 เฟรม x 64x64 x 12 bit (BRAM), address = frame*4096 + y*64 + x
 // เฟรม = บอส*2 + (บอส 1, 3: animation, บอส 2: 1 = มึน)
 module bossspr_rom (
