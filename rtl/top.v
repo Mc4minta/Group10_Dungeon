@@ -64,6 +64,8 @@ module top #(
     wire sw1_rise = dbg & sw1_r, sw2_rise = dbg & sw2_r, sw3_rise = dbg & sw3_r, sw4_rise = dbg & sw4_r;
     wire sw0_key  = dbg & SW[0];
     debounce #(DEBOUNCE) d_s15(.clk(clk), .in(SW[15]), .level(sw15), .rise());
+    wire sw14;                         // SW14 = ล็อกทิศค้าง (ถอยหลังพร้อมฟันได้โดยไม่หันหนี; ลงเพื่อหันทิศใหม่)
+    debounce #(DEBOUNCE) d_s14(.clk(clk), .in(SW[14]), .level(sw14), .rise());
 
     // ---------- VGA timing ----------
     wire [9:0] hcount, vcount;
@@ -72,6 +74,9 @@ module top #(
                   .hsync(hsync), .vsync(vsync), .active(active), .frame_tick(frame_tick));
     // ล็อกทิศหลังกด BTNC: กดฟันแล้วถอยหลังได้โดยตัวไม่หันหนี (แทนการต้องค้าง BTNC + ปุ่มทิศพร้อมกัน); FACE_LOCK_FRAMES = 0 ปิด
     wire face_lock;
+    wire p_moving;                     // จาก player.v (เฉพาะเลือกภาพ animation)
+    wire [2:0] p_anim;
+    wire [5:0] p_aframe;
     face_lock #(FACE_LOCK_FRAMES) flk (.clk(clk), .rst(rst), .frame_tick(frame_tick), .press(bc_rise), .lock(face_lock));
 
     // ---------- world (ห้อง/ประตู) + game FSM ----------
@@ -93,6 +98,10 @@ module top #(
     wire [1:0] form, damage;
     wire       freeze, fsm_hide;
     wire       obj_hit, kb_start, invuln, obj_blink, melee_on, mon_anim;
+    reg [4:0] hurt_shake = 5'd0;       // จอสั่นสั้น ๆ หลังโดนตี (kb_start = เริ่ม knockback)
+    always @(posedge clk) if (rst) hurt_shake <= 5'd0;
+                          else if (kb_start) hurt_shake <= HURT_SHAKE_FRAMES;
+                          else if (frame_tick && hurt_shake != 5'd0) hurt_shake <= hurt_shake - 5'd1;
     wire [1:0] kb_dir, melee_dir;
     wire [5:0] pb_act;
     wire [11:0] pb_kind;
@@ -155,14 +164,14 @@ module top #(
     wire is_win   = (state == S_WIN);
 
     player pl (.clk(clk), .rst(rst), .frame_tick(frame_tick),
-               .up(bu), .down(bd), .left(bl), .right(br), .hold_facing(bc | face_lock),
+               .up(bu), .down(bd), .left(bl), .right(br), .hold_facing(bc | face_lock | sw14),
                .form(form), .speed(speed), .freeze(freeze),
                .grid(grid), .doors_open(doors_open), .open_L(open_L),
                .blk0(blk0), .blk1(blk1), .blk2(blk2), .blk_en(blk_en),
                .load(load), .load_x(load_x), .load_y(load_y),
                .kb_start(kb_start), .kb_dir(kb_dir),
                .px(px), .py(py), .facing(facing), .pose(pose),
-               .door_evt(door_evt), .door_dir(door_dir));
+               .door_evt(door_evt), .door_dir(door_dir), .moving_o(p_moving));
 
     // ---------- objects: มอน กระสุน ฟัน โดนตี ห้องล็อก ----------
     objects obj (.clk(clk), .rst(rst), .frame_tick(frame_tick), .run(run),
@@ -246,7 +255,7 @@ module top #(
     always @(posedge clk) if (frame_tick) begin
         fc <= fc + 1'b1;
         blk_cnt <= (blk_cnt == LED_BLINK - 1) ? 4'd0 : blk_cnt + 1'b1;
-        if (is_esc) begin
+        if (is_esc || hurt_shake != 5'd0) begin
             if (sh_cnt == SHAKE_EVERY - 1) begin
                 sh_cnt <= 0;
                 sh_lfsr <= {sh_lfsr[6:0], sh_lfsr[7] ^ sh_lfsr[5] ^ sh_lfsr[4] ^ sh_lfsr[3]};
@@ -268,12 +277,15 @@ module top #(
     wire [9:0]  rpx = is_title ? 10'd304 : px;
     wire [9:0]  rpy = is_title ? 10'd224 : py;
     wire [5:0]  pframe = is_title ? 6'd0 : form * 6'd12 + facing * 6'd3 + pose;
+    player_frame pfr (.clk(clk), .rst(rst), .frame_tick(frame_tick), .form(form), .facing(facing), .melee_dir(melee_dir),
+                      .moving(p_moving), .melee_on(melee_on), .invuln(invuln), .dead(state == S_GAME_OVER), .active(!is_title),
+                      .anim_sel(p_anim), .aframe(p_aframe));
     wire [1:0]  screen = is_title ? 2'd1 : (state == S_GAME_OVER) ? 2'd2 : is_win ? 2'd3 : 2'd0;
     wire [11:0] color;
     renderer rnd (.clk(clk), .ce(ce), .hcount(hcount), .vcount(vcount), .grid(grid), .floor(floor),
                   .form(form), .doors_open(doors_open), .open_L(open_L),
                   .screen(screen), .hide_player(fsm_hide | (obj_blink && !is_title)),
-                  .px(rpx), .py(rpy), .pframe(pframe),
+                  .px(rpx), .py(rpy), .pframe(pframe), .p_anim(p_anim), .p_aframe(p_aframe),
                   .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
                   .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .pb_kind(pb_kind),
                   .p_tint(charged && fc[2]),

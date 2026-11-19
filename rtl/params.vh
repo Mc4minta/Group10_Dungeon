@@ -82,6 +82,7 @@ localparam ESCAPE_SECONDS  = 30;           // นับถอยหลัง (18
 localparam ESCAPE_BANNER   = 120;          // ข้อความ ESCAPE! กี่เฟรม
 localparam SHAKE_PX        = 2;            // จอสั่น +-px (ค่า 1..3)
 localparam SHAKE_EVERY     = 4;            // เปลี่ยน offset ทุกกี่เฟรม
+localparam HURT_SHAKE_FRAMES = 12;         // จอสั่นกี่เฟรมหลังโดนตี (0 = ปิด)
 localparam LED_BLINK       = 15;           // LED กะพริบ 4 Hz (คาบ 15 เฟรม)
 
 // ---------- ไมค์ PDM (P5) ----------

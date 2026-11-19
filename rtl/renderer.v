@@ -22,6 +22,8 @@ module renderer (
     input  wire         hide_player,
     input  wire [9:0]   px, py,
     input  wire [5:0]   pframe,        // form*12 + facing*3 + pose
+    input  wire [2:0]   p_anim,        // 0 = pframe, 1 idle, 2 attack, 3 hurt, 4 death (from player_frame.v)
+    input  wire [5:0]   p_aframe,      // picture number inside the animation ROM
     // ---------- objects (จาก objects.v) ----------
     input  wire [5:0]   mon_act, mon_type, mon_flash,
     input  wire [59:0]  mon_x, mon_y,
@@ -54,6 +56,7 @@ module renderer (
     output reg  [11:0]  color = 12'h000
 );
     `include "text_layout.vh"
+    `include "sprite_cfg.vh"
     localparam [11:0] C_NAVY = 12'h114, C_OVER = 12'h300, C_WIN = 12'hFB0, C_T = 12'hF0F;
 
     // ======================= stage 1 =======================
@@ -90,6 +93,8 @@ module renderer (
 
     reg [15:0] r1_taddr = 0;
     reg [15:0] r1_paddr = 0;
+    reg [15:0] r1_aaddr = 0;
+    reg [2:0]  r1_asel = 0;
     reg        r1_p = 0, r1_lit = 0, r1_red = 0, r1_out = 0, r1_tint = 0;
     reg [1:0]  r1_scr = 0;
     // ----- ข้อความ: ไม่เกิน 2 บรรทัดต่อหน้าจอ, ฟอนต์ 8x8 ขยาย 2x / 4x (คิดเฉพาะตอนมีข้อความบนจอ) -----
@@ -152,6 +157,8 @@ module renderer (
         r1_out   <= (hs_r >= 10'd640) || (vs_r >= 10'd480);
         r1_taddr <= {floor, tvis, vs_r[4:0], hs_r[4:0]};          // (floor*16 + tvis) = {floor, tvis}
         r1_paddr <= {pframe, sy[4:0], sx[4:0]};
+        r1_aaddr <= {p_aframe, sy[4:0], sx[4:0]};
+        r1_asel  <= p_anim;
         r1_p     <= in_spr && !hide_player;
         r1_tint  <= p_tint;
         r1_scr   <= screen;
@@ -163,6 +170,22 @@ module renderer (
     wire [11:0] tile_px, spr_px, obj_px;
     tileset_rom tset (.clk(clk), .addr(r1_taddr), .data(tile_px));
     player_rom  pspr (.clk(clk), .addr(r1_paddr), .data(spr_px));
+    // animation ROMs: only built when their flag in sprite_cfg.vh is 1
+    wire [11:0] idle_px, atk_px, hurt_px, die_px;
+    generate
+        if (IDLE_ANIM_EN)   begin : g_idle   player_idle_rom   ri (.clk(clk), .addr(r1_aaddr),        .data(idle_px)); end
+        else begin : g_idle_off   assign idle_px = 12'd0; end
+        if (ATTACK_ANIM_EN) begin : g_attack player_attack_rom ra (.clk(clk), .addr(r1_aaddr[13:0]),  .data(atk_px)); end
+        else begin : g_attack_off assign atk_px = 12'd0; end
+        if (HURT_ANIM_EN)   begin : g_hurt   player_hurt_rom   rh (.clk(clk), .addr(r1_aaddr[13:0]),  .data(hurt_px)); end
+        else begin : g_hurt_off   assign hurt_px = 12'd0; end
+        if (DEATH_ANIM_EN)  begin : g_die    player_die_rom    rd (.clk(clk), .addr(r1_aaddr[13:0]),  .data(die_px)); end
+        else begin : g_die_off    assign die_px = 12'd0; end
+    endgenerate
+    reg [2:0] r2_asel = 0;
+    always @(posedge clk) r2_asel <= r1_asel;
+    wire [11:0] spr_fin = (r2_asel == 3'd1) ? idle_px : (r2_asel == 3'd2) ? atk_px :
+                          (r2_asel == 3'd3) ? hurt_px : (r2_asel == 3'd4) ? die_px : spr_px;
     objline     objl (.clk(clk), .ce(ce), .hcount(hcount), .vcount(vcount),
                       .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
                       .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .pb_kind(pb_kind),
@@ -188,9 +211,10 @@ module renderer (
     // ======================= stage 3: เลือกชั้น =======================
     always @(posedge clk) begin
         if (txt_on)                                  color <= 12'hFFF;    // ข้อความอยู่บนสุด
+        else if (DEATH_ANIM_EN && r2_scr == 2'd2 && r2_p && r2_asel == 3'd4 && spr_fin != C_T) color <= spr_fin;   // death animation over the GAME OVER colour
         else if (r2_scr == 2'd2)                     color <= C_OVER;
         else if (r2_scr == 2'd3)                     color <= C_WIN;
-        else if (r2_p && spr_px != C_T)              color <= r2_tint ? (spr_px | 12'hCCC) : spr_px;   // ชาร์จเต็ม: สว่าง
+        else if (r2_p && spr_fin != C_T)             color <= r2_tint ? (spr_fin | 12'hCCC) : spr_fin;   // ชาร์จเต็ม: สว่าง
         else if (r2_scr == 2'd1)                     color <= C_NAVY;
         else if (r2_out)                             color <= 12'h000;    // จอสั่น: ขอบที่เลื่อนออก
         else if (obj_px_d != C_T)                    color <= obj_px_d;   // มอน < กระสุน < ฟัน (เรียงใน objline)
