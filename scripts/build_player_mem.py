@@ -508,6 +508,7 @@ def write_text_if_changed(path, text):
                 return False
     except OSError:
         pass
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8", newline="") as f:
         f.write(text)
     return True

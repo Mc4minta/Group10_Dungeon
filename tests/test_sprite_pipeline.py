@@ -172,7 +172,7 @@ class Fallbacks(unittest.TestCase):
         shutil.rmtree(self.t, ignore_errors=True)
 
     def fb(self, out, name):
-        return [ln for ln in out.splitlines() if ln.startswith("WARNING") and name in ln]
+        return [ln for ln in out.splitlines() if ln.startswith("WARNING") and not ln.startswith("WARNING: player_") and name in ln]
 
     def ok_shape(self):
         w = words_of(self.out)
@@ -184,7 +184,7 @@ class Fallbacks(unittest.TestCase):
         rc, out = run_build(self.t)
         self.assertEqual(rc, 0)
         w = self.ok_shape()
-        warns = [ln for ln in out.splitlines() if ln.startswith("WARNING")]
+        warns = [ln for ln in out.splitlines() if ln.startswith("WARNING") and not ln.startswith("WARNING: player_")]
         self.assertEqual(len(warns), 1)                                  # form4: one line for the whole form
         self.assertIn("form4", warns[0])
         self.assertEqual(w[36 * N:], self.v1[36 * N:])
@@ -384,6 +384,87 @@ class Fallbacks(unittest.TestCase):
         c["tints"] = {"gold": {"dark": [0, 0, 999], "light": [255, 255, 255]}}
         jsave(self.cfgp, c)
         self.assertEqual(run_build(self.t)[0], 2)
+
+    # ---------------- Phase B: animation ROMs (form 1) ----------------
+    def _anim_project(self):
+        """temp project where form 1 also has attack / dmg / soul_die sheets (4x4 coloured squares) and the idle sheet"""
+        self.make_sheet("picture/form1_attack.png", 128, 128, 5)
+        self.make_sheet("picture/form1_dmg.png", 128, 128, 6)
+        self.make_sheet("picture/form1_die.png", 384, 32, 7)
+        c = jload(self.cfgp)
+        c["forms"]["1"]["sheets"].update({"attack": "picture/form1_attack.png", "dmg": "picture/form1_dmg.png",
+                                          "soul_die": "picture/form1_die.png"})
+        jsave(self.cfgp, c)
+        return c
+
+    def test_anim_roms_have_the_right_sizes_and_header_is_off_by_default(self):
+        self._anim_project()
+        rc, out = run_build(self.t)
+        self.assertEqual(rc, 0)
+        mem = os.path.join(self.t, "mem")
+        self.assertEqual(len(words_of(os.path.join(mem, "player_idle.mem"))), 65536)
+        for nm in ("attack", "hurt", "die"):
+            self.assertEqual(len(words_of(os.path.join(mem, "player_" + nm + ".mem"))), 16384, nm)
+        vh = open(os.path.join(self.t, "rtl", "sprite_cfg.vh"), encoding="utf-8").read()
+        import re
+        for flag in ("IDLE_ANIM_EN", "ATTACK_ANIM_EN", "HURT_ANIM_EN", "DEATH_ANIM_EN"):
+            self.assertRegex(vh, r"localparam " + flag + r"\s*= 0;")
+        self.assertNotIn("WARNING: player_", out)
+
+    def test_anim_frames_come_from_the_right_cells(self):
+        self._anim_project()
+        run_build(self.t)
+        mem = os.path.join(self.t, "mem")
+        idle = words_of(os.path.join(mem, "player_idle.mem"))
+        att = words_of(os.path.join(mem, "player_attack.mem"))
+        die = words_of(os.path.join(mem, "player_die.mem"))
+        src_idle = os.path.join(self.t, "picture", "form1_idle.png")
+        for d, row in ((0, 1), (1, 3), (2, 2), (3, 1)):                       # dir -> sheet row (down 1, up 3, left 2, right 1)
+            for k in (0, 5, 15):
+                exp = indep_frame(src_idle, row, k, 1)
+                self.assertEqual(idle[(d * 16 + k) * N:(d * 16 + k + 1) * N], exp, f"idle dir{d} k{k}")
+        exp = indep_frame(os.path.join(self.t, "picture", "form1_attack.png"), 2, 3, 1)       # left, 4th picture
+        self.assertEqual(att[(2 * 4 + 3) * N:(2 * 4 + 4) * N], exp)
+        exp = indep_frame(os.path.join(self.t, "picture", "form1_die.png"), 1, 4, 1)           # die picture 4 = row 1 col 4
+        self.assertEqual(die[4 * N:5 * N], exp)
+
+    def test_missing_anim_sheet_falls_back_to_walk_idle_frame(self):
+        rc, out = run_build(self.t)                                           # no attack / dmg / die sheets configured
+        self.assertEqual(rc, 0)
+        w = self.ok_shape()
+        self.assertIn("WARNING: player_attack.mem", out)
+        att = words_of(os.path.join(self.t, "mem", "player_attack.mem"))
+        for d in range(4):                                                    # every attack picture = the walk-idle picture of that direction
+            for k in range(4):
+                self.assertEqual(att[(d * 4 + k) * N:(d * 4 + k + 1) * N], w[(d * 3) * N:(d * 3 + 1) * N], (d, k))
+
+    def test_empty_last_death_picture_is_valid_not_a_fallback(self):
+        self._anim_project()
+        p = os.path.join(self.t, "picture", "form1_die.png")
+        im = Image.open(p).convert("RGBA")
+        im.paste((0, 0, 0, 0), (11 * 32, 0, 12 * 32, 32))                       # picture 11 empty
+        im.save(p)
+        rc, out = run_build(self.t)
+        self.assertEqual(rc, 0)
+        die = words_of(os.path.join(self.t, "mem", "player_die.mem"))
+        self.assertTrue(all(v == KEY for v in die[11 * N:12 * N]))
+        self.assertNotIn("WARNING: player_die.mem", out)
+
+    def test_anim_flags_are_written_to_the_header_and_validated(self):
+        c = jload(self.cfgp)
+        c["animations"] = {"idle_anim": True, "death_anim": True, "death_sheet": "spin_die", "idle_step_frames": 9}
+        jsave(self.cfgp, c)
+        rc, out = run_build(self.t)
+        self.assertEqual(rc, 0)
+        vh = open(os.path.join(self.t, "rtl", "sprite_cfg.vh"), encoding="utf-8").read()
+        self.assertIn("IDLE_ANIM_EN   = 1;", vh)
+        self.assertIn("DEATH_ANIM_EN  = 1;", vh)
+        self.assertIn("ATTACK_ANIM_EN = 0;", vh)
+        self.assertIn("IDLE_STEP      = 9;", vh)
+        for bad in ({"idle_anim": "yes"}, {"death_sheet": "nope"}, {"idle_step_frames": 0}, {"hurt_step_frames": 99}):
+            c["animations"] = bad
+            jsave(self.cfgp, c)
+            self.assertEqual(run_build(self.t)[0], 2, bad)
 
     def test_check_writes_nothing(self):
         rc, _ = run_build(self.t, "--check")
