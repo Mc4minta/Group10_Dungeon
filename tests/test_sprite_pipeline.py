@@ -388,12 +388,12 @@ class Fallbacks(unittest.TestCase):
     # ---------------- Phase B: animation ROMs (form 1) ----------------
     def _anim_project(self):
         """temp project where form 1 also has attack / dmg / soul_die sheets (4x4 coloured squares) and the idle sheet"""
-        self.make_sheet("picture/form1_attack.png", 128, 128, 5)
-        self.make_sheet("picture/form1_dmg.png", 128, 128, 6)
-        self.make_sheet("picture/form1_die.png", 384, 32, 7)
+        self.make_sheet("my_asset/form1_attack.png", 128, 128, 5)
+        self.make_sheet("my_asset/form1_dmg.png", 128, 128, 6)
+        self.make_sheet("my_asset/form1_die.png", 384, 32, 7)
         c = jload(self.cfgp)
-        c["forms"]["1"]["sheets"].update({"attack": "picture/form1_attack.png", "dmg": "picture/form1_dmg.png",
-                                          "soul_die": "picture/form1_die.png"})
+        c["forms"]["1"]["sheets"].update({"attack": "my_asset/form1_attack.png", "dmg": "my_asset/form1_dmg.png",
+                                          "soul_die": "my_asset/form1_die.png"})
         jsave(self.cfgp, c)
         return c
 
@@ -418,14 +418,14 @@ class Fallbacks(unittest.TestCase):
         idle = words_of(os.path.join(mem, "player_idle.mem"))
         att = words_of(os.path.join(mem, "player_attack.mem"))
         die = words_of(os.path.join(mem, "player_die.mem"))
-        src_idle = os.path.join(self.t, "picture", "form1_idle.png")
+        src_idle = os.path.join(self.t, "my_asset", "form1_idle.png")
         for d, row in ((0, 1), (1, 3), (2, 2), (3, 1)):                       # dir -> sheet row (down 1, up 3, left 2, right 1)
             for k in (0, 5, 15):
                 exp = indep_frame(src_idle, row, k, 1)
                 self.assertEqual(idle[(d * 16 + k) * N:(d * 16 + k + 1) * N], exp, f"idle dir{d} k{k}")
-        exp = indep_frame(os.path.join(self.t, "picture", "form1_attack.png"), 2, 3, 1)       # left, 4th picture
+        exp = indep_frame(os.path.join(self.t, "my_asset", "form1_attack.png"), 2, 3, 1)       # left, 4th picture
         self.assertEqual(att[(2 * 4 + 3) * N:(2 * 4 + 4) * N], exp)
-        exp = indep_frame(os.path.join(self.t, "picture", "form1_die.png"), 1, 4, 1)           # die picture 4 = row 1 col 4
+        exp = indep_frame(os.path.join(self.t, "my_asset", "form1_die.png"), 1, 4, 1)           # die picture 4 = row 1 col 4
         self.assertEqual(die[4 * N:5 * N], exp)
 
     def test_missing_anim_sheet_falls_back_to_walk_idle_frame(self):
@@ -440,7 +440,7 @@ class Fallbacks(unittest.TestCase):
 
     def test_empty_last_death_picture_is_valid_not_a_fallback(self):
         self._anim_project()
-        p = os.path.join(self.t, "picture", "form1_die.png")
+        p = os.path.join(self.t, "my_asset", "form1_die.png")
         im = Image.open(p).convert("RGBA")
         im.paste((0, 0, 0, 0), (11 * 32, 0, 12 * 32, 32))                       # picture 11 empty
         im.save(p)
