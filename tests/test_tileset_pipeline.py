@@ -1,0 +1,250 @@
+#!/usr/bin/env python3
+"""Tests for the tileset (map art) pipeline.   python tests/test_tileset_pipeline.py"""
+import contextlib
+import hashlib
+import io
+import json
+import os
+import shutil
+import sys
+import tempfile
+import unittest
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+sys.path.insert(0, os.path.join(ROOT, "scripts"))
+import build_tileset_mem as T  # noqa: E402
+from PIL import Image  # noqa: E402
+
+N = T.TILE_WORDS
+
+
+def words_of(path):
+    with open(path, encoding="ascii") as f:
+        return [int(x, 16) for x in f.read().split()]
+
+
+def run_build(root, *args):
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc = T.main(["--root", root, *args])
+    return rc, buf.getvalue()
+
+
+def sha(p):
+    with open(p, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+def indep_tile(png, row, col, recolor="rgb", cs=16, scale=2, base=None):
+    """independent conversion (does not use build code); None if the cell is empty"""
+    im = Image.open(png).convert("RGBA")
+    out = list(base) if base else [None] * N
+    idx = {"r": 0, "g": 1, "b": 2}
+    opq = 0
+    for y in range(cs):
+        for x in range(cs):
+            r, g, b, a = im.getpixel((col * cs + x, row * cs + y))
+            if a < 128:
+                continue
+            opq += 1
+            ch = (r, g, b)
+            v = [(ch[idx[c]] * 15 + 127) // 255 for c in recolor]
+            w = (v[0] << 8) | (v[1] << 4) | v[2]
+            for dy in range(scale):
+                for dx in range(scale):
+                    out[(y * scale + dy) * 32 + x * scale + dx] = w
+    return out if opq else None
+
+
+def load_json(p):
+    with open(p, encoding="utf-8") as f:
+        return json.load(f)
+
+
+class RealProject(unittest.TestCase):
+    def setUp(self):
+        self.cfg = T.load_config(os.path.join(ROOT, "sprites", "tileset.json"), ROOT)
+        self.mem = words_of(os.path.join(ROOT, "mem", "tileset.mem"))
+        self.v1 = words_of(os.path.join(ROOT, "mem", "tileset_v1.mem"))
+        self.b = T.build(self.cfg, ROOT)
+
+    def test_line_count(self):
+        self.assertEqual(len(self.mem), 49152)
+        self.assertEqual(len(self.v1), 49152)
+
+    def test_mem_is_up_to_date(self):
+        self.assertEqual(self.mem, self.b.out, "mem/tileset.mem is stale: run python scripts/build_tileset_mem.py")
+
+    def test_fallback_tiles_identical_to_v1(self):
+        for (n, t), r in self.b.result.items():
+            if r["fallback"]:
+                i = T.tidx(n, t)
+                self.assertEqual(self.mem[i * N:(i + 1) * N], self.v1[i * N:(i + 1) * N], (n, t))
+
+    def test_disabled_floors_identical_to_v1(self):
+        for n, f in self.cfg["floors"].items():
+            if not f["enabled"]:
+                a, b = (n - 1) * 16 * N, n * 16 * N
+                self.assertEqual(self.mem[a:b], self.v1[a:b])
+
+    def test_all_values_rgb444(self):
+        self.assertTrue(all(0 <= w <= 0xFFF for w in self.mem))
+
+    def test_no_tile_shifted(self):
+        """every non-base tile equals an independent conversion of its source cell"""
+        for (n, t), r in self.b.result.items():
+            spec = self.cfg["overrides"].get((n, t)) or self.cfg["tiles"].get(t)
+            if r["fallback"] or spec.get("base") is not None:
+                continue
+            png = os.path.join(ROOT, self.cfg["floors"][n]["sheet"])
+            exp = indep_tile(png, spec["cell"][0], spec["cell"][1], self.cfg["floors"][n]["recolor"])
+            i = T.tidx(n, t)
+            self.assertEqual(self.mem[i * N:(i + 1) * N], exp, (n, t))
+
+    def test_base_tiles_composite(self):
+        """a tile with a base shows the base tile wherever its cell is see-through"""
+        n, t = 1, 12
+        spec = self.cfg["tiles"][t]
+        png = os.path.join(ROOT, self.cfg["floors"][n]["sheet"])
+        bi = T.tidx(n, spec["base"])
+        base = self.mem[bi * N:(bi + 1) * N]
+        exp = indep_tile(png, spec["cell"][0], spec["cell"][1], self.cfg["floors"][n]["recolor"], base=base)
+        i = T.tidx(n, t)
+        self.assertEqual(self.mem[i * N:(i + 1) * N], exp)
+
+
+class Fallbacks(unittest.TestCase):
+    def setUp(self):
+        self.t = tempfile.mkdtemp(prefix="tile_test_")
+        for d in ("mem", "picture", "sprites"):
+            os.makedirs(os.path.join(self.t, d))
+        shutil.copy(os.path.join(ROOT, "mem", "tileset_v1.mem"), os.path.join(self.t, "mem"))
+        shutil.copy(os.path.join(ROOT, "picture", "tileset", "Dungeon_Tileset.png"),
+                    os.path.join(self.t, "picture", "sheet.png"))
+        self.cfgp = os.path.join(self.t, "sprites", "tileset.json")
+        self.c = load_json(os.path.join(ROOT, "sprites", "tileset.json"))
+        self.c["sheet"] = "picture/sheet.png"
+        self.save()
+        self.out = os.path.join(self.t, "mem", "tileset.mem")
+        self.v1p = os.path.join(self.t, "mem", "tileset_v1.mem")
+        self.v1 = words_of(self.v1p)
+        self.v1sha = sha(self.v1p)
+        self.sheet = os.path.join(self.t, "picture", "sheet.png")
+
+    def save(self):
+        with open(self.cfgp, "w", encoding="utf-8") as f:
+            json.dump(self.c, f)
+
+    def tearDown(self):
+        shutil.rmtree(self.t, ignore_errors=True)
+
+    def ok_shape(self):
+        w = words_of(self.out)
+        self.assertEqual(len(w), 49152)
+        self.assertEqual(sha(self.v1p), self.v1sha, "tileset_v1.mem was modified!")
+        return w
+
+    def test_clean(self):
+        rc, out = run_build(self.t)
+        self.assertEqual(rc, 0)
+        self.ok_shape()
+        self.assertNotIn("WARNING", out)
+
+    def test_sheet_missing_all_fallback(self):
+        os.remove(self.sheet)
+        rc, out = run_build(self.t)
+        self.assertEqual(rc, 0)
+        self.assertEqual(self.ok_shape(), self.v1)
+        self.assertEqual(out.count("WARNING"), 3)            # one line per floor
+        self.assertIn("file missing", out)
+
+    def test_sheet_corrupt_is_error_but_builds(self):
+        with open(self.sheet, "wb") as f:
+            f.write(b"junk")
+        rc, out = run_build(self.t)
+        self.assertEqual(rc, 1)
+        self.assertEqual(self.ok_shape(), self.v1)
+
+    def test_sheet_too_small(self):
+        im = Image.open(self.sheet)
+        im.crop((0, 0, 160, 64)).save(self.sheet)              # rows 0-3 only
+        rc, out = run_build(self.t)
+        self.assertEqual(rc, 0)
+        w = self.ok_shape()
+        self.assertIn("is outside it", out)
+        i = T.tidx(1, 5)                                       # tile 5 = row 7 -> fallback
+        self.assertEqual(w[i * N:(i + 1) * N], self.v1[i * N:(i + 1) * N])
+        j = T.tidx(1, 0)                                       # tile 0 = row 0 -> new art
+        self.assertNotEqual(w[j * N:(j + 1) * N], self.v1[j * N:(j + 1) * N])
+
+    def test_transparent_cell(self):
+        im = Image.open(self.sheet).convert("RGBA")
+        im.paste((0, 0, 0, 0), (0, 0, 16, 16))
+        im.save(self.sheet)
+        self.c["tiles"]["5"] = {"cell": [0, 0]}
+        self.save()
+        rc, out = run_build(self.t)
+        self.assertEqual(rc, 0)
+        w = self.ok_shape()
+        self.assertIn("fully transparent", out)
+        i = T.tidx(2, 5)
+        self.assertEqual(w[i * N:(i + 1) * N], self.v1[i * N:(i + 1) * N])
+
+    def test_missing_base_is_not_scrambled(self):
+        self.c["tiles"]["4"] = {"cell": [4, 9]}                # see-through cell without base
+        self.save()
+        rc, out = run_build(self.t)
+        w = self.ok_shape()
+        self.assertIn('no "base" tile', out)
+        i = T.tidx(1, 4)
+        self.assertEqual(w[i * N:(i + 1) * N], self.v1[i * N:(i + 1) * N])
+
+    def test_skip_override_and_floor_disable(self):
+        self.c["overrides"] = {"f2.t0": {"skip": True}}
+        self.c["floors"]["3"]["enabled"] = False
+        self.save()
+        rc, out = run_build(self.t)
+        w = self.ok_shape()
+        self.assertIn("config skip", out)
+        i = T.tidx(2, 0)
+        self.assertEqual(w[i * N:(i + 1) * N], self.v1[i * N:(i + 1) * N])
+        a, b = 32 * N, 48 * N
+        self.assertEqual(w[a:b], self.v1[a:b])                 # floor 3 byte-identical
+
+    def test_all_floors_disabled_is_byte_identical(self):
+        for k in self.c["floors"]:
+            self.c["floors"][k]["enabled"] = False
+        self.save()
+        run_build(self.t)
+        self.assertEqual(sha(self.out), self.v1sha)
+
+    def test_bad_config(self):
+        for bad in ("{oops", json.dumps({"cell": 12}), json.dumps({"floors": {"1": {"recolor": "rrg"}}}),
+                    json.dumps({"tiles": {"99": {"cell": [0, 0]}}}), json.dumps({"overrides": {"x": {}}})):
+            with open(self.cfgp, "w") as f:
+                f.write(bad)
+            if os.path.exists(self.out):
+                os.remove(self.out)
+            rc, _ = run_build(self.t)
+            self.assertEqual(rc, 2, bad)
+            self.assertFalse(os.path.exists(self.out))
+
+    def test_missing_fallback_file(self):
+        os.remove(self.v1p)
+        rc, _ = run_build(self.t)
+        self.assertEqual(rc, 2)
+
+    def test_check_writes_nothing(self):
+        rc, _ = run_build(self.t, "--check")
+        self.assertEqual(rc, 0)
+        self.assertFalse(os.path.exists(self.out))
+
+    def test_sheet_never_modified(self):
+        before = sha(self.sheet)
+        run_build(self.t, "--preview")
+        self.assertEqual(before, sha(self.sheet))
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

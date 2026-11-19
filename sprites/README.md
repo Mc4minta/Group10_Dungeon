@@ -91,3 +91,28 @@ placeholder art (run the build again to fix; `mem/player_v1.mem` is unaffected).
 * RGB444 has only 16 levels per colour: gradients band. The current sheets have 6-13 colours, no merging (see `preview/colour_report.txt`).
 * The hitbox is pixels 4-27 of the 32x32 frame. The table prints a note when art goes outside it (`preview/bbox_report.txt`).
 * Nothing here changes the frame count (still 48 x 1024 words), so BRAM use and the Verilog are unchanged.
+
+---
+
+# Map tiles (tileset) - same idea
+
+**Source of truth:** `picture/tileset/Dungeon_Tileset.png` (copy of the pack sheet, 160x160 = 10x10 cells of 16x16)
+and `sprites/tileset.json`. **Generated:** `mem/tileset.mem`. **Old art, never touched:** `mem/tileset_v1.mem`.
+
+    python scripts/build_tileset_mem.py              # rebuild mem/tileset.mem
+    python scripts/build_tileset_mem.py --preview    # + preview/tileset_*.png
+    python scripts/build_tileset_mem.py --check      # only check
+
+* The game has 3 floors x 16 tile ids (0 wall, 1 floor, 2 door, 3 boss door, 4 exit, 5 hole, 6 fence, 7 plate,
+  8-10 open versions, 11 plate with box, 12-15 Simon plates). `tile_names` in the JSON lists them.
+* Every 16x16 cell is scaled by exactly 2 (each pixel becomes 2x2, nearest neighbour, no smoothing) to 32x32.
+* `"tiles": { "2": { "cell": [3, 6], "base": 1 } }` = tile 2 uses sheet row 3, column 6 (counted from 0). `base` = another tile id drawn
+  first, so see-through pixels show the floor. A see-through cell **without** a base falls back to old art (never a hole).
+* Per floor: `"floors": { "2": { "recolor": "gbr" } }` swaps colour channels so floors 2 and 3 look different
+  from floor 1 (any permutation of `rgb`). `"enabled": false` = that floor uses old art. A floor may also have its own `"sheet"`.
+* One tile only: `"overrides": { "f2.t5": { "cell": [7, 8] } }` or `{ "skip": true }` (old art).
+* `preview/tileset_source_grid.png` = the sheet with row/column numbers (to pick cells), `preview/tileset_all_floors.png`,
+  `preview/tileset_old_vs_new.png`, `preview/tileset_rooms.png` = all 13 rooms drawn with the new tiles.
+* Roll back: `cp mem/tileset_v1.mem mem/tileset.mem` (or disable the floors and rebuild).
+* The map layouts (`maps/*.txt`) and tile ids are not changed, only how tiles look. Rooms/doors/puzzles behave exactly as before.
+* `scripts/make_placeholders.py` also rewrites `mem/tileset.mem`: do not run it any more (or rebuild afterwards).
