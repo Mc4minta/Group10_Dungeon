@@ -11,7 +11,7 @@ Status legend: DONE = exists in working tree, TODO = not started, ASK = needs yo
 
 - [ ] **Rule 1** - the game must ALWAYS build and run. Missing / transparent / invalid / wrong-size art falls back to old art with a printed WARNING. Never crash, never scramble, never smooth-resize.
 - [ ] **No game-logic change**: stats, hitbox, speed, HP, weapons, timing, FSM transitions stay as they are. Only what is drawn changes.
-- [ ] `mem/player_v1.mem` (copy of the original `player.mem`) is never edited. `picture/*` originals are never overwritten or renamed.
+- [ ] `mem/player_v1.mem` (copy of the original `player.mem`) is never edited. `my_asset/*` originals are never overwritten or renamed.
 - [ ] `mem/*.mem` and `rtl/sprite_cfg.vh` are **generated**. Source of truth = PNGs + `sprites/sprites.json`.
 - [ ] Do not merge to `main`. Tag `main` as `pre-sprite-zip` before any merge. I wait for your "merge".
 
@@ -21,9 +21,9 @@ Status legend: DONE = exists in working tree, TODO = not started, ASK = needs yo
 
 | Input | Where | What it is | Use for |
 |---|---|---|---|
-| `Character.zip` (extracted to `picture/Character/`) | Human/, ORc/, Angel/ | Player art, 32x32 cells | Forms 1-3 (the player) |
-| `Enemy_Animations_Set.zip` | `picture/` | skeleton1, skeleton2, vampire strips, 32x32 frames, 1 row each | Monsters (and maybe bosses) |
-| `2D Pixel Dungeon Asset Pack v2.0.zip` | `picture/` | 16x16 tileset, items, traps, arrow, UI | Bullet, puzzle items, tileset (optional) |
+| `Character.zip` (extracted to `my_asset/Character/`) | Human/, ORc/, Angel/ | Player art, 32x32 cells | Forms 1-3 (the player) |
+| `Enemy_Animations_Set.zip` | `my_asset/` | skeleton1, skeleton2, vampire strips, 32x32 frames, 1 row each | Monsters (and maybe bosses) |
+| `2D Pixel Dungeon Asset Pack v2.0.zip` | `my_asset/` | 16x16 tileset, items, traps, arrow, UI | Bullet, puzzle items, tileset (optional) |
 
 Sheet facts verified by loading the PNGs (all match your description):
 
@@ -42,7 +42,7 @@ Sheet facts verified by loading the PNGs (all match your description):
 
 Notes
 - `Angel_walk.c.c` is a Piskel C export: ignored.
-- `Angel_walk.png.png`: build reads it in place and writes a clean copy `picture/_clean/form3_walk.png` (original untouched).
+- `Angel_walk.png.png`: build reads it in place and writes a clean copy `my_asset/_clean/form3_walk.png` (original untouched).
 - `SoulDie.png` has semi-transparent pixels. Plan: alpha < 128 = transparent, otherwise opaque (alpha threshold is in config). Possible fringe, will be checked in screenshots.
 - Row convention (your guess): row1 front-Right, row2 front-Left, row3 back-Right, row4 back-Left. **Not verified yet** - Phase A produces labelled sheets so you can confirm.
 
@@ -64,13 +64,13 @@ Notes
 ### 2.2 Config shape (sprites.json v2) - edit freely
 ```json
 "forms": {
-  "1": { "enabled": true,  "sheets": { "walk": "picture/Character/Human/Walk.png",
-                                       "idle": "picture/Character/Human/Idle.png",
+  "1": { "enabled": true,  "sheets": { "walk": "my_asset/Character/Human/Walk.png",
+                                       "idle": "my_asset/Character/Human/Idle.png",
                                        "attack": ".../Attack.png", "dmg": ".../Dmg.png",
                                        "soul_die": ".../SoulDie.png", "spin_die": ".../SpinDie.png",
                                        "jump": ".../Jump.png", "charged": ".../ChargedAttack.png" } },
-  "2": { "enabled": true,  "sheets": { "walk": "picture/Character/ORc/form2_Walk.png" } },
-  "3": { "enabled": true,  "sheets": { "walk": "picture/Character/Angel/Angel_walk.png.png" } },
+  "2": { "enabled": true,  "sheets": { "walk": "my_asset/Character/ORc/form2_Walk.png" } },
+  "3": { "enabled": true,  "sheets": { "walk": "my_asset/Character/Angel/Angel_walk.png.png" } },
   "4": { "enabled": true,  "sheets": { } }          // no art yet -> whole form = old art
 },
 "mapping": {
@@ -233,7 +233,7 @@ Default if you say nothing: player (Phase A, then B), then monsters + arrow bull
 | You want to... | Edit |
 |---|---|
 | Redraw a frame | Replace the PNG (same name), run the build |
-| Add form 4 art | Put sheets in `picture/`, add paths to `forms."4".sheets` in `sprites.json`, run the build |
+| Add form 4 art | Put sheets in `my_asset/`, add paths to `forms."4".sheets` in `sprites.json`, run the build |
 | Direction looks wrong | `mapping.dir_row` (whole direction) or one `overrides` entry (one frame) |
 | Use old art for something | `"enabled": false` (form) or `{"skip": true}` override (one frame) |
 | Turn an animation on | `animations.<name>_anim: true`, rebuild (regenerates `rtl/sprite_cfg.vh`), re-synthesize |

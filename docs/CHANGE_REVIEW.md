@@ -12,10 +12,10 @@ no game-logic change (no Verilog edited at all), `*_v1` backups never edited, `m
 
 | Area | Source of truth (you edit) | Generated (do not edit) | Old art backup | Build command |
 |---|---|---|---|---|
-| Player (forms 1-3 new art, form 4 old) | `picture/Character/*`, `sprites/sprites.json` | `mem/player.mem` | `mem/player_v1.mem` | `python scripts/build_player_mem.py` |
-| Map tiles | `picture/tileset/Dungeon_Tileset.png`, `sprites/tileset.json` | `mem/tileset.mem` | `mem/tileset_v1.mem` | `python scripts/build_tileset_mem.py` |
-| Enemies (A skeleton1, B vampire) | `picture/enemies/*`, `sprites/monsters.json` | `mem/monster.mem` | `mem/monster_v1.mem` | `python scripts/build_monster_mem.py` |
-| Bosses (2x exact scale) | `picture/enemies/*`, `sprites/bosses.json` | `mem/boss.mem` | `mem/boss_v1.mem` | `python scripts/build_boss_mem.py` |
+| Player (forms 1-3 new art, form 4 old) | `my_asset/Character/*`, `sprites/sprites.json` | `mem/player.mem` | `mem/player_v1.mem` | `python scripts/build_player_mem.py` |
+| Map tiles | `my_asset/tileset/Dungeon_Tileset.png`, `sprites/tileset.json` | `mem/tileset.mem` | `mem/tileset_v1.mem` | `python scripts/build_tileset_mem.py` |
+| Enemies (A skeleton1, B vampire) | `my_asset/enemies/*`, `sprites/monsters.json` | `mem/monster.mem` | `mem/monster_v1.mem` | `python scripts/build_monster_mem.py` |
+| Bosses (2x exact scale) | `my_asset/enemies/*`, `sprites/bosses.json` | `mem/boss.mem` | `mem/boss_v1.mem` | `python scripts/build_boss_mem.py` |
 | Map decoration (uncommitted) | `maps/*.txt`, `scripts/build_maps.py` | `mem/tilemap.mem` (+ unchanged objects/monsters/puzzle layout) | `maps_v1/` | `python scripts/build_maps.py` |
 
 All of it in one go: `scripts/update_sprites.sh` (Windows: `scripts\update_sprites.bat`) = build + previews + iverilog ROM checks + python tests.
@@ -28,7 +28,7 @@ Every builder has `--check` (validate only) and `--preview` (writes `preview/`).
 | Commit | What |
 |---|---|
 | `8485fca` | Player pipeline v1: config, build script, fallbacks, tests, `tb_sprites.v`, helpers, README, plan doc |
-| `372da50` | Art added to the repo: `picture/Character/*`, earlier `form1-3.png`, the two asset zips (unused originals) |
+| `372da50` | Art added to the repo: `my_asset/Character/*`, earlier `form1-3.png`, the two asset zips (unused originals) |
 | `40b27c3` | Player pipeline v2: multi-sheet config, idle chain (`Idle.png` col 0, else Walk col 0), labelled source sheets, colour + bounding-box reports, 24 tests |
 | `a209e29` | Tileset pipeline (16x16 cells scaled exactly 2x), previews, 19 tests, `tb_tileset.v` |
 | `786521d` | Monster pipeline (A = skeleton1 move cols 1,4; B = vampire idle cols 0,3), 17 tests, `tb_monster.v` |
@@ -106,7 +106,7 @@ Nothing fell back to old art except form 4 (no art configured). Monsters, bosses
 - `scripts/make_placeholders.py` still overwrites `player.mem`, `tileset.mem`, `monster.mem`, `boss.mem`: do not run it (rebuild fixes it).
 - Line endings: the repo uses autocrlf, files in the working tree are CRLF; mem files keep the CRLF/LF style of their `*_v1` copy.
 - Vivado: `create_project.tcl` globs `rtl/*.v` and `mem/*.mem`, so new/changed mem files are picked up automatically. BRAM is unchanged by design (same sizes: player 49152, tileset 49152, monster 4096, boss 32768 words).
-- The two asset zips (about 300 KB) are committed under `picture/` for later use; remove them if you do not want binaries in the repo.
+- The two asset zips (about 300 KB) are committed under `my_asset/` for later use; remove them if you do not want binaries in the repo.
 
 ## 7. How to review quickly
 

@@ -1,6 +1,6 @@
 # Player sprites - how to change the art
 
-**Source of truth:** the PNGs in `picture/` and `sprites/sprites.json`.
+**Source of truth:** the PNGs in `my_asset/` and `sprites/sprites.json`.
 **Generated (do not edit by hand):** `mem/player.mem`.
 **Old art, never touched:** `mem/player_v1.mem` (used for anything missing).
 
@@ -21,9 +21,9 @@ Only a broken config file or an unreadable PNG gives a non-zero exit code
 
 | form | walk sheet | idle sheet |
 |------|-----------|-----------|
-| 1 Human | `picture/Character/Human/Walk.png` | `.../Human/Idle.png` (16 columns, only column 0 is used) |
-| 2 Orc | `picture/Character/ORc/form2_Walk.png` | - (uses walk column 0) |
-| 3 Angel | `picture/Character/Angel/Angel_walk.png.png` (build also writes a clean copy `picture/_clean/form3_walk.png`) | - |
+| 1 Human | `my_asset/Character/Human/Walk.png` | `.../Human/Idle.png` (16 columns, only column 0 is used) |
+| 2 Orc | `my_asset/Character/ORc/form2_Walk.png` | - (uses walk column 0) |
+| 3 Angel | `my_asset/Character/Angel/Angel_walk.png.png` (build also writes a clean copy `my_asset/_clean/form3_walk.png`) | - |
 | 4 | none yet = whole form uses old art | - |
 
 Human also has Attack, Dmg, Jump, ChargedAttack, SoulDie, SpinDie sheets listed in `sprites.json`. They are checked and
@@ -57,8 +57,8 @@ do not exist fall back. A size that is not a multiple of 32 makes the whole shee
   (22 px wide) would be cut off. If a scaled pixel would leave the 32x32 frame the table prints `WARNING n px CUT OFF` - lower the scale or redraw.
 
 * **Redraw a frame:** replace the PNG (same name), run the build.
-* **Add form 4 art:** copy sheets into `picture/`, then put them under `"forms"` -> `"4"` -> `"sheets"`:
-  `{ "walk": "picture/form4_walk.png" }` (optionally `"idle"`), run the build.
+* **Add form 4 art:** copy sheets into `my_asset/`, then put them under `"forms"` -> `"4"` -> `"sheets"`:
+  `{ "walk": "my_asset/form4_walk.png" }` (optionally `"idle"`), run the build.
 * **Turn a form off / on:** `"forms"` -> `"2"` -> `"enabled": false` (whole form uses old art).
 * **Frame looks in the wrong direction:** change `"mapping"` -> `"dir_row"` (rows 1-4), e.g. swap `"left": 2` and `"right": 1`,
   or fix just one frame with an override.
@@ -80,12 +80,12 @@ transparent, config skip, form disabled, no art configured. The last lines show 
 
 * Whole game: `cp mem/player_v1.mem mem/player.mem` (or set every form to `"enabled": false` and rebuild).
 * One form: set its `"enabled": false` and rebuild.
-* An earlier version of your art/config: `git checkout <commit> -- picture sprites/sprites.json` then rebuild.
+* An earlier version of your art/config: `git checkout <commit> -- my_asset sprites/sprites.json` then rebuild.
 
 ## Git note
 
 `mem/player.mem` is **generated**: commit it (the FPGA flow reads it) but never edit it by hand - run the build.
-`picture/*.png` and `sprites/sprites.json` are the source of truth. A pre-commit hook may run
+`my_asset/*.png` and `sprites/sprites.json` are the source of truth. A pre-commit hook may run
 `python tests/test_sprite_pipeline.py` to catch a stale `mem/player.mem` (`test_mem_is_up_to_date` fails if you changed
 art and forgot to rebuild). Do not run `scripts/make_placeholders.py` after this: it rewrites `mem/player.mem` with
 placeholder art (run the build again to fix; `mem/player_v1.mem` is unaffected).
@@ -100,7 +100,7 @@ placeholder art (run the build again to fix; `mem/player_v1.mem` is unaffected).
 
 # Map tiles (tileset) - same idea
 
-**Source of truth:** `picture/tileset/Dungeon_Tileset.png` (copy of the pack sheet, 160x160 = 10x10 cells of 16x16)
+**Source of truth:** `my_asset/tileset/Dungeon_Tileset.png` (copy of the pack sheet, 160x160 = 10x10 cells of 16x16)
 and `sprites/tileset.json`. **Generated:** `mem/tileset.mem`. **Old art, never touched:** `mem/tileset_v1.mem`.
 
     python scripts/build_tileset_mem.py              # rebuild mem/tileset.mem
@@ -125,7 +125,7 @@ and `sprites/tileset.json`. **Generated:** `mem/tileset.mem`. **Old art, never t
 
 # Enemies (monster.mem)
 
-**Source of truth:** `picture/enemies/*.png` (from Enemy_Animations_Set.zip) and `sprites/monsters.json`.
+**Source of truth:** `my_asset/enemies/*.png` (from Enemy_Animations_Set.zip) and `sprites/monsters.json`.
 **Generated:** `mem/monster.mem` (4 frames of 32x32: A0 A1 = monster A the chaser, B0 B1 = monster B the turret).
 **Old art, never touched:** `mem/monster_v1.mem`.
 
@@ -144,7 +144,7 @@ and `sprites/tileset.json`. **Generated:** `mem/tileset.mem`. **Old art, never t
 
 # Bosses (boss.mem)
 
-**Source of truth:** `picture/enemies/*.png` and `sprites/bosses.json`. **Generated:** `mem/boss.mem`
+**Source of truth:** `my_asset/enemies/*.png` and `sprites/bosses.json`. **Generated:** `mem/boss.mem`
 (3 bosses x 2 frames of 64x64; 8 slots, 6 used). **Old art, never touched:** `mem/boss_v1.mem`.
 
     python scripts/build_boss_mem.py              # rebuild   (--check / --preview as before)
@@ -185,13 +185,13 @@ the shape and transparency never change. When you have real art: put the paths u
 
 # Puzzle objects (puzzle.mem)
 
-**Source of truth:** `picture/props/*.png` (16x16 sprites from the asset pack) and `sprites/puzzle.json`. **Generated:** `mem/puzzle.mem`
+**Source of truth:** `my_asset/props/*.png` (16x16 sprites from the asset pack) and `sprites/puzzle.json`. **Generated:** `mem/puzzle.mem`
 (16 frames of 32x32, 10 used). **Old art, never touched:** `mem/puzzle_v1.mem`.
 
     python scripts/build_puzzle_mem.py              # rebuild   (--check / --preview as before)
 
 * Frames: 0 bulb off, 1 bulb on, 2 lever up, 3 lever down, 4 box, 5 gate closed, 6 gate open, 7-9 item of floor 1-3.
-  Now: bulbs = your sprite_tool file `picture/props/torch.mem` (on = frame 0 lit torch, off = frame 7 smouldering ember), levers = closed / open chest, box = iron crate, gate = spikes up / retracted,
+  Now: bulbs = your sprite_tool file `my_asset/props/torch.mem` (on = frame 0 lit torch, off = frame 7 smouldering ember), levers = closed / open chest, box = iron crate, gate = spikes up / retracted,
   items = gold key, silver key, red shield. Preview: `preview/puzzle_contact.png` (new on top, old below).
 * A frame can come from a PNG (`"file"`) or from a sprite_tool `.mem` (`"mem"` + `"frame"`, header `// sprite_tool W= H= FRAMES= KEY=`; 16x16 RGB444 words, F0F = see-through). Each 16x16 source is scaled exactly 2x (nearest). `"cut": [[r,g,b]]` makes an exact background colour see-through so the floor colour shows through.
 * Missing / skipped / empty / too big file = old art with a warning. Roll back: `cp mem/puzzle_v1.mem mem/puzzle.mem`.

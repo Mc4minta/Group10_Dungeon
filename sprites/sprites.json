@@ -17,27 +17,27 @@
       "cell": 32,
       "scale": 2,
       "sheets": {
-        "walk": "picture/Character/Human/Walk.png",
-        "idle": "picture/Character/Human/Idle.png",
-        "attack": "picture/Character/Human/Attack.png",
-        "dmg": "picture/Character/Human/Dmg.png",
-        "jump": "picture/Character/Human/Jump.png",
-        "charged": "picture/Character/Human/ChargedAttack.png",
-        "soul_die": "picture/Character/Human/SoulDie.png",
-        "spin_die": "picture/Character/Human/SpinDie.png"
+        "walk": "my_asset/Character/Human/Walk.png",
+        "idle": "my_asset/Character/Human/Idle.png",
+        "attack": "my_asset/Character/Human/Attack.png",
+        "dmg": "my_asset/Character/Human/Dmg.png",
+        "jump": "my_asset/Character/Human/Jump.png",
+        "charged": "my_asset/Character/Human/ChargedAttack.png",
+        "soul_die": "my_asset/Character/Human/SoulDie.png",
+        "spin_die": "my_asset/Character/Human/SpinDie.png"
       }
     },
-    "2": { "enabled": true, "cell": 32, "scale": 2, "sheets": { "walk": "picture/Character/ORc/form2_Walk.png" } },
-    "3": { "enabled": true, "cell": 32, "sheets": { "walk": "picture/Character/Angel/Angel_walk.png.png" } },
+    "2": { "enabled": true, "cell": 32, "scale": 2, "sheets": { "walk": "my_asset/Character/ORc/form2_Walk.png" } },
+    "3": { "enabled": true, "cell": 32, "sheets": { "walk": "my_asset/Character/Angel/Angel_walk.png.png" } },
     "4": {
       "enabled": true,
       "cell": 32,
       "scale": 2,
       "tint": "gold",
-      "_note": "no own art yet: the Human sheets recoloured gold (see tints). Replace these paths with picture/form4_walk.png etc. when you have art, and remove tint.",
+      "_note": "no own art yet: the Human sheets recoloured gold (see tints). Replace these paths with my_asset/form4_walk.png etc. when you have art, and remove tint.",
       "sheets": {
-        "walk": "picture/Character/Human/Walk.png",
-        "idle": "picture/Character/Human/Idle.png"
+        "walk": "my_asset/Character/Human/Walk.png",
+        "idle": "my_asset/Character/Human/Idle.png"
       }
     }
   },

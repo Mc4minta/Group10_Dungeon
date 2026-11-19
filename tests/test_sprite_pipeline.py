@@ -144,14 +144,14 @@ class RealProject(unittest.TestCase):
 class Fallbacks(unittest.TestCase):
     def setUp(self):
         self.t = tempfile.mkdtemp(prefix="sprite_test_")
-        for d in ("mem", "picture", "sprites"):
+        for d in ("mem", "my_asset", "sprites"):
             os.makedirs(os.path.join(self.t, d))
         shutil.copy(os.path.join(ROOT, "mem", "player_v1.mem"), os.path.join(self.t, "mem"))
         for i in (1, 2, 3):
-            self.make_sheet(f"picture/form{i}_walk.png", 128, 128, i)
-        self.make_sheet("picture/form1_idle.png", 512, 128, 9)
-        sheets = {"1": {"walk": "picture/form1_walk.png", "idle": "picture/form1_idle.png"},
-                  "2": {"walk": "picture/form2_walk.png"}, "3": {"walk": "picture/form3_walk.png"}, "4": {}}
+            self.make_sheet(f"my_asset/form{i}_walk.png", 128, 128, i)
+        self.make_sheet("my_asset/form1_idle.png", 512, 128, 9)
+        sheets = {"1": {"walk": "my_asset/form1_walk.png", "idle": "my_asset/form1_idle.png"},
+                  "2": {"walk": "my_asset/form2_walk.png"}, "3": {"walk": "my_asset/form3_walk.png"}, "4": {}}
         self.cfgp = os.path.join(self.t, "sprites", "sprites.json")
         jsave(self.cfgp, {"forms": {k: {"sheets": v} for k, v in sheets.items()}})
         self.v1p = os.path.join(self.t, "mem", "player_v1.mem")
@@ -190,7 +190,7 @@ class Fallbacks(unittest.TestCase):
         self.assertEqual(w[36 * N:], self.v1[36 * N:])
 
     def test_missing_file(self):
-        os.remove(os.path.join(self.t, "picture", "form2_walk.png"))
+        os.remove(os.path.join(self.t, "my_asset", "form2_walk.png"))
         rc, out = run_build(self.t)
         self.assertEqual(rc, 0)
         w = self.ok_shape()
@@ -200,7 +200,7 @@ class Fallbacks(unittest.TestCase):
         self.assertNotEqual(w[:12 * N], self.v1[:12 * N])          # form1 still new
 
     def test_transparent_cell(self):
-        p = os.path.join(self.t, "picture", "form1_walk.png")
+        p = os.path.join(self.t, "my_asset", "form1_walk.png")
         im = Image.open(p)
         im.paste((0, 0, 0, 0), (32, 0, 64, 32))                    # row1 col1 = down.A and right.A
         im.save(p)
@@ -214,7 +214,7 @@ class Fallbacks(unittest.TestCase):
         self.assertNotEqual(w[0:N], self.v1[0:N])
 
     def test_wrong_size_not_multiple(self):
-        Image.new("RGBA", (100, 100), (255, 0, 0, 255)).save(os.path.join(self.t, "picture", "form3_walk.png"))
+        Image.new("RGBA", (100, 100), (255, 0, 0, 255)).save(os.path.join(self.t, "my_asset", "form3_walk.png"))
         rc, out = run_build(self.t)
         self.assertEqual(rc, 0)
         w = self.ok_shape()
@@ -222,7 +222,7 @@ class Fallbacks(unittest.TestCase):
         self.assertEqual(w[24 * N:36 * N], self.v1[24 * N:36 * N])
 
     def test_small_sheet_only_missing_cells_fall_back(self):
-        p = os.path.join(self.t, "picture", "form1_walk.png")
+        p = os.path.join(self.t, "my_asset", "form1_walk.png")
         Image.open(p).crop((0, 0, 128, 64)).save(p)                # only rows 1-2: up (row 3) missing
         rc, out = run_build(self.t)
         self.assertEqual(rc, 0)
@@ -236,7 +236,7 @@ class Fallbacks(unittest.TestCase):
         self.assertNotEqual(w[0:N], self.v1[0:N])
 
     def test_bigger_sheet_ok(self):
-        p = os.path.join(self.t, "picture", "form1_walk.png")
+        p = os.path.join(self.t, "my_asset", "form1_walk.png")
         im = Image.open(p)
         big = Image.new("RGBA", (128, 192), (0, 0, 0, 0))
         big.paste(im, (0, 0))
@@ -246,7 +246,7 @@ class Fallbacks(unittest.TestCase):
         self.assertEqual(len(self.fb(out, "form1.")), 0)
 
     def test_corrupt_png_is_error_but_still_builds(self):
-        with open(os.path.join(self.t, "picture", "form2_walk.png"), "wb") as f:
+        with open(os.path.join(self.t, "my_asset", "form2_walk.png"), "wb") as f:
             f.write(b"not a png")
         rc, out = run_build(self.t)
         self.assertEqual(rc, 1)
@@ -291,34 +291,34 @@ class Fallbacks(unittest.TestCase):
         w = self.ok_shape()
         self.assertIn("config skip", out)
         self.assertEqual(w[0:N], self.v1[0:N])
-        exp = indep_frame(os.path.join(self.t, "picture", "form1_walk.png"), 4, 2)
+        exp = indep_frame(os.path.join(self.t, "my_asset", "form1_walk.png"), 4, 2)
         self.assertEqual(w[7 * N:8 * N], exp)                      # form1.left.A = frame 7
 
     def test_idle_comes_from_idle_sheet(self):
         rc, out = run_build(self.t)
         w = self.ok_shape()
         for d, row in ((0, 1), (1, 3), (2, 2), (3, 1)):
-            exp = indep_frame(os.path.join(self.t, "picture", "form1_idle.png"), row, 0)
+            exp = indep_frame(os.path.join(self.t, "my_asset", "form1_idle.png"), row, 0)
             self.assertEqual(w[(d * 3) * N:(d * 3 + 1) * N], exp, B.DIRS[d])
-        exp = indep_frame(os.path.join(self.t, "picture", "form2_walk.png"), 1, 0)    # form 2: walk col 0
+        exp = indep_frame(os.path.join(self.t, "my_asset", "form2_walk.png"), 1, 0)    # form 2: walk col 0
         self.assertEqual(w[12 * N:13 * N], exp)
 
     def test_idle_sheet_missing_uses_walk_col0_without_warning(self):
-        os.remove(os.path.join(self.t, "picture", "form1_idle.png"))
+        os.remove(os.path.join(self.t, "my_asset", "form1_idle.png"))
         rc, out = run_build(self.t)
         self.assertEqual(rc, 0)
         w = self.ok_shape()
         self.assertEqual(self.fb(out, "form1"), [])                # chain worked: not a fallback to old art
-        exp = indep_frame(os.path.join(self.t, "picture", "form1_walk.png"), 1, 0)
+        exp = indep_frame(os.path.join(self.t, "my_asset", "form1_walk.png"), 1, 0)
         self.assertEqual(w[0:N], exp)
         self.assertIn("used after", out)
 
     def test_idle_sheet_too_small_uses_walk(self):
-        p = os.path.join(self.t, "picture", "form1_idle.png")
+        p = os.path.join(self.t, "my_asset", "form1_idle.png")
         Image.open(p).crop((0, 0, 128, 64)).save(p)                # rows 3-4 missing
         rc, out = run_build(self.t)
         w = self.ok_shape()
-        exp = indep_frame(os.path.join(self.t, "picture", "form1_walk.png"), 3, 0)   # up.idle
+        exp = indep_frame(os.path.join(self.t, "my_asset", "form1_walk.png"), 3, 0)   # up.idle
         self.assertEqual(w[3 * N:4 * N], exp)
 
     def test_scale2_is_exact_integer_upscale(self):
@@ -330,14 +330,14 @@ class Fallbacks(unittest.TestCase):
         w = self.ok_shape()
         self.assertNotIn("CUT OFF", out)
         self.assertIn("x2", out)
-        exp = indep_frame(os.path.join(self.t, "picture", "form1_walk.png"), 1, 1, 2)       # down.A = walk r1 c1
+        exp = indep_frame(os.path.join(self.t, "my_asset", "form1_walk.png"), 1, 1, 2)       # down.A = walk r1 c1
         self.assertEqual(w[1 * N:2 * N], exp)
         f = w[1 * N:2 * N]
         for y in range(0, 32, 2):                                    # every pixel is a 2x2 block
             for x in range(0, 32, 2):
                 self.assertTrue(f[y * 32 + x] == f[y * 32 + x + 1] == f[(y + 1) * 32 + x] == f[(y + 1) * 32 + x + 1])
         w2 = words_of(self.out)
-        exp3 = indep_frame(os.path.join(self.t, "picture", "form2_walk.png"), 1, 1, 1)      # other forms unchanged (scale 1)
+        exp3 = indep_frame(os.path.join(self.t, "my_asset", "form2_walk.png"), 1, 1, 1)      # other forms unchanged (scale 1)
         self.assertEqual(w2[13 * N:14 * N], exp3)
 
     def test_scale_too_big_reports_cut_off_pixels(self):
@@ -367,13 +367,13 @@ class Fallbacks(unittest.TestCase):
         w = self.ok_shape()
         self.assertIn("(gold)", out)
         tint = c["tints"]["gold"]
-        exp = indep_frame(os.path.join(self.t, "picture", "form2_walk.png"), 1, 1, 1, tint)
+        exp = indep_frame(os.path.join(self.t, "my_asset", "form2_walk.png"), 1, 1, 1, tint)
         self.assertEqual(w[13 * N:14 * N], exp)
-        plain = indep_frame(os.path.join(self.t, "picture", "form2_walk.png"), 1, 1, 1)
+        plain = indep_frame(os.path.join(self.t, "my_asset", "form2_walk.png"), 1, 1, 1)
         self.assertNotEqual(exp, plain)
         self.assertEqual([v == KEY for v in exp], [v == KEY for v in plain])        # same transparency mask
         # other forms untouched
-        self.assertEqual(w[1 * N:2 * N], indep_frame(os.path.join(self.t, "picture", "form1_walk.png"), 1, 1, 1))
+        self.assertEqual(w[1 * N:2 * N], indep_frame(os.path.join(self.t, "my_asset", "form1_walk.png"), 1, 1, 1))
 
     def test_undefined_or_bad_tint_is_config_error(self):
         c = jload(self.cfgp)
@@ -391,9 +391,9 @@ class Fallbacks(unittest.TestCase):
         self.assertFalse(os.path.exists(self.out))
 
     def test_picture_never_modified(self):
-        before = {f: sha(os.path.join(self.t, "picture", f)) for f in os.listdir(os.path.join(self.t, "picture"))}
+        before = {f: sha(os.path.join(self.t, "my_asset", f)) for f in os.listdir(os.path.join(self.t, "my_asset"))}
         run_build(self.t, "--preview")
-        after = {f: sha(os.path.join(self.t, "picture", f)) for f in os.listdir(os.path.join(self.t, "picture"))}
+        after = {f: sha(os.path.join(self.t, "my_asset", f)) for f in os.listdir(os.path.join(self.t, "my_asset"))}
         self.assertEqual(before, after)
         self.assertTrue(os.path.isfile(os.path.join(self.t, "preview", "all_forms.png")))
         self.assertTrue(os.path.isfile(os.path.join(self.t, "preview", "form1_down_walk.gif")))

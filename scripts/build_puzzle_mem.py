@@ -79,7 +79,7 @@ def load_config(path, root):
             frames[int(k)] = {"mem": v["mem"], "frame": fr}
             continue
         if not (isinstance(v, dict) and isinstance(v.get("file"), str)):
-            raise ConfigError(f'frames."{k}": use {{"file": "picture/props/x.png", "tint": "name"}}, {{"mem": "picture/props/x.mem", "frame": 0}} or {{"skip": true}}')
+            raise ConfigError(f'frames."{k}": use {{"file": "my_asset/props/x.png", "tint": "name"}}, {{"mem": "my_asset/props/x.mem", "frame": 0}} or {{"skip": true}}')
         t = v.get("tint")
         if t is not None and t not in tints:
             raise ConfigError(f'frames."{k}".tint = "{t}" is not defined in "tints"')

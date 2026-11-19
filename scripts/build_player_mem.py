@@ -339,7 +339,7 @@ class Build:
 def load_sheets(cfg, root):
     """-> sheets[form][name] = Sheet, unreadable list, NOTE lines"""
     sheets, unreadable, notes = {}, [], []
-    clean_dir = os.path.join(root, "picture", "_clean")
+    clean_dir = os.path.join(root, "my_asset", "_clean")
     for n in range(1, FORMS + 1):
         fc = cfg["forms"][n]
         sheets[n] = {}
@@ -367,7 +367,7 @@ def load_sheets(cfg, root):
                         dst = os.path.join(clean_dir, f"form{n}_{name}.png")
                         shutil.copyfile(p, dst)
                         notes.append(f"form{n} {name}: odd file name {base} -> clean copy "
-                                     f"picture/_clean/form{n}_{name}.png (original untouched)")
+                                     f"my_asset/_clean/form{n}_{name}.png (original untouched)")
                     except OSError:
                         pass
     return sheets, unreadable, notes

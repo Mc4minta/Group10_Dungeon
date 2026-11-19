@@ -131,13 +131,13 @@ class RealProject(unittest.TestCase):
     def test_bulbs_come_from_the_torch_mem_and_differ(self):
         off, on = self.mem[0:N], self.mem[N:2 * N]
         self.assertNotEqual(off, on)
-        self.assertEqual(self.cfg["frames"][0]["mem"], "picture/props/torch.mem")
+        self.assertEqual(self.cfg["frames"][0]["mem"], "my_asset/props/torch.mem")
 
 
 class Fallbacks(unittest.TestCase):
     def setUp(self):
         self.t = tempfile.mkdtemp(prefix="puz_test_")
-        for d in ("mem", "sprites", "picture/props"):
+        for d in ("mem", "sprites", "my_asset/props"):
             os.makedirs(os.path.join(self.t, d))
         shutil.copy(os.path.join(ROOT, "mem", "puzzle_v1.mem"), os.path.join(self.t, "mem"))
         self.c = jload(os.path.join(ROOT, "sprites", "puzzle.json"))
@@ -217,7 +217,7 @@ class Fallbacks(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertIn("cannot read", out)
         self.assertEqual(w[0:2 * N], self.v1[0:2 * N])
-        shutil.copy(os.path.join(ROOT, "picture/props/torch.mem"), self.f(1))
+        shutil.copy(os.path.join(ROOT, "my_asset/props/torch.mem"), self.f(1))
         self.c["frames"]["0"]["frame"] = 99                               # frame does not exist
         jsave(self.cfgp, self.c)
         rc, out = run_build(self.t)
