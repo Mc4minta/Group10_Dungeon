@@ -27,6 +27,13 @@ Before building, `scripts/check_all.sh --fast` should print `CHECK_ALL: PASS` (i
 7. **Open Hardware Manager -> Open Target -> Auto Connect -> Program Device** and pick `vivado/Group10_Dungeon.runs/impl_1/top.bit`.
    If it says "HW Target shutdown": unplug and replug the USB cable, then Auto Connect again.
 
+Quickest fix if synthesis says `module 'xxx' not found` (for example `face_lock`) and you do not want to re-create the project: in the Tcl Console of the OPEN project run
+`source E:/vivado/Group10_Dungeon/Group10_Dungeon/scripts/vivado_update_project.tcl` (it adds every missing `rtl/*.v` and `mem/*.mem` and prints OK / MISSING for the key modules), then Generate Bitstream.
+
+**Programming errors** ("No devices detected on target", "may be locked by another hw_server", "HW Target shutdown"): this is the cable / board, not the design. Check: the board power switch is ON, the micro-USB cable is in the PROG/UART port,
+no other program uses the board (a second Vivado window, Digilent Adept). Then in the Tcl Console: `disconnect_hw_server`, `close_hw_manager`, `open_hw_manager`, `connect_hw_server -allow_non_jtag`, `open_hw_target`.
+If it still fails: close Vivado, run `taskkill /F /IM hw_server.exe /IM cs_server.exe` in a Command Prompt, unplug and replug the USB cable, start Vivado, Auto Connect again.
+
 If the Tcl `source` fails because the old project is still open, close it first. If it still fails, paste me the error text.
 
 ## 3. What to check on the board
