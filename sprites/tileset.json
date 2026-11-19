@@ -9,7 +9,7 @@
   "alpha_threshold": 128,
   "fallback_mem": "mem/tileset_v1.mem",
   "output_mem": "mem/tileset.mem",
-  "sheet": "picture/tileset/Dungeon_Tileset.png",
+  "sheet": "my_asset/tileset/Dungeon_Tileset.png",
   "cell": 16,
   "scale": 2,
   "floors": {

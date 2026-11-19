@@ -117,20 +117,20 @@ class RealProject(unittest.TestCase):
 class Fallbacks(unittest.TestCase):
     def setUp(self):
         self.t = tempfile.mkdtemp(prefix="tile_test_")
-        for d in ("mem", "picture", "sprites"):
+        for d in ("mem", "my_asset", "sprites"):
             os.makedirs(os.path.join(self.t, d))
         shutil.copy(os.path.join(ROOT, "mem", "tileset_v1.mem"), os.path.join(self.t, "mem"))
-        shutil.copy(os.path.join(ROOT, "picture", "tileset", "Dungeon_Tileset.png"),
-                    os.path.join(self.t, "picture", "sheet.png"))
+        shutil.copy(os.path.join(ROOT, "my_asset", "tileset", "Dungeon_Tileset.png"),
+                    os.path.join(self.t, "my_asset", "sheet.png"))
         self.cfgp = os.path.join(self.t, "sprites", "tileset.json")
         self.c = load_json(os.path.join(ROOT, "sprites", "tileset.json"))
-        self.c["sheet"] = "picture/sheet.png"
+        self.c["sheet"] = "my_asset/sheet.png"
         self.save()
         self.out = os.path.join(self.t, "mem", "tileset.mem")
         self.v1p = os.path.join(self.t, "mem", "tileset_v1.mem")
         self.v1 = words_of(self.v1p)
         self.v1sha = sha(self.v1p)
-        self.sheet = os.path.join(self.t, "picture", "sheet.png")
+        self.sheet = os.path.join(self.t, "my_asset", "sheet.png")
 
     def save(self):
         with open(self.cfgp, "w", encoding="utf-8") as f:

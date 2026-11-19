@@ -97,7 +97,7 @@ class RealProject(unittest.TestCase):
 class Fallbacks(unittest.TestCase):
     def setUp(self):
         self.t = tempfile.mkdtemp(prefix="mon_test_")
-        for d in ("mem", "picture", "sprites"):
+        for d in ("mem", "my_asset", "sprites"):
             os.makedirs(os.path.join(self.t, d))
         shutil.copy(os.path.join(ROOT, "mem", "monster_v1.mem"), os.path.join(self.t, "mem"))
         self.c = load_json(os.path.join(ROOT, "sprites", "monsters.json"))

@@ -11,12 +11,12 @@
   "fallback_mem": "mem/monster_v1.mem",
   "output_mem": "mem/monster.mem",
   "sheets": {
-    "skeleton1_move": "picture/enemies/enemies-skeleton1_movement.png",
-    "skeleton1_idle": "picture/enemies/enemies-skeleton1_idle.png",
-    "skeleton2_move": "picture/enemies/enemies-skeleton2_movemen.png",
-    "skeleton2_idle": "picture/enemies/enemies-skeleton2_idle.png",
-    "vampire_idle": "picture/enemies/enemies-vampire_idle.png",
-    "vampire_move": "picture/enemies/enemies-vampire_movement.png"
+    "skeleton1_move": "my_asset/enemies/enemies-skeleton1_movement.png",
+    "skeleton1_idle": "my_asset/enemies/enemies-skeleton1_idle.png",
+    "skeleton2_move": "my_asset/enemies/enemies-skeleton2_movemen.png",
+    "skeleton2_idle": "my_asset/enemies/enemies-skeleton2_idle.png",
+    "vampire_idle": "my_asset/enemies/enemies-vampire_idle.png",
+    "vampire_move": "my_asset/enemies/enemies-vampire_movement.png"
   },
   "monsters": {
     "A": { "enabled": true, "frames": [ { "sheet": "skeleton1_move", "col": 1 }, { "sheet": "skeleton1_move", "col": 4 } ] },

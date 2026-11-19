@@ -11,13 +11,13 @@
   "fallback_mem": "mem/boss_v1.mem",
   "output_mem": "mem/boss.mem",
   "sheets": {
-    "skeleton1_idle": "picture/enemies/enemies-skeleton1_idle.png",
-    "skeleton1_dmg": "picture/enemies/enemies-skeleton1_take_damage.png",
-    "skeleton2_idle": "picture/enemies/enemies-skeleton2_idle.png",
-    "skeleton2_dmg": "picture/enemies/enemies-skeleton2_take_damage.png",
-    "vampire_idle": "picture/enemies/enemies-vampire_idle.png",
-    "vampire_attack": "picture/enemies/enemies-vampire_attack.png",
-    "vampire_move": "picture/enemies/enemies-vampire_movement.png"
+    "skeleton1_idle": "my_asset/enemies/enemies-skeleton1_idle.png",
+    "skeleton1_dmg": "my_asset/enemies/enemies-skeleton1_take_damage.png",
+    "skeleton2_idle": "my_asset/enemies/enemies-skeleton2_idle.png",
+    "skeleton2_dmg": "my_asset/enemies/enemies-skeleton2_take_damage.png",
+    "vampire_idle": "my_asset/enemies/enemies-vampire_idle.png",
+    "vampire_attack": "my_asset/enemies/enemies-vampire_attack.png",
+    "vampire_move": "my_asset/enemies/enemies-vampire_movement.png"
   },
   "bosses": {
     "1": { "enabled": true, "frames": [ { "sheet": "skeleton2_idle", "col": 0 }, { "sheet": "skeleton2_idle", "col": 3 } ] },

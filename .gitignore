@@ -19,7 +19,10 @@ preview/*
 !preview/layout_guide.png
 
 # generated clean copies of sheets with odd file names
-picture/_clean/
+my_asset/_clean/
 vivado_board/
 vivado_build.*
 vivado_board_build.*
+
+# large / copyrighted source audio stays local (convert with scripts, commit only the generated mem)
+my_audio/

@@ -98,7 +98,7 @@ def load_config(path, root):
     cfg = {"alpha": _int(raw.get("alpha_threshold", 128), 1, 255, "alpha_threshold"),
            "fallback": os.path.join(root, raw.get("fallback_mem", "mem/tileset_v1.mem")),
            "output": os.path.join(root, raw.get("output_mem", "mem/tileset.mem")),
-           "sheet": raw.get("sheet", "picture/tileset/Dungeon_Tileset.png")}
+           "sheet": raw.get("sheet", "my_asset/tileset/Dungeon_Tileset.png")}
     cfg["cell"] = _int(raw.get("cell", 16), 1, 32, "cell")
     if TILE_PX % cfg["cell"]:
         raise ConfigError(f"cell = {cfg['cell']}: must divide 32 so the scale factor is a whole number "

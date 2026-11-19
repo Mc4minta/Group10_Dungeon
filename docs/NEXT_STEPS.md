@@ -16,7 +16,7 @@ Already done (for reference): player art (forms 1-3), tileset, enemies, bosses, 
   - redraw the sheets at about 16-20 px, or
   - add an exact integer upscale option for the player sheets in `sprites/sprites.json` (e.g. `"scale": 2` = each pixel becomes 2x2, same idea as tiles/bosses; needs the source art to be about 16 px so the result still fits the 24x24 hitbox area).
   Check: art stays inside pixels 4-27 (the build prints a note), re-run `tests/test_sprite_pipeline.py`.
-- [x] **A2. Form 4 art.** DONE as a placeholder: Human sheets recoloured gold at 2x (`forms."4".tint = "gold"`). Replace with real art later: put the sheet paths under `forms."4".sheets` and delete the `tint` line. Original notes: Last placeholder (gold box). Put `picture/form4_walk.png` (4x4 sheet, same row convention) and add it under `forms."4".sheets` in `sprites/sprites.json`. Even a recolour of the Angel/Human sheet is fine; the pipeline falls back per frame.
+- [x] **A2. Form 4 art.** DONE as a placeholder: Human sheets recoloured gold at 2x (`forms."4".tint = "gold"`). Replace with real art later: put the sheet paths under `forms."4".sheets` and delete the `tint` line. Original notes: Last placeholder (gold box). Put `my_asset/form4_walk.png` (4x4 sheet, same row convention) and add it under `forms."4".sheets` in `sprites/sprites.json`. Even a recolour of the Angel/Human sheet is fine; the pipeline falls back per frame.
 - [~] **A3. Remaining old-art ROMs.** Puzzle objects DONE (torch bulbs, chest levers, crate, spikes gate, keys/shield items; `scripts/build_puzzle_mem.py`). Bullets and the slash effect SKIPPED: the pack has no art that fits an 8x8 bullet hitbox or a directional slash (draw 8x8 bullets / 4 slash arcs yourself and I add the same pipeline). Original notes: Same config pattern as monsters (`*_v1.mem` backup, fallback, previews, tests):
   - [x] `puzzle.mem` (boxes, bulbs, levers, gate, items): DONE
   - [ ] `bullet.mem` (player/enemy bullets): blocked - needs your own 8x8 art (pack arrows are 16x32)
@@ -72,7 +72,7 @@ Already done (for reference): player art (forms 1-3), tileset, enemies, bosses, 
 
 ## H. Lever art (NEW)
 
-- [x] **H1. Replace the lever with `picture/new_switch.png`** DONE: frame 1 (fully left) = lever up, frame 4 (fully right) = lever down, last frame = fully left again, others are animation frames (unused: the game switches state instantly).
+- [x] **H1. Replace the lever with `my_asset/new_switch.png`** DONE: frame 1 (fully left) = lever up, frame 4 (fully right) = lever down, last frame = fully left again, others are animation frames (unused: the game switches state instantly).
 - [ ] **H2. Make the two lever states easier to see:** the sheet's left and right frames differ by only 12 pixels (a 2 px shift of the inner yellow dash). Redraw with a bigger shift or a colour change, or ask me to add an in-game 2-frame animation (needs Verilog).
 
 ## E. Polish for the demo
