@@ -59,6 +59,7 @@ module renderer (
 );
     `include "text_layout.vh"
     `include "sprite_cfg.vh"
+    `include "puzzle_layout.vh"          // G_SIMON (generated from maps/)
     localparam [11:0] C_NAVY = 12'h114, C_OVER = 12'h300, C_WIN = 12'hFB0, C_T = 12'hF0F;
 
     // ======================= stage 1 =======================
@@ -157,7 +158,12 @@ module renderer (
     end
     always @(posedge clk) begin
         r1_out   <= (hs_r >= 10'd640) || (vs_r >= 10'd480);
-        r1_taddr <= {floor, tvis, vs_r[4:0], hs_r[4:0]};          // (floor*16 + tvis) = {floor, tvis}
+        // each Simon plate = a 2x2 block of tiles (even column / even row) drawn as ONE big plate: the 32x32 plate picture in tile 12..15 is
+        // sampled at half size, quadrant = tile column / row parity (floor 3, Simon room only)
+        if (floor == 2'd2 && grid == G_SIMON && tid[3:2] == 2'b11)
+            r1_taddr <= {floor, tvis, vs_r[5], vs_r[4:1], hs_r[5], hs_r[4:1]};
+        else
+            r1_taddr <= {floor, tvis, vs_r[4:0], hs_r[4:0]};          // (floor*16 + tvis) = {floor, tvis}
         r1_paddr <= {pframe, sy[4:0], sx[4:0]};
         r1_aaddr <= {p_aframe, sy[4:0], sx[4:0]};
         r1_asel  <= p_anim;
