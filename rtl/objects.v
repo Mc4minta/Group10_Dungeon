@@ -13,7 +13,7 @@
 // ห้อง Combat (C1, C2) ที่มีมอนเหลือ -> doors_open = 0 (ประตู D ปิดทั้งสองทาง)
 // restart (เริ่มเกมใหม่จาก TITLE) -> ล้าง cleared ทุกห้อง
 //
-// hitbox: ผู้เล่น / มอน = พิกเซล 4..27 ของ sprite 32x32 (24x24), กระสุน 8x8 ทั้งก้อน
+// hitbox: มอน = พิกเซล 4..27 ของ sprite 32x32 (24x24), ผู้เล่น (ที่โดนตี) = HURT_BOX กลาง sprite (16x16, params.vh), กระสุน 8x8 ทั้งก้อน
 // ฟันประชิด 24x16 หน้าตัว: ลง (px+4, py+28) ขึ้น (px+4, py-12) ซ้าย (px-12, py+4) ขวา (px+28, py+4) [ซ้าย/ขวา = 16x24]
 // AABB: ชนเมื่อซ้อนกันอย่างน้อย 1 px (ขอบแตะกันพอดี = ไม่ชน)
 module objects (
@@ -227,8 +227,8 @@ module objects (
 
     always @(posedge clk) begin
         if (st >= S_CPB) begin
-            plx = {1'b0, px} + OFS + 11'd4;                 // hitbox ผู้เล่น
-            ply = {1'b0, py} + OFS + 11'd4;
+            plx = {1'b0, px} + OFS + HURT_OFS;              // hitbox ผู้เล่น (ที่โดนตี): HURT_BOX x HURT_BOX กลาง sprite (params.vh)
+            ply = {1'b0, py} + OFS + HURT_OFS;
             mbx = (mel_dir == 2'd2) ? {1'b0, px} + OFS - 11'd12 :     // hit box ฟันประชิด
                   (mel_dir == 2'd3) ? {1'b0, px} + OFS + 11'd28 : {1'b0, px} + OFS + 11'd4;
             mby = (mel_dir == 2'd0) ? {1'b0, py} + OFS + 11'd28 :
@@ -512,7 +512,7 @@ module objects (
         end
         S_CPM: begin                         // ผู้เล่น x มอน (ชนตัว)
             if (hurt_cnt == 0 && m_act[i] &&
-                ovl(plx, ply, 7'd24, 7'd24,
+                ovl(plx, ply, HURT_BOX, HURT_BOX,
                     {1'b0, m_xv[(i)*10 +: 10]} + OFS + 11'd4, {1'b0, m_yv[(i)*10 +: 10]} + OFS + 11'd4, 7'd24, 7'd24)) begin
                 hit <= 1'b1; kb_start <= 1'b1;
                 kb_dir <= away(m_xv[(i)*10 +: 10] + 10'd16, m_yv[(i)*10 +: 10] + 10'd16);
@@ -523,7 +523,7 @@ module objects (
         end
         S_CPE: begin                         // ผู้เล่น x กระสุนศัตรู (อมตะ = กระสุนทะลุ)
             if (hurt_cnt == 0 && e_act[j] &&
-                ovl(plx, ply, 7'd24, 7'd24, {1'b0, e_xv[(j)*10 +: 10]} + OFS, {1'b0, e_yv[(j)*10 +: 10]} + OFS, 7'd8, 7'd8)) begin
+                ovl(plx, ply, HURT_BOX, HURT_BOX, {1'b0, e_xv[(j)*10 +: 10]} + OFS, {1'b0, e_yv[(j)*10 +: 10]} + OFS, 7'd8, 7'd8)) begin
                 e_act[j] <= 1'b0;
                 hit <= 1'b1; kb_start <= 1'b1;
                 kb_dir <= away(e_xv[(j)*10 +: 10] + 10'd4, e_yv[(j)*10 +: 10] + 10'd4);
@@ -589,7 +589,7 @@ module objects (
         end
         S_BPM: begin                         // ผู้เล่น x บอส (ชนตัว)
             if (boss_act && hurt_cnt == 0 &&
-                ovl(plx, ply, 7'd24, 7'd24, {1'b0, boss_x} + OFS + 11'd8, {1'b0, boss_y} + OFS + 11'd8, 7'd48, 7'd48)) begin
+                ovl(plx, ply, HURT_BOX, HURT_BOX, {1'b0, boss_x} + OFS + 11'd8, {1'b0, boss_y} + OFS + 11'd8, 7'd48, 7'd48)) begin
                 hit <= 1'b1; kb_start <= 1'b1;
                 kb_dir <= away(boss_x + 10'd32, boss_y + 10'd32);
                 hurt_cnt <= KB_FRAMES + INV_FRAMES;
