@@ -8,8 +8,8 @@ localparam [2:0] SPD1 = 3'd2;              // ความเร็ว px/เฟ
 localparam [2:0] SPD2 = 3'd2;              // ร่าง 2
 localparam [2:0] SPD3 = 3'd3;              // ร่าง 3
 localparam [2:0] SPD4 = 3'd3;              // ร่าง 4
-localparam [2:0] HP1  = 3'd3;              // Max HP ร่าง 1
-localparam [2:0] HP2  = 3'd3;              // ร่าง 2
+localparam [2:0] HP1  = 3'd4;              // Max HP ร่าง 1
+localparam [2:0] HP2  = 3'd4;              // ร่าง 2
 localparam [2:0] HP3  = 3'd4;              // ร่าง 3
 localparam [2:0] HP4  = 3'd4;              // ร่าง 4
 localparam [1:0] DMG1 = 2'd1;              // ดาเมจ ร่าง 1
@@ -33,7 +33,8 @@ localparam PB_COOLDOWN    = 15;            // ร่าง 2-4: เฟรมร�
 
 // ---------- มอน ----------
 localparam MON_A_HP       = 2;             // มอน A (ไล่)
-localparam MON_A_SPEED    = 1;             // px/เฟรม
+localparam MON_A_SPEED    = 1;
+localparam MON_A_MOVE_EVERY = 2;           // มอน A เดินทุก N เฟรม (1 = ทุกเฟรมเหมือนเดิม, 2 = ครึ่งความเร็ว)             // px/เฟรม
 localparam MON_B_HP       = 3;             // มอน B (ป้อม)
 localparam TURRET_PERIOD  = 120;           // ยิง 4 ทิศทุก 2 วิ
 localparam TURRET_PHASE   = 30;            // ป้อมตัวถัดไปในห้องเหลื่อม 0.5 วิ
@@ -44,7 +45,7 @@ localparam MON_FLASH      = 8;             // มอนโดนตีกะพ�
 // ---------- ผู้เล่นโดนตี ----------
 localparam KB_FRAMES      = 8;             // knockback กี่เฟรม
 localparam KB_SPEED       = 2;             // px/เฟรม (รวม 16 px)
-localparam INV_FRAMES     = 60;            // อมตะหลัง knockback (กะพริบ)
+localparam INV_FRAMES     = 90;            // อมตะหลัง knockback (กะพริบ)
 
 // ---------- ปริศนา (P4) ----------
 localparam [3:0] LB_MASK0 = 4'b0111;       // คันโยก a: XOR หลอด (bit 3 = หลอด 1)

@@ -2,6 +2,7 @@
 // ทดสอบ game_fsm.v เดี่ยว ๆ (frame_tick ถี่: ทุก 4 clock)
 // รัน: ./scripts/run_sim.sh fsm
 module tb_game_fsm;
+    `include "params.vh"      // HP1.. come from the game parameters, so the test follows the tuning
     reg clk = 0; always #5 clk = ~clk;
     reg rst = 1, btnc = 0, item = 0, hit = 0, fdone = 0, ext = 0, sprint = 0, esc = 0;
     wire [2:0] state, hp, hp_max, speed, rgb; wire [1:0] form, damage;
@@ -75,7 +76,7 @@ module tb_game_fsm;
         pulse_btnc;
         check(state == PLAY && !freeze, "BTNC in TITLE -> PLAY");
         check(restarts == 1, "restart pulsed once");
-        check(form == 0 && hp == 3 && hp_max == 3, "form 1, HP full (3)");
+        check(form == 0 && hp == HP1 && hp_max == HP1, "form 1, HP full (HP1)");
         check(speed == 2 && damage == 1 && rgb == 3'b010, "form 1 table: spd 2 dmg 1 green");
 
         // ---------- sprint ----------
@@ -96,13 +97,13 @@ module tb_game_fsm;
         do_evolve;
         check(ev_ticks == 60, "EVOLVE #1 lasts exactly 60 frames");
         check(tog == 14 && vis > hid && hid > 0, "EVOLVE blink: 4 frames visible / 4 hidden (14 toggles)");
-        check(state == PLAY && form == 1 && hp == 3 && hp == hp_max, "form 2, HP refilled to 3");
+        check(state == PLAY && form == 1 && hp == HP2 && hp == hp_max, "form 2, HP refilled to HP2");
         check(speed == 2 && rgb == 3'b011, "form 2 table: spd 2 cyan");
         pulse_hit;                                   // 3 -> 2
-        check(hp == 2, "take_hit: HP 3 -> 2");
+        check(hp == HP2 - 1, "take_hit: HP -1");
         do_evolve;
         check(ev_ticks == 60, "EVOLVE #2 lasts exactly 60 frames");
-        check(state == PLAY && form == 2 && hp == 4 && hp_max == 4, "form 3, HP refilled to 4");
+        check(state == PLAY && form == 2 && hp == HP3 && hp_max == HP3, "form 3, HP refilled to HP3");
         check(speed == 3 && damage == 2 && rgb == 3'b101, "form 3 table: spd 3 dmg 2 purple");
         do_evolve;
         check(ev_ticks == 60, "EVOLVE #3 lasts exactly 60 frames");
@@ -141,11 +142,11 @@ module tb_game_fsm;
 
         // ---------- second game: reset values, EVOLVE white, hits ignored while evolving ----------
         pulse_btnc;
-        check(state == PLAY && form == 0 && hp == 3 && tm(0) == 16'h0000, "new game: form 1, HP 3, timer 00:00");
+        check(state == PLAY && form == 0 && hp == HP1 && tm(0) == 16'h0000, "new game: form 1, HP1, timer 00:00");
         pulse_item; @(posedge clk);
         check(state == EVOLVE && rgb == 3'b111 && freeze, "EVOLVE: RGB white, player frozen");
         pulse_hit;
-        check(hp == 3, "take_hit ignored during EVOLVE");
+        check(hp == HP1, "take_hit ignored during EVOLVE");
         wait_ticks(70);
         check(state == PLAY && form == 1, "EVOLVE finished");
 
@@ -180,7 +181,7 @@ module tb_game_fsm;
         wait_ticks(120);
         check(!banner, "ESCAPE! banner gone after 2 s");
         pulse_hit;
-        check(state == ESCAPE && hp == 2, "take_hit works in ESCAPE");
+        check(state == ESCAPE && hp == HP4 - 1, "take_hit works in ESCAPE");
         pulse_exit;
         check(state == WIN, "exit_evt during ESCAPE -> WIN");
         pulse_btnc; pulse_btnc;
