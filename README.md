@@ -4,6 +4,22 @@
 
 สถานะ: **P0–P5 เสร็จใน simulation — เล่นจบเกมได้ใน sim** — ภาพขึ้นจอ, เดิน 8 ทิศ, ชนกำแพง + ไถล + corner slide, เปลี่ยนห้อง flip-screen ครบ 3 ชั้น × 5 ห้อง, หลุม/ประตูบอส/ประตูทางออกเช็คตามร่าง, Game FSM (TITLE / PLAY / EVOLVE / FLOOR_CLEAR / WIN / GAME_OVER), 4 ร่าง + HP + เวลา mm.ss + sprint, การต่อสู้ (ฟัน/ยิง, มอน A ไล่ + มอน B ป้อมยิง 4 ทิศ, โดนตี knockback + อมตะ, ห้อง Combat ล็อกจนมอนตายหมด), ปริศนา 3 ห้อง (Light Bulb, Sokoban + ดันกล่อง, Simon) + ไอเทมจริง (EVOLVE + เปิดประตูบอส L), บอส 3 ตัว + FLOOR_CLEAR จริง, ฉากหนี ESCAPE 30 วิ, ข้อความบนจอ, ไมค์ PDM (ตบมือ = บอส 2 มึน) (ยังไม่ได้ลงบอร์ดจริง) — ดูความคืบหน้าที่ `docs/PROGRESS.md`
 
+## Quick start for the art / map / sound pipelines (English)
+
+The sprites, tiles, enemies, bosses, puzzle objects, maps and music are generated from files you edit (`my_asset/`, `my_audio/`, `sprites/*.json`, `maps/*.txt`).
+**Start with `docs/README.md`** (index, folder map, workflow, branches). Handy commands:
+
+| What | Command |
+|---|---|
+| Rebuild all art + previews | `scripts/update_sprites.sh` (Windows: `scripts\update_sprites.bat`) |
+| Check everything before a commit | `scripts/check_all.sh` (`--fast` = no iverilog suite) |
+| Build and test on the board | `docs/BOARD_TEST_STEPS.md` |
+| Which sprites are final / still needed | `docs/SPRITE_STATUS.md` |
+| Sounds and music | `docs/SOUND_PLAN.md` |
+| What to do next | `docs/NEXT_STEPS.md` |
+
+Development line: branch `sprite-zip` (tag `board-test-2` = the build for the board). `main` is the older version.
+
 ## เริ่มใช้
 
 1. ติดตั้ง Vivado (ตัวเดียวกับที่ใช้ใน lab) แล้วเปิด terminal ที่โฟลเดอร์นี้

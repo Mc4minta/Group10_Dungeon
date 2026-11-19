@@ -1,99 +1,60 @@
-# Next steps - improvement backlog
+# Next steps (backlog)
 
-Tick `[x]` when done. Order inside each group = suggested order. "Needs Verilog" items break the "no RTL change" rule used so far,
-so they are marked: re-run `scripts/run_sim.sh all`, a full WIN run and a Vivado build after each.
-
-Deadline: final presentation Fri 20/11. Feature freeze 22:00 Bangkok on Thu 19/11 (after that: bug fixes + report only).
-
-Already done (for reference): player art (forms 1-3), tileset, enemies, bosses, floor decoration, per-floor colours, face-lock control fix
-(`FACE_LOCK_FRAMES`). See `docs/CHANGE_REVIEW.md` and `sprites/README.md`.
+Current state: branch `sprite-zip`, tag `board-test-2` (the build for the board). Everything listed under "Done" is merged and tested
+(`scripts/check_all.sh`: all Python tests + the full iverilog suite). Not verified on the real board yet: that is step P1.1 below.
+Tick `[x]` when an item is done and update `docs/SPRITE_STATUS.md` / `docs/SOUND_PLAN.md` in the same commit.
 
 ---
 
-## A. Before the presentation (low risk: config / art / tuning, no Verilog)
+## Done (for reference)
 
-- [x] **A1. Bigger player sprite.** DONE: per-form `scale` in sprites.json; Human + Orc 2x, Angel 1x (wings would be cut off). Original notes: The drawn hero is only about 8x8 px inside the 32x32 cell (Human bbox x 12-19, y 11-18). Options:
-  - redraw the sheets at about 16-20 px, or
-  - add an exact integer upscale option for the player sheets in `sprites/sprites.json` (e.g. `"scale": 2` = each pixel becomes 2x2, same idea as tiles/bosses; needs the source art to be about 16 px so the result still fits the 24x24 hitbox area).
-  Check: art stays inside pixels 4-27 (the build prints a note), re-run `tests/test_sprite_pipeline.py`.
-- [x] **A2. Form 4 art.** DONE as a placeholder: Human sheets recoloured gold at 2x (`forms."4".tint = "gold"`). Replace with real art later: put the sheet paths under `forms."4".sheets` and delete the `tint` line. Original notes: Last placeholder (gold box). Put `my_asset/form4_walk.png` (4x4 sheet, same row convention) and add it under `forms."4".sheets` in `sprites/sprites.json`. Even a recolour of the Angel/Human sheet is fine; the pipeline falls back per frame.
-- [~] **A3. Remaining old-art ROMs.** Puzzle objects DONE (torch bulbs, chest levers, crate, spikes gate, keys/shield items; `scripts/build_puzzle_mem.py`). Bullets and the slash effect SKIPPED: the pack has no art that fits an 8x8 bullet hitbox or a directional slash (draw 8x8 bullets / 4 slash arcs yourself and I add the same pipeline). Original notes: Same config pattern as monsters (`*_v1.mem` backup, fallback, previews, tests):
-  - [x] `puzzle.mem` (boxes, bulbs, levers, gate, items): DONE
-  - [ ] `bullet.mem` (player/enemy bullets): blocked - needs your own 8x8 art (pack arrows are 16x32)
-  - [ ] `effect.mem` (melee slash): blocked - needs your own 4 slash arcs (32x32)
-- [~] **A4. Difficulty tuning on the board.** Face lock DONE (`FACE_LOCK_FRAMES = 24`). The rest needs playtesting feedback from the board: Playtest and adjust in `rtl/params.vh` (each change = rebuild bitstream):
-  - [x] `FACE_LOCK_FRAMES` (24 now; 0 = off)
-  - [ ] `INV_FRAMES` 60 -> 90 (longer invulnerability after a hit)
-  - [ ] `MON_A_HP` 2 -> 1, `HP1/HP2` 3 -> 4
-  - [ ] chaser speed (needs a small `objects.v` change: move every 2nd frame via a new `MON_A_SLOW` param, default 1 = today)
-- [ ] **A5. Safe state before the demo.** Tag a known-good commit, keep a known-good `top.bit` file, write the rollback commands on a card (`cp mem/*_v1.mem ...`, `git checkout <tag>`).
-- [ ] **A6. Re-create the Vivado project** with `scripts/create_project.tcl` (the old project had a stale file list; new file `rtl/face_lock.v` must be included). Record BRAM and WNS in `docs/BOARD_DAY.md`.
-
-## B. Use the art we already have (needs Verilog; = Phase B in `docs/SPRITE_PLAN.md`)
-
-- [ ] **B1. Human idle loop** (`Idle.png`, 16 frames per row) when standing still. Separate ROM `mem/player_idle.mem`, slow step interval as a localparam.
-- [ ] **B2. Attack frames** (`Attack.png`) during the melee swing (`melee_on`, 8 frames), in the facing direction.
-- [ ] **B3. Damage frames** (`Dmg.png`) during the hurt blink (`invuln`).
-- [ ] **B4. Death animation** (`SoulDie.png` or `SpinDie.png`) on GAME OVER. The renderer paints the whole screen over the sprite on that screen, so the sprite must be drawn above the background.
-- [ ] **B5. Form 4 charge shot art** (`ChargedAttack.png`: charge loop rows 1-2, release row 3).
-  For all of B: flags default OFF in `sprites.json`, `anim_forms` = 1 to save BRAM, measure BRAM in Vivado (135 RAMB36 available), per-frame fallback to the walk-idle frame.
-
-## C. Look of the map (needs Verilog)
-
-- [ ] **C1. Wall autotile.** Today there is one wall id, so all walls look the same. Add top / side / corner variants from the pack: needs renderer work (neighbour lookup or more tile ids).
-- [ ] **C2. Decoration beyond floor:** torches on walls, rugs, pillars (same extra tile ids as C1).
-- [ ] **C3. Room layout pass** after C1: clearer rooms, still no change to puzzles, spawns, exits, enemy counts (keep `maps_v1/`, run `tests/test_maps.py`, `solve_sokoban.py`, `run_sim.sh all`, full WIN).
-
-## D. Gameplay and feel
-
-- [x] **D1. Better board controls.** DONE on branch `sprite-zip-rtl`: SW14 = hold facing (plus the BTNC face lock). Auto-aim not done.
-- [x] **D2. Feedback:** screen shake after being hit DONE (`HURT_SHAKE_FRAMES = 12`, branch `sprite-zip-rtl`). Brighter evolve flash not done.
-- [ ] **D3. Enemy variety:** NOT DONE on purpose: a third enemy type needs new state bits in `objects.v`, more monster frames, and would make the game HARDER while you asked for easier. Revisit after the demo.
-- [x] **D4. More sound effects:** DONE on branch `sprite-zip-sound`: boss appears (sound 11) and room change (sound 12). Pickup and room-doors-open sounds already existed (sounds 4 and 5). See `docs/SOUND_PLAN.md`.
-
-## H. Lever art (NEW)
-
-- [x] **H1. Replace the lever with `my_asset/new_switch.png`** DONE (frame 1 = up, frame 4 = down; see `docs/SPRITE_STATUS.md`).
-- [ ] **H2. Make the two lever states easier to see:** left and right frames differ by only 12 pixels (2 px shift of the inner dash). Redraw, or in-game animation (needs Verilog).
-
-## F. Sound design (NEW) - plan and status in `docs/SOUND_PLAN.md`
-
-- [ ] **F1. Review the 12 sound effects on the board speaker** (all are placeholder tones): adjust pitch / length / loudness in `rtl/params.vh` (`SFX_*`, `SFX_AMP`, `BGM_AMP`).
-- [ ] **F2. Missing sounds:** title-screen music, evolve fanfare, boss-room music, melee "swish", story / dialogue blips (see SOUND_PLAN section 5).
-- [ ] **F3. Better music:** new melodies in `scripts/make_music.py` (6 tracks now: floors 1-3, escape, win, game over).
-- [ ] **F5. Turn any sound into the game:** plan in `docs/SOUND_PIPELINE_PLAN.md` (SFX fit tool, MIDI / melody to music, samples in block RAM). Waiting for your answers (section 6 of the plan).
-- [ ] **F4. Real recordings (MP3 / WAV):** NOT playable directly. Short clips (1-3 s) can be converted to 8 kHz 8-bit samples in block RAM with a new sample-player (needs Verilog, about 2 RAMB36 per second); full songs do not fit. Decide which clips you want, then I build `scripts/make_samples.py` + the sample channel (SOUND_PLAN section 6).
-
-## G. Story integration (NEW - to consult)
-
-- [ ] **G1. Decide the story format** with the team: where text appears (title / intro, between floors, boss intro, ending), how many lines, any pictures. Constraints: text is drawn with the 8x8 font (`mem/font.mem`, `mem/text.mem`, at most 2 lines per screen, `rtl/text_layout.vh`); new screens need a state in the FSM (Verilog) or can reuse existing screens (TITLE, FLOOR CLEAR, WIN, GAME OVER).
-- [ ] **G2. Write the script** (short lines, English or Thai? the font file decides which characters exist) and send it to me.
-- [ ] **G3. Implement:** text ROM + screens + optional dialogue sound (F2), test, board build.
-
-## H. Lever art (NEW)
-
-- [x] **H1. Replace the lever with `my_asset/new_switch.png`** DONE: frame 1 (fully left) = lever up, frame 4 (fully right) = lever down, last frame = fully left again, others are animation frames (unused: the game switches state instantly).
-- [ ] **H2. Make the two lever states easier to see:** the sheet's left and right frames differ by only 12 pixels (a 2 px shift of the inner yellow dash). Redraw with a bigger shift or a colour change, or ask me to add an in-game 2-frame animation (needs Verilog).
-
-## E. Polish for the demo
-
-- [ ] **E1. Title and win screens:** real art and the team name instead of plain text / solid colour.
-- [ ] **E2. Demo mode:** debug switch to jump straight to a boss room or form 4, so everything can be shown in 3 minutes.
-- [ ] **E3. Final report:** files changed, one-line commands, what to edit when, rollback, board steps (`docs/CHANGE_REVIEW.md` is the draft).
+| Area | What | Where to read |
+|---|---|---|
+| Art pipeline | player forms 1-3 (Human / Orc 2x, Angel 1x), form 4 = gold Human, tileset (3 floors recoloured), enemies, 3 bosses, puzzle objects, new lever, map decoration | `docs/SPRITE_STATUS.md`, `sprites/README.md` |
+| Folder rename | `picture/` is now `my_asset/` (all paths updated) | `docs/README.md` |
+| Difficulty (easier) | HP 4, 90 invulnerable frames, chasers at half speed | `docs/BOARD_TEST_STEPS.md` |
+| Controls / feel | BTNC face lock, SW14 facing lock, screen shake on hit | `docs/BOARD_TEST_STEPS.md` |
+| Sound | 12 sound effects (2 new), 7 music tracks (Connect on floors 1-3), `audio_to_music.py` | `docs/SOUND_PLAN.md` |
+| Animations | Human idle / attack / hurt / death built, **OFF by default** (flags in `sprites.json`) | item P3.1 below |
+| Tooling | `scripts/check_all.sh`, one-command rebuild + preview `scripts/update_sprites.sh`, 7 Python test suites, iverilog suite | `docs/README.md` |
 
 ---
 
-## Status snapshot (update this when you tick items)
-- Done: A1 (Human/Orc 2x), A2 (gold form 4), A3 puzzle objects, A4 face lock.
-- Waiting on you: A4 playtest feedback, A5 tag + known-good bitstream, A6 Vivado project re-create + BRAM/WNS numbers, bullet/slash art.
-- Needs Verilog (not started): B1-B5, C1-C3, D1-D4.
+## P1 - needs YOU (nothing else can move until these are done)
 
-## Suggested picks for tonight (before the 22:00 freeze)
-1. **A1** bigger player sprite
-2. **A2** form 4 art
-3. **A4** playtest + tune difficulty on the board
-4. **A5/A6** safe state + clean Vivado project
+- [ ] **P1.1 Board test.** Follow `docs/BOARD_TEST_STEPS.md`. Send me: Block RAM Tile and WNS from the Vivado reports, and how the game feels (difficulty, the song, the controls, the sprite sizes).
+- [ ] **P1.2 Listen to the music.** `preview/sound/connect_chiptune.wav` (made by the tool; I cannot hear it). If the melody is wrong, tell me the problem (too low / noisy / wrong rhythm) and I tune the `scripts/audio_to_music.py` options.
+- [ ] **P1.3 Story:** send the script (where text appears, how many lines, language, pictures?). See P2.4.
+- [ ] **P1.4 Sound wishes:** answer the questions in `docs/SOUND_PIPELINE_PLAN.md` section 6.
+- [ ] **P1.5 Art to find or draw** (full list in `docs/SPRITE_STATUS.md` section 1): real form 4 hero, bullets (8x8), melee slash (4 arcs), a lever pair that is easier to tell apart, optional Angel redraw, optional title / win / game over pictures.
+- [ ] **P1.6 Check the GitHub repository visibility** (the Connect melody is in `mem/music.mem` and `sprites/music/connect.txt`).
+
+## P2 - I can do without Verilog (as soon as you send the input)
+
+- [ ] **P2.1 Bullet and slash pipelines** (`bullet.mem` 8x8 art, `effect.mem` 4 arcs): same pattern as the other pipelines (config, backup, fallback, previews, tests). Needs your art.
+- [ ] **P2.2 SFX fit tool** (`scripts/audio_to_sfx.py`): a short sound clip becomes the three numbers of a sound effect (`docs/SOUND_PIPELINE_PLAN.md` route 1).
+- [ ] **P2.3 More music tools:** `scripts/midi_to_music.py` for MIDI files; more custom tracks need a small ROM change (see P3.5).
+- [ ] **P2.4 Story on the existing screens** (title, floor clear, win, game over): text in `mem/text.mem` with the 8x8 font, at most 2 lines per screen (`rtl/text_layout.vh`).
+- [ ] **P2.5 Difficulty tuning from your playtest:** `rtl/params.vh` (`HP1`, `HP2`, `INV_FRAMES`, `MON_A_MOVE_EVERY`, `FACE_LOCK_FRAMES`, `HURT_SHAKE_FRAMES`, `MON_A_HP`).
+- [ ] **P2.6 Final report for the course** (files, commands, rollback, board steps): `docs/CHANGE_REVIEW.md` is the base.
+
+## P3 - needs Verilog (each on its own branch from `sprite-zip`, merged only after `scripts/check_all.sh` and a Vivado build)
+
+- [ ] **P3.1 Switch the Human animations ON.** Set the flags you want in `sprites/sprites.json` -> `animations`, run `python scripts/build_player_mem.py` (regenerates `rtl/sprite_cfg.vh`), synthesise. Block RAM cost about 22 (idle) / 6 (attack) / 6 (hurt) / 6 (death) RAMB36: check the utilization report first (135 available). The frame selection is tested (`./scripts/run_sim.sh playerframe`); the whole system passes with all flags ON (`./scripts/run_sim.sh topanim`).
+- [ ] **P3.2 Wall variants** (room-border wall pictures + wall torches): branch `wip/wall-variants`, read `docs/wip/README.md` there; about +6 RAMB36.
+- [ ] **P3.3 Sample playback** for short real recordings (voice, roar): sample player + mixer + converter (`docs/SOUND_PIPELINE_PLAN.md` route 3); about 2 RAMB36 per second of sound.
+- [ ] **P3.4 Story screens** with their own FSM state (only if the existing screens are not enough).
+- [ ] **P3.5 More music tracks:** the ROM has one custom slot (track 6); more need a bigger ROM and a track rule in `top.v`.
+- [ ] **P3.6 Feedback polish:** brighter evolve flash. **Third enemy type:** deliberately not done (new state bits in `objects.v`, more monster frames, and it makes the game harder).
+- [ ] **P3.7 Form 4 charge shot art** from `ChargedAttack.png` (the charge loop while the button is held).
+
+## Housekeeping (small)
+
+- [ ] Merge `sprite-zip` into `main` when the owner says "merge" (main is still the old version).
+- [ ] Keep `docs/SPRITE_STATUS.md` and `docs/SOUND_PLAN.md` current with every art / sound change (a standing rule).
+- [ ] Repeat the Verilator full-game run (`scripts/run_full_game.sh`) on a machine that has Verilator and SDL2 (`cd sim/verilator && make seeded`); the machine used so far could not rebuild it, so the last WIN run did not include the newest RTL (face lock, tuning, SW14, music).
 
 ## Rules for every item
-Rule 1 (the game always builds; missing art falls back to the old art with a warning), `*_v1` backups never edited, `mem/*.mem` are generated,
-work on a branch (no merge to `main` until you say so), run `scripts/run_sim.sh all` + a full WIN run before committing anything that touches RTL or maps.
+
+Rule 1 (the game always builds; missing or invalid art / sound falls back with a warning), `*_v1.mem` backups never edited, `mem/*.mem` are generated, branch from `sprite-zip`,
+run `scripts/check_all.sh` before committing, no merge to `main` without an explicit "merge", nothing with a deadline risk goes in after the freeze.

@@ -14,7 +14,16 @@ mem/effect.mem  : เอฟเฟกต์ฟันประชิด 4 เฟ�
 แทนที่ด้วยไฟล์จริงได้เลย ขอแค่ขนาดและลำดับเฟรมเหมือนกัน
 """
 import os
+import sys
 from PIL import Image
+
+# LEGACY (first version of the art). The real art now comes from my_asset/ + sprites/*.json (see sprites/README.md).
+# Running this overwrites mem/player.mem, tileset.mem, monster.mem, bullet.mem, effect.mem, puzzle.mem and boss.mem with the old placeholders,
+# so it refuses to run unless you pass --force. To restore the art afterwards run: scripts/update_sprites.sh
+if "--force" not in sys.argv:
+    print("make_placeholders.py is legacy and would OVERWRITE the real sprite ROMs in mem/ with the old placeholders.")
+    print("Run it only with --force. To rebuild the real art use: scripts/update_sprites.sh   (details: sprites/README.md)")
+    sys.exit(2)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 T = 0xF0F

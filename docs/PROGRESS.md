@@ -2,6 +2,8 @@
 
 อัปเดต: 2026-11-18 23:57
 
+> **Newer status (art, sound, map, difficulty, branches): see `docs/README.md` and `docs/NEXT_STEPS.md`.** This file is the original Thai phase checklist (P0-P6).
+
 ## วิธีใช้
 ติ๊กเมื่อโค้ดเสร็จและผ่าน test ส่วนการเช็คบนบอร์ดจริงมีข้อแยกท้ายทุก phase
 

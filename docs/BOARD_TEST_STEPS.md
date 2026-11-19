@@ -1,6 +1,7 @@
 # Board test - what is in this build and exactly what to do
 
-Branch: `sprite-zip` (it contains everything merged: art, difficulty, sound, animations OFF). Tag of the previous known-good build: `board-test-1`.
+Branch: `sprite-zip` (it contains everything merged: art, difficulty, sound, animations OFF). Tag of THIS build: `board-test-2`. Tag of the previous known-good build: `board-test-1`.
+Before building, `scripts/check_all.sh --fast` should print `CHECK_ALL: PASS` (it proves the generated files are current).
 
 ## 1. What is new in this build (compared with the bitstream you programmed before)
 
@@ -43,7 +44,7 @@ If the Tcl `source` fails because the old project is still open, close it first.
 |---|---|
 | Music too annoying or too loud / quiet | `sprites/music.json`: set `"floor1": "default"` etc.; run `python scripts/make_music.py`; or change `BGM_AMP` (default 18) in `rtl/params.vh`; rebuild |
 | Game too easy / too hard | `rtl/params.vh`: `HP1`, `HP2` (4), `INV_FRAMES` (90), `MON_A_MOVE_EVERY` (2 = half speed, 1 = old speed), `FACE_LOCK_FRAMES` (24), `HURT_SHAKE_FRAMES` (12, 0 = off); rebuild |
-| Go back to the last known-good version | `git checkout board-test-1` (do this with Vivado closed), re-create the project, rebuild |
+| Go back to the previous known-good version | `git checkout board-test-1` (do this with Vivado closed), re-create the project, rebuild; return with `git checkout sprite-zip` |
 | Art problem in one place | see `docs/SPRITE_STATUS.md` and `sprites/README.md` (each sprite group has an `enabled` switch and a `*_v1.mem` backup) |
 
 ## 5. About the song (please read)

@@ -1,6 +1,6 @@
 # Sprite status - what is final, what is a placeholder, what you still need to find or edit
 
-**Updated every time a sprite, ROM or map changes.** Last update: levers = your `my_asset/new_switch.png` (frame 1 = lever up, frame 4 = lever down).
+**Updated every time a sprite, ROM or map changes.** Last update: project cleanup, branch `sprite-zip`, tag `board-test-2` (nothing changed in the art; Human animations are built but OFF, see section 2b).
 Legend: **FINAL** = real art you are happy with. **PLACEHOLDER** = real art but a stand-in (wrong meaning, recoloured, borrowed). **OLD ART** = the original programmer placeholder from the first version (`*_v1.mem`), nothing new yet.
 
 How to change any sprite: see `sprites/README.md`. One command for everything: `scripts/update_sprites.sh` (Windows: `scripts\update_sprites.bat`).
@@ -30,6 +30,20 @@ How to change any sprite: see `sprites/README.md`. One command for everything: `
 
 Art available but NOT used by the game yet (needs Verilog, see NEXT_STEPS B): Human `Attack.png`, `Dmg.png`, `Jump.png`, `ChargedAttack.png`, `SoulDie.png`, `SpinDie.png`, the 16-frame idle loop.
 Row 4 of every walk sheet (back facing Left) is unused: the game has only 4 directions.
+
+## 2b. Human animations (built, switched OFF)
+
+The Human (form 1) has extra pictures that the game does not show yet unless you switch them on (`sprites/sprites.json` -> `animations`, then rebuild and synthesise; each costs Block RAM):
+
+| Animation | Source sheet | Flag | Block RAM (estimate) | State |
+|---|---|---|---|---|
+| idle loop (16 pictures x 4 directions) | `Human/Idle.png` | `idle_anim` | about 22 RAMB36 | built, tested, OFF |
+| melee attack (4 x 4) | `Human/Attack.png` | `attack_anim` | about 6 | built, tested, OFF |
+| hurt (4 x 4) | `Human/Dmg.png` | `hurt_anim` | about 6 | built, tested, OFF |
+| death (12 pictures, last held; the last one is empty on purpose) | `Human/SoulDie.png` or `SpinDie.png` (`death_sheet`) | `death_anim` | about 6 | built, tested, OFF |
+
+Forms 2-4 have no such pictures (they keep the walking pictures). Nothing here is a placeholder: it is finished art waiting for a Block RAM check (`docs/NEXT_STEPS.md` P3.1).
+Not used by the game at all: `Jump.png`, `ChargedAttack.png`.
 
 ## 3. Map tiles (mem/tileset.mem, `scripts/build_tileset_mem.py`, `sprites/tileset.json`)
 
@@ -73,10 +87,9 @@ Unused enemy art in `my_asset/enemies/`: attack, death and damage strips for all
 
 ## Next to implement (details in `docs/NEXT_STEPS.md`)
 
-1. You: playtest on the board and tell me what feels too hard (A4), re-create the Vivado project and send BRAM/WNS (A6).
-2. You: provide form 4 art, lever art, bullet and slash art if you want them (section 1).
-3. Me (no Verilog): bullet / slash pipelines once you have art, difficulty tuning, final report.
-4. Me (needs Verilog, after the 22:00 freeze, separate branch): Human idle / attack / hurt / death animations (B1-B4), wall autotile and wall decoration (C1-C2).
+1. You: board test (Block RAM + WNS + how it feels), then send the art in section 1 that you want.
+2. Me (no Verilog): bullet / slash pipelines once you have art, difficulty tuning from your playtest.
+3. Me (needs Verilog, own branch): switch the Human animations on after the Block RAM check, wall variants (`wip/wall-variants`), sample playback.
 
 ## Files to look at
 
@@ -84,7 +97,9 @@ Unused enemy art in `my_asset/enemies/`: attack, death and damage strips for all
 |---|---|
 | `docs/SPRITE_STATUS.md` (this file) | what is final / placeholder / missing |
 | `docs/NEXT_STEPS.md` | backlog with checkboxes |
-| `docs/CHANGE_REVIEW.md` | everything changed on this branch, verification, rollback, board steps |
+| `docs/CHANGE_REVIEW.md` | everything changed on this branch, verification, rollback |
+| `docs/README.md` | the project index (folders, workflow, branches) |
+| `docs/SOUND_PLAN.md` | every sound and the music |
 | `sprites/README.md` | how to change each sprite (plain words) |
 | `sprites/*.json` | the settings: `sprites.json` (player), `tileset.json`, `monsters.json`, `bosses.json`, `puzzle.json` |
 | `preview/` | pictures: `all_forms.png`, `tileset_rooms.png`, `monster_contact.png`, `boss_contact.png`, `puzzle_contact.png`, `game/*.png` (screenshots) |

@@ -1,6 +1,6 @@
 # Sound plan - what every sound is now, where it lives, and how to change it
 
-**Update this file every time a sound changes** (same rule as `docs/SPRITE_STATUS.md`). Last update: custom music track 6 (Connect) on floors 1-3, plus sounds 11 (boss appears) and 12 (room change).
+**Update this file every time a sound changes** (same rule as `docs/SPRITE_STATUS.md`). Last update: project cleanup (branch `sprite-zip`, tag `board-test-2`): custom music track 6 (Connect) on floors 1-3, sounds 11 (boss appears) and 12 (room change).
 
 Legend: **FINAL** = you are happy with it. **PLACEHOLDER** = a programmer test tone (all sound effects are tones, none have been designed by you yet).
 

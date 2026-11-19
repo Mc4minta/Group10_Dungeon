@@ -1,3 +1,7 @@
+> **ARCHIVED (history only).** This was the plan for Phase A (walk + idle), Phase B (extra animations) and the enemy / world art, written before the work started.
+> Status today: Phase A done; Phase B built and tested but switched OFF (`docs/NEXT_STEPS.md` P3.1); enemies, bosses, tiles, puzzle objects done.
+> Wall variants: unfinished (`wip/wall-variants`). Current documents: `docs/README.md`.
+
 # Sprite Pipeline - Implementation Plan (DRAFT, for your edit + approval)
 
 How to use this file: edit anything, tick `[x]` on items you approve, change the **Decision** lines, then tell me "approved".
