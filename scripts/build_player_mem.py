@@ -136,9 +136,26 @@ def load_config(path, root):
         if not isinstance(enabled, bool):
             raise ConfigError(f'forms."{n}".enabled must be true or false')
         scale = _int(e.get("scale", 1), 1, 4, f'forms."{n}".scale')
-        forms[n] = {"cell": cell, "enabled": enabled, "scale": scale,
+        tint = e.get("tint")
+        if tint is not None and not isinstance(tint, str):
+            raise ConfigError(f'forms."{n}".tint must be the name of an entry in "tints"')
+        forms[n] = {"cell": cell, "enabled": enabled, "scale": scale, "tint": tint,
                     "sheets": {k: v for k, v in sheets.items() if not k.startswith("_")}}
     cfg["forms"] = forms
+    tints = {}
+    for name, t in raw.get("tints", {}).items():
+        if name.startswith("_"):
+            continue
+        ok = isinstance(t, dict) and all(isinstance(t.get(k), list) and len(t[k]) == 3 and
+                                         all(isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= 255 for v in t[k])
+                                         for k in ("dark", "light"))
+        if not ok:
+            raise ConfigError(f'tints."{name}" must be {{"dark": [r,g,b], "light": [r,g,b]}} with values 0-255')
+        tints[name] = {"dark": tuple(t["dark"]), "light": tuple(t["light"])}
+    cfg["tints"] = tints
+    for n in forms:
+        if forms[n]["tint"] is not None and forms[n]["tint"] not in tints:
+            raise ConfigError(f'forms."{n}".tint = "{forms[n]["tint"]}" is not defined in "tints"')
 
     m = raw.get("mapping", {})
     dir_row = {"down": 1, "up": 3, "left": 2, "right": 1}
@@ -246,6 +263,27 @@ class Sheet:
         return "ok", self.im.crop((x, y, x + FRAME_PX, y + FRAME_PX))
 
 
+def apply_tint(im, tint, black_keep=40):
+    """Recolour an RGBA image by luminance: near-black outlines stay dark, everything else is a ramp from tint["dark"]
+    to tint["light"]. Alpha is untouched, so the shape / transparency never changes."""
+    out = im.copy()
+    px = out.load()
+    d, l = tint["dark"], tint["light"]
+    for y in range(out.height):
+        for x in range(out.width):
+            r, g, b, a = px[x, y]
+            if a == 0:
+                continue
+            lum = (r * 299 + g * 587 + b * 114) // 1000
+            if lum < black_keep:
+                px[x, y] = (int(d[0] * 0.25), int(d[1] * 0.25), int(d[2] * 0.25), a)
+            else:
+                t = (lum - black_keep) / (255 - black_keep)
+                px[x, y] = (int(d[0] + (l[0] - d[0]) * t + 0.5), int(d[1] + (l[1] - d[1]) * t + 0.5),
+                            int(d[2] + (l[2] - d[2]) * t + 0.5), a)
+    return out
+
+
 def to_rgb444(r, g, b):
     return (((r * 15 + 127) // 255) << 8) | (((g * 15 + 127) // 255) << 4) | ((b * 15 + 127) // 255)
 
@@ -310,6 +348,9 @@ def load_sheets(cfg, root):
         for name, rel in fc["sheets"].items():
             p = os.path.join(root, rel)
             sh = Sheet(name, p)
+            if fc.get("tint") and sh.status == "ok":
+                sh.im = apply_tint(sh.im, cfg["tints"][fc["tint"]])
+                sh.label += f" ({fc['tint']})"
             sheets[n][name] = sh
             if sh.status == "unreadable":
                 unreadable.append(sh.detail)

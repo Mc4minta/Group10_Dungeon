@@ -1,0 +1,29 @@
+{
+  "_help": [
+    "Puzzle-room objects. mem/puzzle.mem is GENERATED from this file + the PNGs.  Rebuild: python scripts/build_puzzle_mem.py",
+    "16 frames of 32x32: 0 bulb off, 1 bulb on, 2 lever up, 3 lever down, 4 box, 5 gate closed, 6 gate open, 7-9 item of floor 1-3 (10-15 unused).",
+    "Each file (16x16) is scaled by exactly 'scale' (2, nearest neighbour). 'tint' recolours by luminance (see tints).",
+    "cut = list of exact [r,g,b] background colours that become see-through (so the floor colour shows through).",
+    "Missing / skipped / empty file -> old art from mem/puzzle_v1.mem with a warning. Keys starting with _ are comments."
+  ],
+  "key_color": "F0F",
+  "alpha_threshold": 128,
+  "scale": 2,
+  "fallback_mem": "mem/puzzle_v1.mem",
+  "output_mem": "mem/puzzle.mem",
+  "tints": {
+    "unlit": { "dark": [25, 25, 35], "light": [120, 120, 135] }
+  },
+  "frames": {
+    "0": { "file": "picture/props/torch_1.png", "tint": "unlit" },
+    "1": { "file": "picture/props/torch_1.png" },
+    "2": { "file": "picture/props/chest_1.png" },
+    "3": { "file": "picture/props/chest_open_1.png" },
+    "4": { "file": "picture/props/box_1_1.png" },
+    "5": { "file": "picture/props/peaks_1.png", "cut": [[61, 37, 59]] },
+    "6": { "file": "picture/props/peaks_3.png", "cut": [[61, 37, 59], [54, 32, 48]] },
+    "7": { "file": "picture/props/keys_1_1.png" },
+    "8": { "file": "picture/props/keys_2_1.png" },
+    "9": { "file": "picture/props/flag_1.png" }
+  }
+}

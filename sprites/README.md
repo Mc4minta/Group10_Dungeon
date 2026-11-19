@@ -174,3 +174,25 @@ Only how the floors LOOK changed. `maps_v1/` holds the original maps and generat
   exits unchanged and Sokoban solvable) and `python scripts/solve_sokoban.py`.
 * Roll back the maps: `cp maps_v1/[0-9]*.txt maps/ && cp scripts/build_maps_v1.py scripts/build_maps.py && python scripts/build_maps.py`,
   and set the floor `"gain"` values back to 1.0 in `tileset.json`.
+
+---
+
+# Form 4 (gold hero) and a tint
+
+Form 4 has no art of its own yet: it uses the **Human sheets recoloured gold** (`forms."4"` -> `"tint": "gold"`, `"scale": 2`).
+A tint recolours by luminance: near-black outlines stay dark, everything else becomes a ramp from `dark` to `light` (see `"tints"` in `sprites.json`);
+the shape and transparency never change. When you have real art: put the paths under `forms."4".sheets` and delete the `"tint"` line.
+
+# Puzzle objects (puzzle.mem)
+
+**Source of truth:** `picture/props/*.png` (16x16 sprites from the asset pack) and `sprites/puzzle.json`. **Generated:** `mem/puzzle.mem`
+(16 frames of 32x32, 10 used). **Old art, never touched:** `mem/puzzle_v1.mem`.
+
+    python scripts/build_puzzle_mem.py              # rebuild   (--check / --preview as before)
+
+* Frames: 0 bulb off, 1 bulb on, 2 lever up, 3 lever down, 4 box, 5 gate closed, 6 gate open, 7-9 item of floor 1-3.
+  Now: bulbs = torch (off = the same torch tinted grey), levers = closed / open chest, box = iron crate, gate = spikes up / retracted,
+  items = gold key, silver key, red shield. Preview: `preview/puzzle_contact.png` (new on top, old below).
+* Each 16x16 PNG is scaled exactly 2x (nearest). `"cut": [[r,g,b]]` makes an exact background colour see-through so the floor colour shows through.
+* Missing / skipped / empty / too big file = old art with a warning. Roll back: `cp mem/puzzle_v1.mem mem/puzzle.mem`.
+* Not done (no fitting art in the pack): bullets (`bullet.mem`, 8x8 hitbox) and the melee slash (`effect.mem`) keep the old art.

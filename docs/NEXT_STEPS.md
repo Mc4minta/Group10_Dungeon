@@ -16,13 +16,13 @@ Already done (for reference): player art (forms 1-3), tileset, enemies, bosses, 
   - redraw the sheets at about 16-20 px, or
   - add an exact integer upscale option for the player sheets in `sprites/sprites.json` (e.g. `"scale": 2` = each pixel becomes 2x2, same idea as tiles/bosses; needs the source art to be about 16 px so the result still fits the 24x24 hitbox area).
   Check: art stays inside pixels 4-27 (the build prints a note), re-run `tests/test_sprite_pipeline.py`.
-- [ ] **A2. Form 4 art.** Last placeholder (gold box). Put `picture/form4_walk.png` (4x4 sheet, same row convention) and add it under `forms."4".sheets` in `sprites/sprites.json`. Even a recolour of the Angel/Human sheet is fine; the pipeline falls back per frame.
-- [ ] **A3. Remaining old-art ROMs.** Same config pattern as monsters (`*_v1.mem` backup, fallback, previews, tests):
-  - [ ] `puzzle.mem` (boxes, bulbs, levers, gate, items): chests, keys, flasks from the asset pack (16x16 -> 2x)
-  - [ ] `bullet.mem` (player/enemy bullets): arrow sprites from the pack (16x16, no scaling)
-  - [ ] `effect.mem` (melee slash)
-- [ ] **A4. Difficulty tuning on the board.** Playtest and adjust in `rtl/params.vh` (each change = rebuild bitstream):
-  - [ ] `FACE_LOCK_FRAMES` (24 now; 0 = off)
+- [x] **A2. Form 4 art.** DONE as a placeholder: Human sheets recoloured gold at 2x (`forms."4".tint = "gold"`). Replace with real art later: put the sheet paths under `forms."4".sheets` and delete the `tint` line. Original notes: Last placeholder (gold box). Put `picture/form4_walk.png` (4x4 sheet, same row convention) and add it under `forms."4".sheets` in `sprites/sprites.json`. Even a recolour of the Angel/Human sheet is fine; the pipeline falls back per frame.
+- [~] **A3. Remaining old-art ROMs.** Puzzle objects DONE (torch bulbs, chest levers, crate, spikes gate, keys/shield items; `scripts/build_puzzle_mem.py`). Bullets and the slash effect SKIPPED: the pack has no art that fits an 8x8 bullet hitbox or a directional slash (draw 8x8 bullets / 4 slash arcs yourself and I add the same pipeline). Original notes: Same config pattern as monsters (`*_v1.mem` backup, fallback, previews, tests):
+  - [x] `puzzle.mem` (boxes, bulbs, levers, gate, items): DONE
+  - [ ] `bullet.mem` (player/enemy bullets): blocked - needs your own 8x8 art (pack arrows are 16x32)
+  - [ ] `effect.mem` (melee slash): blocked - needs your own 4 slash arcs (32x32)
+- [~] **A4. Difficulty tuning on the board.** Face lock DONE (`FACE_LOCK_FRAMES = 24`). The rest needs playtesting feedback from the board: Playtest and adjust in `rtl/params.vh` (each change = rebuild bitstream):
+  - [x] `FACE_LOCK_FRAMES` (24 now; 0 = off)
   - [ ] `INV_FRAMES` 60 -> 90 (longer invulnerability after a hit)
   - [ ] `MON_A_HP` 2 -> 1, `HP1/HP2` 3 -> 4
   - [ ] chaser speed (needs a small `objects.v` change: move every 2nd frame via a new `MON_A_SLOW` param, default 1 = today)
@@ -58,6 +58,11 @@ Already done (for reference): player art (forms 1-3), tileset, enemies, bosses, 
 - [ ] **E3. Final report:** files changed, one-line commands, what to edit when, rollback, board steps (`docs/CHANGE_REVIEW.md` is the draft).
 
 ---
+
+## Status snapshot (update this when you tick items)
+- Done: A1 (Human/Orc 2x), A2 (gold form 4), A3 puzzle objects, A4 face lock.
+- Waiting on you: A4 playtest feedback, A5 tag + known-good bitstream, A6 Vivado project re-create + BRAM/WNS numbers, bullet/slash art.
+- Needs Verilog (not started): B1-B5, C1-C3, D1-D4.
 
 ## Suggested picks for tonight (before the 22:00 freeze)
 1. **A1** bigger player sprite

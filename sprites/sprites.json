@@ -29,7 +29,21 @@
     },
     "2": { "enabled": true, "cell": 32, "scale": 2, "sheets": { "walk": "picture/Character/ORc/form2_Walk.png" } },
     "3": { "enabled": true, "cell": 32, "sheets": { "walk": "picture/Character/Angel/Angel_walk.png.png" } },
-    "4": { "enabled": true, "cell": 32, "sheets": {} }
+    "4": {
+      "enabled": true,
+      "cell": 32,
+      "scale": 2,
+      "tint": "gold",
+      "_note": "no own art yet: the Human sheets recoloured gold (see tints). Replace these paths with picture/form4_walk.png etc. when you have art, and remove tint.",
+      "sheets": {
+        "walk": "picture/Character/Human/Walk.png",
+        "idle": "picture/Character/Human/Idle.png"
+      }
+    }
+  },
+  "tints": {
+    "_help": "tint = recolour by luminance: black outlines stay dark, everything else is a ramp from dark to light. Used per form with forms.N.tint",
+    "gold": { "dark": [110, 66, 0], "light": [255, 226, 90] }
   },
   "mapping": {
     "dir_row": { "down": 1, "up": 3, "left": 2, "right": 1 },

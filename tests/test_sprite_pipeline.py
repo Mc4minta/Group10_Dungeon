@@ -51,7 +51,7 @@ def sha(path):
         return hashlib.sha256(f.read()).hexdigest()
 
 
-def indep_frame(png, row1, col, scale=1):
+def indep_frame(png, row1, col, scale=1, tint=None):
     """independent conversion of one cell (does not use build code), exact integer upscale about the cell centre; None if empty"""
     im = Image.open(png).convert("RGBA")
     out, opaque = [KEY] * 1024, 0
@@ -60,6 +60,14 @@ def indep_frame(png, row1, col, scale=1):
             r, g, b, a = im.getpixel((col * 32 + x, (row1 - 1) * 32 + y))
             if a < 128:
                 continue
+            if tint:                                              # independent luminance tint (same definition as the config help)
+                d, lt = tint["dark"], tint["light"]
+                lum = (r * 299 + g * 587 + b * 114) // 1000
+                if lum < 40:
+                    r, g, b = int(d[0] * 0.25), int(d[1] * 0.25), int(d[2] * 0.25)
+                else:
+                    t = (lum - 40) / 215
+                    r, g, b = (int(d[i] + (lt[i] - d[i]) * t + 0.5) for i in range(3))
             v = (((r * 15 + 127) // 255) << 8) | (((g * 15 + 127) // 255) << 4) | ((b * 15 + 127) // 255)
             v = v ^ 1 if v == KEY else v
             opaque += 1
@@ -114,7 +122,8 @@ class RealProject(unittest.TestCase):
                 continue
             sname, row, col = r["src"]
             png = os.path.join(ROOT, self.cfg["forms"][r["form"]]["sheets"][sname])
-            exp = indep_frame(png, row, col, self.cfg["forms"][r["form"]]["scale"])
+            fc = self.cfg["forms"][r["form"]]
+            exp = indep_frame(png, row, col, fc["scale"], self.cfg["tints"][fc["tint"]] if fc["tint"] else None)
             i = r["idx"]
             self.assertEqual(self.mem[i * N:(i + 1) * N], exp, r["name"])
 
@@ -127,7 +136,8 @@ class RealProject(unittest.TestCase):
             sname, row, col = r["src"]
             self.assertEqual(row, rows[B.DIRS[r["dir"]]], r["name"])
             self.assertNotEqual(row, 4, r["name"])
-            want = {0: ("idle" if r["form"] == 1 else "walk", 0), 1: ("walk", 1), 2: ("walk", 3)}[r["pose"]]
+            has_idle = "idle" in self.cfg["forms"][r["form"]]["sheets"]
+            want = {0: ("idle" if has_idle else "walk", 0), 1: ("walk", 1), 2: ("walk", 3)}[r["pose"]]
             self.assertEqual((sname, col), want, r["name"])
 
 
@@ -346,6 +356,34 @@ class Fallbacks(unittest.TestCase):
             jsave(self.cfgp, c)
             rc, _ = run_build(self.t)
             self.assertEqual(rc, 2, bad)
+
+    def test_tint_keeps_shape_and_changes_colour(self):
+        c = jload(self.cfgp)
+        c["tints"] = {"gold": {"dark": [110, 66, 0], "light": [255, 226, 90]}}
+        c["forms"]["2"]["tint"] = "gold"
+        jsave(self.cfgp, c)
+        rc, out = run_build(self.t)
+        self.assertEqual(rc, 0)
+        w = self.ok_shape()
+        self.assertIn("(gold)", out)
+        tint = c["tints"]["gold"]
+        exp = indep_frame(os.path.join(self.t, "picture", "form2_walk.png"), 1, 1, 1, tint)
+        self.assertEqual(w[13 * N:14 * N], exp)
+        plain = indep_frame(os.path.join(self.t, "picture", "form2_walk.png"), 1, 1, 1)
+        self.assertNotEqual(exp, plain)
+        self.assertEqual([v == KEY for v in exp], [v == KEY for v in plain])        # same transparency mask
+        # other forms untouched
+        self.assertEqual(w[1 * N:2 * N], indep_frame(os.path.join(self.t, "picture", "form1_walk.png"), 1, 1, 1))
+
+    def test_undefined_or_bad_tint_is_config_error(self):
+        c = jload(self.cfgp)
+        c["forms"]["1"]["tint"] = "nope"
+        jsave(self.cfgp, c)
+        self.assertEqual(run_build(self.t)[0], 2)
+        c["forms"]["1"]["tint"] = "gold"
+        c["tints"] = {"gold": {"dark": [0, 0, 999], "light": [255, 255, 255]}}
+        jsave(self.cfgp, c)
+        self.assertEqual(run_build(self.t)[0], 2)
 
     def test_check_writes_nothing(self):
         rc, _ = run_build(self.t, "--check")

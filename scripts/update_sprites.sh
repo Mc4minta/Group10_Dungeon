@@ -23,9 +23,13 @@ echo; echo "== 2c/4 build mem/boss.mem + previews (bosses)"
 $PY scripts/build_boss_mem.py --preview | grep -E "^(WARNING|ERROR)|Summary|Changed|Wrote"
 [ "${PIPESTATUS[0]}" -eq 2 ] && { echo "== STOP: bosses config broken. mem/boss.mem NOT changed."; exit 2; }
 
+echo; echo "== 2d/4 build mem/puzzle.mem + previews (puzzle objects)"
+$PY scripts/build_puzzle_mem.py --preview | grep -E "^(WARNING|ERROR)|Summary|Changed|Wrote"
+[ "${PIPESTATUS[0]}" -eq 2 ] && { echo "== STOP: puzzle config broken. mem/puzzle.mem NOT changed."; exit 2; }
+
 echo; echo "== 3/4 iverilog sprite test (player_rom reads mem/player.mem)"
 if command -v iverilog >/dev/null 2>&1; then
-  if ./scripts/run_sim.sh sprites > /tmp/update_sprites_tb.log 2>&1 && ./scripts/run_sim.sh tileset >> /tmp/update_sprites_tb.log 2>&1 && ./scripts/run_sim.sh monster >> /tmp/update_sprites_tb.log 2>&1 && ./scripts/run_sim.sh bosssprites >> /tmp/update_sprites_tb.log 2>&1; then tail -3 /tmp/update_sprites_tb.log
+  if ./scripts/run_sim.sh sprites > /tmp/update_sprites_tb.log 2>&1 && ./scripts/run_sim.sh tileset >> /tmp/update_sprites_tb.log 2>&1 && ./scripts/run_sim.sh monster >> /tmp/update_sprites_tb.log 2>&1 && ./scripts/run_sim.sh bosssprites >> /tmp/update_sprites_tb.log 2>&1 && ./scripts/run_sim.sh puzzleart >> /tmp/update_sprites_tb.log 2>&1; then tail -3 /tmp/update_sprites_tb.log
   else cat /tmp/update_sprites_tb.log; echo "== SPRITE TEST FAILED"; exit 3; fi
 else
   echo "iverilog not found - skipped (install it, or run on WSL)"
@@ -36,6 +40,8 @@ $PY tests/test_sprite_pipeline.py 2>&1 | tail -3
 $PY tests/test_tileset_pipeline.py 2>&1 | tail -3
 $PY tests/test_monster_pipeline.py 2>&1 | tail -3
 $PY tests/test_boss_pipeline.py 2>&1 | tail -3
+$PY tests/test_puzzle_pipeline.py 2>&1 | tail -3
+$PY tests/test_maps.py 2>&1 | tail -3
 
 echo
 echo "Done. Look at:  preview/tileset_all_floors.png preview/tileset_rooms.png (map)  preview/all_forms.png   preview/form1_contact.png ... form4_contact.png"
