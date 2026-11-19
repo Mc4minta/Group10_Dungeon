@@ -3,6 +3,7 @@
 // รัน: ./scripts/run_sim.sh objects
 // ห้อง: grid 0 = START ชั้น 1 (ไม่มีมอน), grid 4 = C1 ชั้น 1 (มอน A 3 ตัว), grid 7 = C1 ชั้น 2 (ป้อม 4 + A 2, รั้ว F)
 module tb_objects;
+    `include "params.vh"      // HP1, INV_FRAMES, KB_FRAMES, MON_A_MOVE_EVERY come from the game parameters
     reg clk = 0; always #5 clk = ~clk;
     reg rst = 1;
 
@@ -181,7 +182,7 @@ module tb_objects;
         // knockback จากด้านบน -> ถอยลง
         check(kbs == 1 && kb_dir == 0, "knockback direction away from source (down)");
         // ================= 2. hurt: HP-1, knockback 16 px, อมตะ 60 เฟรม =================
-        check(hp == 2, "hurt: HP 3 -> 2 via game_fsm take_hit");
+        check(hp == HP1 - 1, "hurt: HP -1 via game_fsm take_hit");
         frames(8);
         check(px == 288 && py == 240, "knockback: moved 16 px away over 8 frames");
         check(invuln, "still invulnerable after knockback");
@@ -190,18 +191,18 @@ module tb_objects;
         check(hits == 1 && eb_act[0] == 1, "no damage while invulnerable (bullet passes)");
         dut.e_act = 0;
         ok = 0; d0 = 0;
-        for (n = 0; n < 70 && invuln; n = n + 1) begin
+        for (n = 0; n < KB_FRAMES + INV_FRAMES + 10 && invuln; n = n + 1) begin
             frames(1);
             if (blink) ok = ok + 1; else d0 = d0 + 1;
         end
         // หลังโดน: 8 เฟรม knockback + 60 อมตะ = 68 (นับไปแล้ว 9 เฟรม)
-        check(n == 68 - 9, "invulnerable lasts KB 8 + 60 frames");
+        check(n == KB_FRAMES + INV_FRAMES - 9, "invulnerable lasts KB_FRAMES + INV_FRAMES");
         check(ok > 20 && d0 > 20, "player sprite blinks while invulnerable");
         hits = 0;
         put_eb(0, 292, py + 4, 0);
         frames(1);
         check(hits == 1, "damage again after invulnerability ends");
-        heal; clear_all; frames(70); hits = 0; clear_all;
+        heal; clear_all; frames(INV_FRAMES + 10); hits = 0; clear_all;
 
         // knockback ชนกำแพง: ยืนชิดกำแพงซ้าย โดนจากขวา
         place(0, 30, 224); frames(1);
@@ -221,7 +222,7 @@ module tb_objects;
         // ชนตัวมอน A: ถอยออกจากมอน
         place(0, 288, 224); frames(1);
         put_mon(0, 0, 250, 224, 2);          // มอน A อยู่ซ้าย เดินเข้ามา
-        frames(20);
+        frames(20 * MON_A_MOVE_EVERY);      // monster A moves every MON_A_MOVE_EVERY frames
         check(hits == 1 && kb_dir == 3, "monster contact: HP-1, knockback right (away from monster)");
         heal; clear_all; frames(70); clear_all; hits = 0;
 

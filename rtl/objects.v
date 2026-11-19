@@ -160,6 +160,11 @@ module objects (
                      S_CPE = 5'd10, S_END = 5'd11, S_BFIRE = 5'd12, S_BPB = 5'd13, S_BMEL = 5'd14, S_BPM = 5'd15,
                      S_CLASH = 5'd16, S_NEAR = 5'd17;
     reg [4:0] st = S_IDLE;
+    // มอน A เดินเฉพาะเฟรมที่ mv_div == 0 (MON_A_MOVE_EVERY = 1 -> ทุกเฟรม)
+    reg [3:0] mv_div = 4'd0;
+    always @(posedge clk) if (rst) mv_div <= 4'd0;
+                          else if (frame_tick) mv_div <= (mv_div >= MON_A_MOVE_EVERY - 1) ? 4'd0 : mv_div + 4'd1;
+    wire mon_go = (mv_div == 4'd0);
     reg [1:0] ph = 0;
     reg [3:0] i = 0, j = 0;                  // i = มอน / กระสุนผู้เล่น, j = กระสุนศัตรู
     reg [2:0] slot = 0, nb = 0, fk = 0;
@@ -416,7 +421,7 @@ module objects (
                         if (i == NM - 1) begin i <= 0; j <= 0; st <= S_CPB; end
                         else i <= i + 1'b1;
                     end
-                end else if (px != m_xv[(i)*10 +: 10]) begin                     // มอน A แกน x
+                end else if (mon_go && px != m_xv[(i)*10 +: 10]) begin           // มอน A แกน x (mon_go: เดินทุก MON_A_MOVE_EVERY เฟรม)
                     if (px > m_xv[(i)*10 +: 10]) begin
                         nx <= m_xv[(i)*10 +: 10] + MON_A_SPEED;
                         ta <= taddr(grid, m_xv[(i)*10 +: 10] + MON_A_SPEED + 10'd27, m_yv[(i)*10 +: 10] + 10'd4);
@@ -434,7 +439,7 @@ module objects (
                 ph <= 2'd2;
             end
             2'd2: begin                                         // มอน A แกน y
-                if (py != m_yv[(i)*10 +: 10]) begin
+                if (mon_go && py != m_yv[(i)*10 +: 10]) begin
                     if (py > m_yv[(i)*10 +: 10]) begin
                         ny <= m_yv[(i)*10 +: 10] + MON_A_SPEED;
                         ta <= taddr(grid, m_xv[(i)*10 +: 10] + 10'd4,  m_yv[(i)*10 +: 10] + MON_A_SPEED + 10'd27);
