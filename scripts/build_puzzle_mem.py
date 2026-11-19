@@ -16,6 +16,7 @@ Exit code: 0 ok | 1 unreadable PNG (still builds, old art) | 2 bad config / bad 
 import argparse
 import json
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -71,8 +72,14 @@ def load_config(path, root):
         if isinstance(v, dict) and v.get("skip"):
             frames[int(k)] = {"skip": True}
             continue
+        if isinstance(v, dict) and isinstance(v.get("mem"), str):          # sprite_tool .mem source: {"mem": path, "frame": n}
+            fr = v.get("frame", 0)
+            if not (isinstance(fr, int) and not isinstance(fr, bool) and 0 <= fr < 4096):
+                raise ConfigError(f'frames."{k}".frame must be a frame number (integer >= 0)')
+            frames[int(k)] = {"mem": v["mem"], "frame": fr}
+            continue
         if not (isinstance(v, dict) and isinstance(v.get("file"), str)):
-            raise ConfigError(f'frames."{k}": use {{"file": "picture/props/x.png", "tint": "name"}} or {{"skip": true}}')
+            raise ConfigError(f'frames."{k}": use {{"file": "picture/props/x.png", "tint": "name"}}, {{"mem": "picture/props/x.mem", "frame": 0}} or {{"skip": true}}')
         t = v.get("tint")
         if t is not None and t not in tints:
             raise ConfigError(f'frames."{k}".tint = "{t}" is not defined in "tints"')
@@ -110,12 +117,72 @@ class Build:
     pass
 
 
+def read_sprite_mem(path):
+    """sprite_tool .mem: header '// sprite_tool W=16 H=16 FRAMES=12 KEY=F0F', then W*H RGB444 words per frame.
+    -> (W, H, frames, key, tokens) ; raises ValueError with a clear message if the file is not valid"""
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
+        lines = f.read().splitlines()
+    hdr = next((ln for ln in lines if ln.startswith("//")), "")
+    m = re.search(r"W=(\d+)\s+H=(\d+)\s+FRAMES=(\d+)\s+KEY=([0-9A-Fa-f]{3})", hdr)
+    if not m:
+        raise ValueError("no 'W= H= FRAMES= KEY=' header line")
+    w, h, n, key = int(m[1]), int(m[2]), int(m[3]), int(m[4], 16)
+    toks = []
+    for ln in lines:
+        if ln.startswith("//"):
+            continue
+        for t in ln.split():
+            if not re.fullmatch(r"[0-9A-Fa-f]{1,3}", t):
+                raise ValueError(f"bad word {t!r}")
+            toks.append(int(t, 16))
+    if len(toks) != w * h * n:
+        raise ValueError(f"has {len(toks)} words, header says {w}x{h}x{n} = {w * h * n}")
+    return w, h, n, key, toks
+
+
+def make_mem_frame(spec, root, cfg):
+    path = os.path.join(root, spec["mem"])
+    if not os.path.isfile(path):
+        return None, None, None, f"file missing: {P.shortpath(path)}", None
+    try:
+        w, h, n, key, toks = read_sprite_mem(path)
+    except (OSError, ValueError) as e:
+        msg = f"cannot read {P.shortpath(path)}: {e}"
+        return None, None, None, msg, msg
+    if spec["frame"] >= n:
+        return None, None, None, f"{os.path.basename(path)} has {n} frames, frame {spec['frame']} does not exist", None
+    sc = cfg["scale"]
+    if w * sc > 32 or h * sc > 32:
+        return None, None, None, f"{os.path.basename(path)} is {w}x{h}: x{sc} = {w * sc}x{h * sc} does not fit the 32x32 frame", None
+    fr = toks[spec["frame"] * w * h:(spec["frame"] + 1) * w * h]
+    out = [cfg["key"]] * FW
+    ox, oy = (32 - w * sc) // 2, (32 - h * sc) // 2
+    opaque = nudged = 0
+    for y in range(h):
+        for x in range(w):
+            c = fr[y * w + x]
+            if c == key:
+                continue
+            if c == cfg["key"]:                                 # real art must not turn into the key colour
+                c ^= 1
+                nudged += 1
+            opaque += 1
+            for dy in range(sc):
+                for dx in range(sc):
+                    out[(oy + y * sc + dy) * 32 + ox + x * sc + dx] = c
+    if opaque == 0:
+        return None, None, None, f"{os.path.basename(path)} frame {spec['frame']} fully transparent", None
+    return out, {"opaque": opaque, "nudged": nudged, "semi": 0}, f"{os.path.basename(path)} #{spec['frame']} x{sc}", None, None
+
+
 def make_frame(spec, root, cfg):
     """-> (words|None, stats|None, label|None, reason|None, unreadable_msg|None)"""
     if spec is None:
         return None, None, None, "frame not configured", None
     if spec.get("skip"):
         return None, None, None, "config skip", None
+    if "mem" in spec:
+        return make_mem_frame(spec, root, cfg)
     path = os.path.join(root, spec["file"])
     if not os.path.isfile(path):
         return None, None, None, f"file missing: {P.shortpath(path)}", None

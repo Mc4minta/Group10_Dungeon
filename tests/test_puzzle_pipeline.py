@@ -67,6 +67,27 @@ def indep(png, scale=2, cut=()):
     return out if opq else None
 
 
+def indep_mem(path, frame, scale=2):
+    """independent parse of a sprite_tool .mem frame (16x16 RGB444), exact upscale, centred in 32x32"""
+    lines = [ln for ln in open(path, encoding="utf-8").read().splitlines()]
+    hdr = [ln for ln in lines if ln.startswith("//")][0]
+    parts = dict(p.split("=") for p in hdr.split() if "=" in p)
+    w, h, key = int(parts["W"]), int(parts["H"]), int(parts["KEY"], 16)
+    toks = [int(t, 16) for ln in lines if not ln.startswith("//") for t in ln.split()]
+    fr = toks[frame * w * h:(frame + 1) * w * h]
+    out = [KEY] * 1024
+    ox, oy = (32 - w * scale) // 2, (32 - h * scale) // 2
+    for y in range(h):
+        for x in range(w):
+            c = fr[y * w + x]
+            if c == key:
+                continue
+            for dy in range(scale):
+                for dx in range(scale):
+                    out[(oy + y * scale + dy) * 32 + ox + x * scale + dx] = c
+    return out
+
+
 class RealProject(unittest.TestCase):
     def setUp(self):
         self.cfg = PZ.load_config(os.path.join(ROOT, "sprites", "puzzle.json"), ROOT)
@@ -99,13 +120,16 @@ class RealProject(unittest.TestCase):
         for i, spec in self.cfg["frames"].items():
             if spec.get("skip") or spec.get("tint") or self.b.result[i]["fallback"]:
                 continue
-            exp = indep(os.path.join(ROOT, spec["file"]), self.cfg["scale"], set(spec["cut"]))
+            if "mem" in spec:
+                exp = indep_mem(os.path.join(ROOT, spec["mem"]), spec["frame"], self.cfg["scale"])
+            else:
+                exp = indep(os.path.join(ROOT, spec["file"]), self.cfg["scale"], set(spec["cut"]))
             self.assertEqual(self.mem[i * N:(i + 1) * N], exp, PZ.NAMES[i])
 
-    def test_unlit_bulb_has_same_shape_as_lit(self):
+    def test_bulbs_come_from_the_torch_mem_and_differ(self):
         off, on = self.mem[0:N], self.mem[N:2 * N]
-        self.assertEqual([v == KEY for v in off], [v == KEY for v in on])
         self.assertNotEqual(off, on)
+        self.assertEqual(self.cfg["frames"][0]["mem"], "picture/props/torch.mem")
 
 
 class Fallbacks(unittest.TestCase):
@@ -116,9 +140,10 @@ class Fallbacks(unittest.TestCase):
         shutil.copy(os.path.join(ROOT, "mem", "puzzle_v1.mem"), os.path.join(self.t, "mem"))
         self.c = jload(os.path.join(ROOT, "sprites", "puzzle.json"))
         for spec in self.c["frames"].values():
-            dst = os.path.join(self.t, spec["file"])
+            rel = spec.get("file") or spec.get("mem")
+            dst = os.path.join(self.t, rel)
             if not os.path.exists(dst):
-                shutil.copy(os.path.join(ROOT, spec["file"]), dst)
+                shutil.copy(os.path.join(ROOT, rel), dst)
         self.cfgp = os.path.join(self.t, "sprites", "puzzle.json")
         jsave(self.cfgp, self.c)
         self.out = os.path.join(self.t, "mem", "puzzle.mem")
@@ -127,7 +152,8 @@ class Fallbacks(unittest.TestCase):
         self.v1sha = sha(self.v1p)
 
     def f(self, i):
-        return os.path.join(self.t, self.c["frames"][str(i)]["file"])
+        sp = self.c["frames"][str(i)]
+        return os.path.join(self.t, sp.get("file") or sp.get("mem"))
 
     def tearDown(self):
         shutil.rmtree(self.t, ignore_errors=True)
@@ -174,6 +200,30 @@ class Fallbacks(unittest.TestCase):
         w = self.ok_shape()
         self.assertIn("does not fit", out)
         self.assertEqual(w[8 * N:9 * N], self.v1[8 * N:9 * N])
+
+    def test_mem_source_missing_corrupt_or_bad_frame_falls_back(self):
+        os.remove(self.f(1))                                              # frame 1 = torch.mem #0 (shared file with frame 0)
+        rc, out = run_build(self.t)
+        w = self.ok_shape()
+        self.assertEqual(rc, 0)
+        self.assertIn("file missing", out)
+        self.assertEqual(w[0:2 * N], self.v1[0:2 * N])                    # both bulbs use the missing file
+        with open(self.f(1), "w") as fh:
+            fh.write("// sprite_tool W=16 H=16 FRAMES=2 KEY=F0F" + chr(10) + "F0F F0F" + chr(10))      # too few words
+        rc, out = run_build(self.t)
+        w = self.ok_shape()
+        self.assertEqual(rc, 1)
+        self.assertIn("cannot read", out)
+        self.assertEqual(w[0:2 * N], self.v1[0:2 * N])
+        shutil.copy(os.path.join(ROOT, "picture/props/torch.mem"), self.f(1))
+        self.c["frames"]["0"]["frame"] = 99                               # frame does not exist
+        jsave(self.cfgp, self.c)
+        rc, out = run_build(self.t)
+        w = self.ok_shape()
+        self.assertEqual(rc, 0)
+        self.assertIn("does not exist", out)
+        self.assertEqual(w[0:N], self.v1[0:N])
+        self.assertNotEqual(w[N:2 * N], self.v1[N:2 * N])
 
     def test_skip_and_bad_config(self):
         self.c["frames"]["9"] = {"skip": True}

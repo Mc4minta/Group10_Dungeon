@@ -191,8 +191,8 @@ the shape and transparency never change. When you have real art: put the paths u
     python scripts/build_puzzle_mem.py              # rebuild   (--check / --preview as before)
 
 * Frames: 0 bulb off, 1 bulb on, 2 lever up, 3 lever down, 4 box, 5 gate closed, 6 gate open, 7-9 item of floor 1-3.
-  Now: bulbs = torch (off = the same torch tinted grey), levers = closed / open chest, box = iron crate, gate = spikes up / retracted,
+  Now: bulbs = your sprite_tool file `picture/props/torch.mem` (on = frame 0 lit torch, off = frame 7 smouldering ember), levers = closed / open chest, box = iron crate, gate = spikes up / retracted,
   items = gold key, silver key, red shield. Preview: `preview/puzzle_contact.png` (new on top, old below).
-* Each 16x16 PNG is scaled exactly 2x (nearest). `"cut": [[r,g,b]]` makes an exact background colour see-through so the floor colour shows through.
+* A frame can come from a PNG (`"file"`) or from a sprite_tool `.mem` (`"mem"` + `"frame"`, header `// sprite_tool W= H= FRAMES= KEY=`; 16x16 RGB444 words, F0F = see-through). Each 16x16 source is scaled exactly 2x (nearest). `"cut": [[r,g,b]]` makes an exact background colour see-through so the floor colour shows through.
 * Missing / skipped / empty / too big file = old art with a warning. Roll back: `cp mem/puzzle_v1.mem mem/puzzle.mem`.
 * Not done (no fitting art in the pack): bullets (`bullet.mem`, 8x8 hitbox) and the melee slash (`effect.mem`) keep the old art.
