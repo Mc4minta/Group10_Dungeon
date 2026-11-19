@@ -1,7 +1,6 @@
 # Sound plan - what every sound is now, where it lives, and how to change it
 
-**Update this file every time a sound changes** (same rule as `docs/SPRITE_STATUS.md`). Last update: sound branch `sprite-zip-sound`,
-after adding sound 11 (boss appears) and sound 12 (room change).
+**Update this file every time a sound changes** (same rule as `docs/SPRITE_STATUS.md`). Last update: custom music track 6 (Connect) on floors 1-3, plus sounds 11 (boss appears) and 12 (room change).
 
 Legend: **FINAL** = you are happy with it. **PLACEHOLDER** = a programmer test tone (all sound effects are tones, none have been designed by you yet).
 
@@ -57,6 +56,11 @@ a bullet (uses MHIT), player death (uses the GAME OVER jingle), pressing buttons
 | 3 | ESCAPE run | urgent alternating notes | 6 s | yes |
 | 4 | WIN screen | short victory jingle | 3 s | no (plays once) |
 | 5 | GAME OVER screen | falling 4-note jingle | 4 s | no |
+
+| 6 (custom) | floors 1-3 (set in `sprites/music.json`) | the melody of **Connect**, extracted from `my_audio/connect_preview.wav` by `scripts/audio_to_music.py` (45 s, 89 notes, chiptune) | 45.6 s | yes |
+
+Track 6 is the one custom slot. To use another song: `python scripts/audio_to_music.py my_audio/song.mp3 --start 10 --duration 40 --grid auto --out sprites/music/song.txt --preview preview/sound/song.wav`
+(listen to the preview WAV), point `tracks` in `sprites/music.json` at it, run `python scripts/make_music.py`, rebuild. It loops. The tool finds ONE melody line; it is a chiptune version, not the recording.
 
 All melodies were written for this project (not copied). They are plain text in `scripts/make_music.py`:
 `C5:2` = note C5 for 2 units, `R:2` = rest. Edit the text, run `python3 scripts/make_music.py`, rebuild the bitstream (it is a ROM). Limit: 127 notes
