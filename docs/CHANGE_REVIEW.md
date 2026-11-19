@@ -131,3 +131,21 @@ Nothing fell back to old art except form 4 (no art configured). Monsters, bosses
 2. `vivado -mode batch -source scripts/create_project.tcl -tclargs build` (or open the project and run synthesis/implementation/bitstream; the .mem files are picked up from `mem/`).
 3. Program the Nexys A7-100T. On the VGA screen look for: title screen; floor 1 purple with bones/skulls in corners; skeleton (A) walking at you and vampire (B) turret; evolve to the green Orc, then the winged Angel; floor 2 teal; floor 3 olive with coloured Simon plates; bosses (skeleton2, skeleton1, vampire); form 4 still the old gold placeholder.
 4. If anything looks wrong: use the rollback table above, rebuild, resynthesize.
+
+---
+
+## 10. UPDATE - later commits (all local, not pushed; `origin/sprite-zip` is still at `6263b47`)
+
+| Commit | What |
+|---|---|
+| `7999012` | Map decoration, per-floor brightness/recolor, `maps_v1/` backup, `tests/test_maps.py` |
+| `5f3f917` | Face lock: after tapping BTNC the facing is locked for `FACE_LOCK_FRAMES` (24) frames, so you can attack and step back one-handed. New `rtl/face_lock.v` (+ `sim/tb_facelock.v`), `top.v` drives `hold_facing` with `bc | face_lock`. This is the ONLY RTL change in the whole branch. 0 turns it off. |
+| `5ea54da` | Per-form exact integer `scale`: Human and Orc 2x, Angel 1x (wings would be cut off at 2x) |
+| `f82ce7b` | Form 4 = Human sheets recoloured gold (luminance `tint`) at 2x; puzzle-room objects pipeline (`sprites/puzzle.json`, `mem/puzzle.mem`): torch bulbs, chest levers, crate, spikes gate, keys/shield items |
+
+Tag `board-test-1` = `f82ce7b` (the version to put on the board; known good).
+
+Verification of `f82ce7b`: `run_sim.sh all` ALL OK; full WIN run with all art: PASS (state 5 at frame 9899). Python tests: player 29, tileset 19, monsters 17, bosses 17, puzzle 15, maps 7.
+Caveat: the Verilator binary used for the WIN run is the prebuilt one (old RTL, reads the new `mem/*.mem` at start); the face-lock RTL is covered by `iverilog` (`tb_facelock`, `tb_top`, `all`) but not by Verilator.
+Bullets (`bullet.mem`) and the melee slash (`effect.mem`) keep the old art: the pack has nothing that fits an 8x8 bullet hitbox or a directional slash.
+Backlog: `docs/NEXT_STEPS.md`.
