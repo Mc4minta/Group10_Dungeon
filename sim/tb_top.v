@@ -2,6 +2,9 @@
 // จำลองทั้งระบบแล้วบันทึกภาพจาก VGA ออกเป็น .ppm (เปิดดูด้วยโปรแกรมภาพ หรือแปลง PNG)
 // รัน: cd mem && iverilog -g2012 -o ../sim/tb_top.vvp ../sim/tb_top.v ../rtl/*.v && vvp ../sim/tb_top.vvp
 module tb_top;
+    `include "params.vh"      // HP1 follows the game parameters, so the display checks follow the tuning
+    localparam [7:0] HP_CH  = "0" + HP1;          // start HP as a character
+    localparam [7:0] HP1_CH = "0" + (HP1 - 1);    // HP after one hit
     reg clk = 0; always #5 clk = ~clk;
     reg rstn = 0;
     reg BTNC = 0, BTNU = 0, BTND = 0, BTNL = 0, BTNR = 0;
@@ -81,17 +84,17 @@ module tb_top;
         grab("../sim/frame_start_f1.ppm");
         // ---------- ตรวจ 7-seg / LED / เสียง จากขา output จริง (ต้องแตะ scan ครบทุกหลัก: 1 รอบ ~ 1M clock) ----------
         repeat (1_200_000) @(posedge clk);
-        dchk(shown[7] == "1" && shown[6] == "-" && shown[5] == "3" && shown[4] == "-" &&
-             shown[3] == "0" && shown[2] == "0" && shown[1] == "0" && shown[0] == "0", "PLAY start: 7-seg shows 1-3-00.00");
+        dchk(shown[7] == "1" && shown[6] == "-" && shown[5] == HP_CH && shown[4] == "-" &&
+             shown[3] == "0" && shown[2] == "0" && shown[1] == "0" && shown[0] == "0", "PLAY start: 7-seg shows 1-HP1-00.00");
         dchk(dps[2] === 1'b1 && dps[7] === 1'b0 && dps[3] === 1'b0 && dps[1] === 1'b0 && dps[0] === 1'b0, "decimal point only on digit 2 (mm.ss)");
-        dchk(LED[8] && LED[9] && LED[10] && !LED[11], "LED8-10 on, LED11 off (HP 3)");
+        dchk(LED[8] === (HP1 >= 1) && LED[9] === (HP1 >= 2) && LED[10] === (HP1 >= 3) && LED[11] === (HP1 >= 4), "HP LEDs 8-11 show HP1");
         dchk(!LED[14], "LED14 (sprint) off");
         SW[15] = 1; repeat (200) @(posedge clk);
         dchk(LED[14], "SW15 on -> LED14 on (sprint)");
         SW[15] = 0; repeat (200) @(posedge clk);
         dchk(!LED[14], "SW15 off -> LED14 off");
         SW[4] = 1; repeat (1_200_000) @(posedge clk);              // debug take_hit
-        dchk(shown[5] == "2" && !LED[10] && LED[9] && LED[8], "after SW4 hit: HP digit 2, LED10 off");
+        dchk(shown[5] == HP1_CH && LED[8] === (HP1 - 1 >= 1) && LED[9] === (HP1 - 1 >= 2) && LED[10] === (HP1 - 1 >= 3) && LED[11] === (HP1 - 1 >= 4), "after SW4 hit: HP digit HP1-1, HP LEDs follow");
         SW[4] = 0;
         dchk(AUD_SD === 1'b1, "AUD_SD = 1 (amplifier enabled)");
         pwm_edges = 0; pwm_q = AUD_PWM;
