@@ -96,6 +96,8 @@ The build must prove it fits: I will report the block RAM used before and after,
 
 To decide: tell me which sounds you want as real recordings, how long each is, and whether voice or music.
 
+The full plan to turn any sound into the game (3 routes, budget, order, questions for you) is in `docs/SOUND_PIPELINE_PLAN.md`.
+
 ## 7. Files
 
 | File | Purpose |

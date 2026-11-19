@@ -61,6 +61,7 @@ Already done (for reference): player art (forms 1-3), tileset, enemies, bosses, 
 - [ ] **F1. Review the 12 sound effects on the board speaker** (all are placeholder tones): adjust pitch / length / loudness in `rtl/params.vh` (`SFX_*`, `SFX_AMP`, `BGM_AMP`).
 - [ ] **F2. Missing sounds:** title-screen music, evolve fanfare, boss-room music, melee "swish", story / dialogue blips (see SOUND_PLAN section 5).
 - [ ] **F3. Better music:** new melodies in `scripts/make_music.py` (6 tracks now: floors 1-3, escape, win, game over).
+- [ ] **F5. Turn any sound into the game:** plan in `docs/SOUND_PIPELINE_PLAN.md` (SFX fit tool, MIDI / melody to music, samples in block RAM). Waiting for your answers (section 6 of the plan).
 - [ ] **F4. Real recordings (MP3 / WAV):** NOT playable directly. Short clips (1-3 s) can be converted to 8 kHz 8-bit samples in block RAM with a new sample-player (needs Verilog, about 2 RAMB36 per second); full songs do not fit. Decide which clips you want, then I build `scripts/make_samples.py` + the sample channel (SOUND_PLAN section 6).
 
 ## G. Story integration (NEW - to consult)
