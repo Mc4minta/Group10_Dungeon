@@ -1,0 +1,19 @@
+{
+  "_help": [
+    "Custom background music. The music ROM has ONE custom slot (track 6). Rebuild: python scripts/make_music.py  (it also writes rtl/bgm_cfg.vh), then re-synthesise.",
+    "tracks.<name>.file = text 'NOTE:frames ...' (made by scripts/audio_to_music.py from an audio file, or written by hand).",
+    "play.<place> = 'default' (built-in track) or the track name. Places: floor1 floor2 floor3 escape win gameover. A custom track loops.",
+    "A missing / invalid file never breaks the build: the default music plays and a warning is printed."
+  ],
+  "tracks": {
+    "connect": { "file": "sprites/music/connect.txt" }
+  },
+  "play": {
+    "floor1": "connect",
+    "floor2": "connect",
+    "floor3": "connect",
+    "escape": "default",
+    "win": "default",
+    "gameover": "default"
+  }
+}

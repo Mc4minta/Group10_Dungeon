@@ -351,7 +351,9 @@ module top #(
     wire [12:1] aud_ev = {door_evt, b_act & ~b_act_d, ev_melee, ev_shoot, ev_mdmg | b_dmg, ev_ok, pz_hit,
                           (doors_open & ~doors_d) | (gate_open & ~gate_d), pz_got | sw3_rise,
                           ev_mdie | b_died, b_stunned & ~stun_d, obj_hit | sw4_rise};
-    wire [2:0] bgm_track = is_esc ? 3'd4 - 3'd1 : is_win ? 3'd4 : (state == S_GAME_OVER) ? 3'd5 : {1'b0, floor};
+    `include "bgm_cfg.vh"
+    wire [2:0] bgm_floor = (floor == 2'd0) ? BGM_F1 : (floor == 2'd1) ? BGM_F2 : BGM_F3;
+    wire [2:0] bgm_track = is_esc ? BGM_ESC : is_win ? BGM_WIN : (state == S_GAME_OVER) ? BGM_OVER : bgm_floor;
     localparam AUD_TSHIFT = (CE_DIV == 1) ? 2 : (CE_DIV == 2) ? 1 : 0;   // sim CE_DIV = 1: เฟรมสั้นลง 4 เท่า -> ย่อ half-period
     wire [7:0] aud_sample;
     audio #(.TSHIFT(AUD_TSHIFT)) aud (.clk(clk), .rst(rst), .frame_tick(frame_tick), .ev(aud_ev), .shoot_k(ev_shoot_k),

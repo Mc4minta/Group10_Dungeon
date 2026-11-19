@@ -155,6 +155,21 @@ module tb_audio;
         @(posedge tick); @(posedge clk); @(posedge clk);
         check(dut.b_hp == e0[17:0], "ESCAPE track plays its own first note");
         check(e0[31:24] <= 14, "ESCAPE notes are short (urgent)");
+        // ---- custom track (6, from sprites/music.json): plays its own notes and LOOPS like the floor tracks
+        track = 6; repeat (4) @(posedge clk);
+        check(dut.cur_track == 3'd6 && dut.pos == 0, "custom track 6 selected immediately");
+        e0 = dut.mrom[6*128];
+        if (e0[31:24] != 0) begin                                  // the slot is filled
+            @(posedge tick); @(posedge clk); @(posedge clk);
+            check(dut.b_hp == e0[17:0] && dut.pos == 1, "custom track plays its first note");
+            for (n = 0; n < 127 && dut.mrom[6*128 + n][31:24] != 0; n = n + 1) ;
+            dut.pos = n - 1; dut.dur_cnt = 0;
+            @(posedge tick); @(posedge clk); @(posedge clk);
+            check(dut.pos == n, "custom track reaches its last note");
+            k = 0; while (dut.pos != 1 && k < 400) begin @(posedge tick); @(posedge clk); @(posedge clk); k = k + 1; end
+            check(dut.pos == 1 && dut.cur_track == 3'd6 && !dut.b_done, "custom track loops back to the first note");
+        end
+        track = 7; repeat (4) @(posedge clk);
         // jingle WIN (4): เล่นครั้งเดียวแล้วหยุด
         track = 4; repeat (4) @(posedge clk);
         k = 0; while (!dut.b_done && k < 300) begin @(posedge tick); @(posedge clk); @(posedge clk); k = k + 1; end

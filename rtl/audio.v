@@ -105,7 +105,7 @@ module audio #(
     end
 
     // ---------- BGM ----------
-    reg [31:0] mrom [0:767];
+    reg [31:0] mrom [0:1023];                      // 8 tracks x 128 (6 = custom track from sprites/music.json, 7 = none)
     initial $readmemh("music.mem", mrom);
     reg [2:0]  cur_track = 3'd7;
     reg [6:0]  pos = 0;
@@ -114,7 +114,7 @@ module audio #(
     reg        b_done = 1'b0;
     reg  [31:0] ent = 32'd0;                       // อ่าน ROM แบบ synchronous (1 register stage): ใช้ได้เพราะ frame_tick ห่างกันหลายล้าน clock
     always @(posedge clk) ent <= mrom[{cur_track, pos}];
-    wire        loop = (cur_track < 3'd4);
+    wire        loop = (cur_track < 3'd4) || (cur_track == 3'd6);   // floors / escape / custom track loop, jingles play once
     always @(posedge clk) begin
         if (rst || !bgm_en) begin
             cur_track <= 3'd7; pos <= 0; dur_cnt <= 0; b_hp <= 0; b_done <= 1'b0;

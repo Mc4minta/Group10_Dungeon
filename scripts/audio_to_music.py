@@ -222,6 +222,8 @@ def fit(m, max_entries, min_frames, rest_frames):
         notes = to_notes(m, mf, rest_frames)
         while notes and notes[0][0] == 0:
             notes = notes[1:]
+        while notes and notes[-1][0] == 0:                    # no silence at the end (the loop would pause)
+            notes = notes[:-1]
         if len(notes) <= max_entries or mf > 60:
             return notes[:max_entries], mf
         mf += 1

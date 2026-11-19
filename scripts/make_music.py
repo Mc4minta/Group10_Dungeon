@@ -10,6 +10,7 @@
 แก้ทำนองที่นี่แล้วรัน: python3 scripts/make_music.py
 """
 import os
+import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NAMES = {'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 'F': 5, 'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11}
@@ -59,6 +60,25 @@ for notes, unit in TRACKS:
     for frames, h in ent:
         mem.append((frames << 24) | h)
     mem += [0] * (128 - len(ent))               # dur = 0 = จบ
+# custom track (track 6) + reserved track 7 (= "no music" sentinel in audio.v); see scripts/music_extra.py and sprites/music.json
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import music_extra
+try:
+    extra = music_extra.load(ROOT)
+except ValueError as e:
+    print('ERROR:', e)
+    sys.exit(2)
+for w in extra['warnings']:
+    print('WARNING:', w)
+ent6 = extra['entries'] or []
+for frames, h in ent6:
+    mem.append((frames << 24) | h)
+mem += [0] * (128 - len(ent6))                  # track 6
+mem += [0] * 128                                # track 7 (reserved)
+assert len(mem) == 1024
+if music_extra.write_text_if_changed(os.path.join(ROOT, 'rtl', 'bgm_cfg.vh'), music_extra.bgm_vh(extra['ids'])):
+    print('wrote rtl/bgm_cfg.vh')
+print('custom track:', extra['name'] or 'none', '| plays:', {k: v for k, v in extra['ids'].items()})
 with open(os.path.join(ROOT, 'mem', 'music.mem'), 'w') as f:
     f.write('\n'.join(f'{v:08x}' for v in mem) + '\n')
 tot = [sum(int(t.split(':')[1]) * u for t in n.split()) for n, u in TRACKS]
