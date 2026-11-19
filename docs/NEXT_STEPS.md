@@ -46,10 +46,28 @@ Already done (for reference): player art (forms 1-3), tileset, enemies, bosses, 
 
 ## D. Gameplay and feel
 
-- [ ] **D1. Better board controls.** Switch-based facing lock (SW14) as a fallback, or auto-aim to the nearest enemy.
-- [ ] **D2. Feedback:** screen shake on player damage, brighter evolve flash.
-- [ ] **D3. Enemy variety:** third enemy type with the skeleton2 art (faster/weaker, or one that shoots in line).
-- [ ] **D4. More sound effects:** pickup, door open, boss intro.
+- [x] **D1. Better board controls.** DONE on branch `sprite-zip-rtl`: SW14 = hold facing (plus the BTNC face lock). Auto-aim not done.
+- [x] **D2. Feedback:** screen shake after being hit DONE (`HURT_SHAKE_FRAMES = 12`, branch `sprite-zip-rtl`). Brighter evolve flash not done.
+- [ ] **D3. Enemy variety:** NOT DONE on purpose: a third enemy type needs new state bits in `objects.v`, more monster frames, and would make the game HARDER while you asked for easier. Revisit after the demo.
+- [x] **D4. More sound effects:** DONE on branch `sprite-zip-sound`: boss appears (sound 11) and room change (sound 12). Pickup and room-doors-open sounds already existed (sounds 4 and 5). See `docs/SOUND_PLAN.md`.
+
+## H. Lever art (NEW)
+
+- [x] **H1. Replace the lever with `picture/new_switch.png`** DONE (frame 1 = up, frame 4 = down; see `docs/SPRITE_STATUS.md`).
+- [ ] **H2. Make the two lever states easier to see:** left and right frames differ by only 12 pixels (2 px shift of the inner dash). Redraw, or in-game animation (needs Verilog).
+
+## F. Sound design (NEW) - plan and status in `docs/SOUND_PLAN.md`
+
+- [ ] **F1. Review the 12 sound effects on the board speaker** (all are placeholder tones): adjust pitch / length / loudness in `rtl/params.vh` (`SFX_*`, `SFX_AMP`, `BGM_AMP`).
+- [ ] **F2. Missing sounds:** title-screen music, evolve fanfare, boss-room music, melee "swish", story / dialogue blips (see SOUND_PLAN section 5).
+- [ ] **F3. Better music:** new melodies in `scripts/make_music.py` (6 tracks now: floors 1-3, escape, win, game over).
+- [ ] **F4. Real recordings (MP3 / WAV):** NOT playable directly. Short clips (1-3 s) can be converted to 8 kHz 8-bit samples in block RAM with a new sample-player (needs Verilog, about 2 RAMB36 per second); full songs do not fit. Decide which clips you want, then I build `scripts/make_samples.py` + the sample channel (SOUND_PLAN section 6).
+
+## G. Story integration (NEW - to consult)
+
+- [ ] **G1. Decide the story format** with the team: where text appears (title / intro, between floors, boss intro, ending), how many lines, any pictures. Constraints: text is drawn with the 8x8 font (`mem/font.mem`, `mem/text.mem`, at most 2 lines per screen, `rtl/text_layout.vh`); new screens need a state in the FSM (Verilog) or can reuse existing screens (TITLE, FLOOR CLEAR, WIN, GAME OVER).
+- [ ] **G2. Write the script** (short lines, English or Thai? the font file decides which characters exist) and send it to me.
+- [ ] **G3. Implement:** text ROM + screens + optional dialogue sound (F2), test, board build.
 
 ## H. Lever art (NEW)
 

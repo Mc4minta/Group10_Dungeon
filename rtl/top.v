@@ -334,7 +334,9 @@ module top #(
     // เหตุการณ์ -> pulse 1 clock; ขอบขึ้นของสัญญาณระดับ (มึน, ประตูเปิด, gate เปิด) ตรวจที่นี่
     reg stun_d = 1'b0, doors_d = 1'b1, gate_d = 1'b0;
     always @(posedge clk) begin stun_d <= b_stunned; doors_d <= doors_open; gate_d <= gate_open; end
-    wire [10:1] aud_ev = {ev_melee, ev_shoot, ev_mdmg | b_dmg, ev_ok, pz_hit,
+    reg b_act_d = 1'b0;
+    always @(posedge clk) b_act_d <= b_act;
+    wire [12:1] aud_ev = {door_evt, b_act & ~b_act_d, ev_melee, ev_shoot, ev_mdmg | b_dmg, ev_ok, pz_hit,
                           (doors_open & ~doors_d) | (gate_open & ~gate_d), pz_got | sw3_rise,
                           ev_mdie | b_died, b_stunned & ~stun_d, obj_hit | sw4_rise};
     wire [2:0] bgm_track = is_esc ? 3'd4 - 3'd1 : is_win ? 3'd4 : (state == S_GAME_OVER) ? 3'd5 : {1'b0, floor};

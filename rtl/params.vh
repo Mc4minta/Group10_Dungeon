@@ -124,4 +124,7 @@ localparam [17:0] SFX_SHOOT0_HP = 18'd27778;  localparam signed [17:0] SFX_SHOOT
 localparam [17:0] SFX_SHOOT1_HP = 18'd35714;  localparam signed [17:0] SFX_SHOOT1_SL = 2381;  localparam SFX_SHOOT1_LEN = 6;   // 1400->1000 Hz
 localparam [17:0] SFX_SHOOT2_HP = 18'd20833;  localparam signed [17:0] SFX_SHOOT2_SL = 2604;  localparam SFX_SHOOT2_LEN = 4;   // 2400->1600 Hz
 localparam [17:0] SFX_SHOOT3_HP = 18'd83333;  localparam signed [17:0] SFX_SHOOT3_SL = 7292;  localparam SFX_SHOOT3_LEN = 16;   // 600->250 Hz
+// เสียงใหม่ (D4): 11 = บอสปรากฏ เสียงต่ำยาว, 12 = เปลี่ยนห้อง (ผ่านประตู) บี๊บสั้น (priority ต่ำสุด; บอสแทรกประตูได้)
+localparam [17:0] SFX_DOOR_HP = 18'd50000;  localparam signed [17:0] SFX_DOOR_SL = 0;  localparam SFX_DOOR_LEN = 4;   // 1000 Hz
+localparam [17:0] SFX_BOSS_HP = 18'd200000;  localparam signed [17:0] SFX_BOSS_SL = 1500;  localparam SFX_BOSS_LEN = 30;   // 250->204 Hz
 localparam [17:0] SFX_MELEE_HP = 18'd111111;  localparam signed [17:0] SFX_MELEE_SL = 12698;  localparam SFX_MELEE_LEN = 7;   // 450->250 Hz
