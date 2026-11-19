@@ -17,3 +17,6 @@ vivado_mic/
 # sprite pipeline previews (generated); layout guide is referenced by sprites/README.md
 preview/*
 !preview/layout_guide.png
+
+# generated clean copies of sheets with odd file names
+picture/_clean/
