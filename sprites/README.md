@@ -116,3 +116,22 @@ and `sprites/tileset.json`. **Generated:** `mem/tileset.mem`. **Old art, never t
 * Roll back: `cp mem/tileset_v1.mem mem/tileset.mem` (or disable the floors and rebuild).
 * The map layouts (`maps/*.txt`) and tile ids are not changed, only how tiles look. Rooms/doors/puzzles behave exactly as before.
 * `scripts/make_placeholders.py` also rewrites `mem/tileset.mem`: do not run it any more (or rebuild afterwards).
+
+---
+
+# Enemies (monster.mem)
+
+**Source of truth:** `picture/enemies/*.png` (from Enemy_Animations_Set.zip) and `sprites/monsters.json`.
+**Generated:** `mem/monster.mem` (4 frames of 32x32: A0 A1 = monster A the chaser, B0 B1 = monster B the turret).
+**Old art, never touched:** `mem/monster_v1.mem`.
+
+    python scripts/build_monster_mem.py              # rebuild   (--check / --preview as before)
+
+* Chosen: **A = skeleton1 movement, columns 1 and 4**; **B = vampire idle, columns 0 and 3** (most different skeleton from the
+  player's bone-coloured ... see `preview/monster_contact.png` and `preview/monster_options.png` for the other pairings).
+  A (a walker) and B (a stationary shooter) look clearly different from each other. No scaling, cells are already 32x32.
+* Change a frame: edit `"monsters"` -> `"A"`/`"B"` -> `"frames"` in `monsters.json`, e.g. `{ "sheet": "skeleton2_move", "col": 3 }`
+  (col counted from 0, row from 1, default row 1). Sheets are listed under `"sheets"`;
+  `preview/monster_source_<name>.png` shows every sheet with row/column numbers.
+* `"enabled": false` or `{ "skip": true }` = old art. Missing sheet / empty or outside cell = old art with a warning.
+* Roll back: `cp mem/monster_v1.mem mem/monster.mem`. `scripts/make_placeholders.py` rewrites `mem/monster.mem`: do not run it.

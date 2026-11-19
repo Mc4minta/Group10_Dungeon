@@ -1,0 +1,30 @@
+{
+  "_help": [
+    "Enemy sprites. mem/monster.mem is GENERATED from this file + the PNG strips.  Rebuild: python scripts/build_monster_mem.py",
+    "monster.mem has 4 frames of 32x32: A0 A1 = monster A (the chaser), B0 B1 = monster B (the turret). No scaling.",
+    "Each sheet is a strip (or grid) of 32x32 cells. frame = {\"sheet\": name, \"col\": n, \"row\": 1}  (col from 0, row from 1).",
+    "Anything not listed, skipped, outside the sheet or fully transparent falls back to mem/monster_v1.mem (old art).",
+    "Keys starting with _ are comments."
+  ],
+  "key_color": "F0F",
+  "alpha_threshold": 128,
+  "fallback_mem": "mem/monster_v1.mem",
+  "output_mem": "mem/monster.mem",
+  "sheets": {
+    "skeleton1_move": "picture/enemies/enemies-skeleton1_movement.png",
+    "skeleton1_idle": "picture/enemies/enemies-skeleton1_idle.png",
+    "skeleton2_move": "picture/enemies/enemies-skeleton2_movemen.png",
+    "skeleton2_idle": "picture/enemies/enemies-skeleton2_idle.png",
+    "vampire_idle": "picture/enemies/enemies-vampire_idle.png",
+    "vampire_move": "picture/enemies/enemies-vampire_movement.png"
+  },
+  "monsters": {
+    "A": { "enabled": true, "frames": [ { "sheet": "skeleton1_move", "col": 1 }, { "sheet": "skeleton1_move", "col": 4 } ] },
+    "B": { "enabled": true, "frames": [ { "sheet": "vampire_idle", "col": 0 }, { "sheet": "vampire_idle", "col": 3 } ] }
+  },
+  "alternatives": {
+    "B = skeleton2 idle (cols 0,3)": [ { "sheet": "skeleton2_idle", "col": 0 }, { "sheet": "skeleton2_idle", "col": 3 } ],
+    "B = skeleton2 move (cols 3,6)": [ { "sheet": "skeleton2_move", "col": 3 }, { "sheet": "skeleton2_move", "col": 6 } ],
+    "B = vampire move (cols 1,4)": [ { "sheet": "vampire_move", "col": 1 }, { "sheet": "vampire_move", "col": 4 } ]
+  }
+}
