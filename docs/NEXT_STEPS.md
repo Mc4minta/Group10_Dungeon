@@ -10,7 +10,7 @@ Tick `[x]` when an item is done and update `docs/SPRITE_STATUS.md` / `docs/SOUND
 
 | Area | What | Where to read |
 |---|---|---|
-| Art pipeline | player forms 1-3 (Human / Orc 2x, Angel 1x), form 4 = gold Human, tileset (3 floors recoloured), enemies, 3 bosses, puzzle objects, new lever, map decoration | `docs/SPRITE_STATUS.md`, `sprites/README.md` |
+| Art pipeline | player forms 1-3 (Human / Orc / Angel 2x), form 4 = gold Human, tileset (3 floors recoloured), enemies, 3 bosses, puzzle objects, new lever, map decoration | `docs/SPRITE_STATUS.md`, `sprites/README.md` |
 | Folder rename | `picture/` is now `my_asset/` (all paths updated) | `docs/README.md` |
 | Difficulty (easier) | HP 4, 90 invulnerable frames, chasers at half speed | `docs/BOARD_TEST_STEPS.md` |
 | Controls / feel | BTNC face lock, SW14 facing lock, screen shake on hit | `docs/BOARD_TEST_STEPS.md` |

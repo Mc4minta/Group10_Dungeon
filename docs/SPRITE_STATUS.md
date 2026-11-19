@@ -16,7 +16,7 @@ How to change any sprite: see `sprites/README.md`. One command for everything: `
 | 3 | **Melee slash** (form 1 attack effect) | OLD ART (white arc) | 4 arcs, one per direction, 32x32 | same: I add the pipeline |
 | 4 | **Levers** (lightbulb puzzle) | FINAL art from `my_asset/new_switch.png`, but the two states differ by only 12 pixels (the inner yellow dash moves 2 px) so it is hard to see on screen | optional: redraw with a bigger knob travel / a colour change between left and right | `my_asset/new_switch.png` (cells [0,0] and [1,0]) + `sprites/puzzle.json` frames 2, 3 |
 | 5 | **Title screen / GAME OVER / WIN screens** | OLD ART: plain colour fills + text | optional: a logo/background (needs a ROM + renderer change, Verilog) | later |
-| 6 | **Angel size** | FINAL art but small (1x, wings 22 px wide) | optional: redraw with a narrower wingspan so it can use 2x like Human and Orc | `sprites/sprites.json` `forms."3".scale` |
+| 6 | **Angel size** | FINAL art, now 2x (body matches Human / Orc); wing tips are cut flat at the frame edge | optional: redraw with a narrower wingspan so the wings fit whole | `sprites/sprites.json` `forms."3".scale` |
 | 7 | **Orc / Angel idle sheets** | none (idle = walk frame 0) | optional: idle sheets like `Human/Idle.png` | `forms."2"/"3".sheets.idle` |
 
 ## 2. Player (mem/player.mem, 48 frames, `scripts/build_player_mem.py`)
@@ -25,7 +25,7 @@ How to change any sprite: see `sprites/README.md`. One command for everything: `
 |---|---|---|---|---|
 | 1 Human | `my_asset/Character/Human/Walk.png`, `Idle.png` | 2x | FINAL | idle pose = Idle.png col 0, steps = Walk col 1 / col 3 |
 | 2 Orc | `my_asset/Character/ORc/form2_Walk.png` | 2x | FINAL (walk only) | no idle sheet |
-| 3 Angel | `my_asset/Character/Angel/Angel_walk.png.png` | 1x | FINAL but small | wings would be cut off at 2x; odd file name handled (clean copy in `my_asset/_clean/`) |
+| 3 Angel | `my_asset/Character/Angel/Angel_walk.png.png` | 2x | FINAL, wing tips cut at the frame edge | body now same size as the others; odd file name handled (clean copy in `my_asset/_clean/`) |
 | 4 | Human sheets + gold tint | 2x | **PLACEHOLDER** | see "Needs your art" #1 |
 
 Art available but NOT used by the game yet (needs Verilog, see NEXT_STEPS B): Human `Attack.png`, `Dmg.png`, `Jump.png`, `ChargedAttack.png`, `SoulDie.png`, `SpinDie.png`, the 16-frame idle loop.

@@ -28,7 +28,7 @@
       }
     },
     "2": { "enabled": true, "cell": 32, "scale": 2, "sheets": { "walk": "my_asset/Character/ORc/form2_Walk.png" } },
-    "3": { "enabled": true, "cell": 32, "sheets": { "walk": "my_asset/Character/Angel/Angel_walk.png.png" } },
+    "3": { "enabled": true, "cell": 32, "scale": 2, "sheets": { "walk": "my_asset/Character/Angel/Angel_walk.png.png" } },
     "4": {
       "enabled": true,
       "cell": 32,
