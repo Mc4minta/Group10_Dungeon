@@ -27,6 +27,7 @@ localparam [7:0] CLEAR_FRAMES  = 8'd120;   // FLOOR_CLEAR 2 วิ
 // ---------- การโจมตีของผู้เล่น ----------
 localparam MELEE_FRAMES   = 8;             // ร่าง 1: hit box อยู่กี่เฟรม (24x16 หน้าตัว)
 localparam MELEE_COOLDOWN = 20;            // ร่าง 1: เฟรมจากกดถึงกดได้อีก
+localparam FACE_LOCK_FRAMES = 24;          // หลังกด BTNC: ล็อกทิศ N เฟรม (ถอยหลังพร้อมฟันได้ด้วยมือเดียว) 0 = ปิด
 localparam PB_SPEED       = 4;             // กระสุนผู้เล่น px/เฟรม (8x8)
 localparam PB_COOLDOWN    = 15;            // ร่าง 2-4: เฟรมระหว่างนัด (กดค้างยิงซ้ำ)
 

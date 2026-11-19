@@ -29,6 +29,7 @@ case "${1:-player}" in
   world)  run tb_world  ../sim/tb_world.v ../rtl/world.v ;;
   sprites) run tb_sprites ../sim/tb_sprites.v ../rtl/roms.v ;;
   tileset) run tb_tileset ../sim/tb_tileset.v ../rtl/roms.v ;;
+  facelock) run tb_facelock ../sim/tb_facelock.v ../rtl/face_lock.v ;;
   monster) run tb_monster ../sim/tb_monster.v ../rtl/roms.v ;;
   bosssprites) run tb_bosssprites ../sim/tb_bosssprites.v ../rtl/roms.v ;;
   fsm)    run tb_game_fsm ../sim/tb_game_fsm.v ../rtl/game_fsm.v ;;

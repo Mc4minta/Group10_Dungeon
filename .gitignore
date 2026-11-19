@@ -20,3 +20,6 @@ preview/*
 
 # generated clean copies of sheets with odd file names
 picture/_clean/
+vivado_board/
+vivado_build.*
+vivado_board_build.*

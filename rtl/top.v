@@ -70,6 +70,9 @@ module top #(
     wire hsync, vsync, active, frame_tick;
     vga_sync vga (.clk(clk), .rst(rst), .ce(ce), .hcount(hcount), .vcount(vcount),
                   .hsync(hsync), .vsync(vsync), .active(active), .frame_tick(frame_tick));
+    // ล็อกทิศหลังกด BTNC: กดฟันแล้วถอยหลังได้โดยตัวไม่หันหนี (แทนการต้องค้าง BTNC + ปุ่มทิศพร้อมกัน); FACE_LOCK_FRAMES = 0 ปิด
+    wire face_lock;
+    face_lock #(FACE_LOCK_FRAMES) flk (.clk(clk), .rst(rst), .frame_tick(frame_tick), .press(bc_rise), .lock(face_lock));
 
     // ---------- world (ห้อง/ประตู) + game FSM ----------
     wire [1:0] floor;
@@ -152,7 +155,7 @@ module top #(
     wire is_win   = (state == S_WIN);
 
     player pl (.clk(clk), .rst(rst), .frame_tick(frame_tick),
-               .up(bu), .down(bd), .left(bl), .right(br), .hold_facing(bc),
+               .up(bu), .down(bd), .left(bl), .right(br), .hold_facing(bc | face_lock),
                .form(form), .speed(speed), .freeze(freeze),
                .grid(grid), .doors_open(doors_open), .open_L(open_L),
                .blk0(blk0), .blk1(blk1), .blk2(blk2), .blk_en(blk_en),
