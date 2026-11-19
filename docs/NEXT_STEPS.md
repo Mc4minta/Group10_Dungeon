@@ -51,6 +51,11 @@ Already done (for reference): player art (forms 1-3), tileset, enemies, bosses, 
 - [ ] **D3. Enemy variety:** third enemy type with the skeleton2 art (faster/weaker, or one that shoots in line).
 - [ ] **D4. More sound effects:** pickup, door open, boss intro.
 
+## H. Lever art (NEW)
+
+- [x] **H1. Replace the lever with `picture/new_switch.png`** DONE: frame 1 (fully left) = lever up, frame 4 (fully right) = lever down, last frame = fully left again, others are animation frames (unused: the game switches state instantly).
+- [ ] **H2. Make the two lever states easier to see:** the sheet's left and right frames differ by only 12 pixels (a 2 px shift of the inner yellow dash). Redraw with a bigger shift or a colour change, or ask me to add an in-game 2-frame animation (needs Verilog).
+
 ## E. Polish for the demo
 
 - [ ] **E1. Title and win screens:** real art and the team name instead of plain text / solid colour.
