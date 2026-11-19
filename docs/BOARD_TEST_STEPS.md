@@ -21,7 +21,7 @@ Before building, `scripts/check_all.sh --fast` should print `CHECK_ALL: PASS` (i
 3. In the Tcl Console run:
    `source E:/vivado/Group10_Dungeon/Group10_Dungeon/scripts/create_project.tcl`
    This rebuilds the project from the folders, so the new files (`face_lock.v`, `player_frame.v`, new `.mem` files and headers) are all included. It opens the new project.
-4. Check **Sources**: about 19 `.v` files (including `face_lock`, `player_frame`, `audio`, `objects`, `boss`, `puzzles`) and the `.mem` files.
+4. Check **Sources**: about 19 `.v` files (including `face_lock`, `player_frame`, `hud`, `audio`, `objects`, `boss`, `puzzles`) and the `.mem` files.
 5. Click **Generate Bitstream** (it runs synthesis and implementation first).
 6. When it says done, open **Reports -> Report Utilization** and write down **Block RAM Tile** and, in **Report Timing Summary**, **WNS** (should be >= 0). Send me both numbers.
 7. **Open Hardware Manager -> Open Target -> Auto Connect -> Program Device** and pick `vivado/Group10_Dungeon.runs/impl_1/top.bit`.

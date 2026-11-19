@@ -15,8 +15,9 @@ Tick `[x]` when an item is done and update `docs/SPRITE_STATUS.md` / `docs/SOUND
 | Difficulty (easier) | HP 4, 90 invulnerable frames, chasers at half speed | `docs/BOARD_TEST_STEPS.md` |
 | Controls / feel | BTNC face lock, SW14 facing lock, screen shake on hit | `docs/BOARD_TEST_STEPS.md` |
 | Sound | 12 sound effects (2 new), 7 music tracks (Connect on floors 1-3), `audio_to_music.py` | `docs/SOUND_PLAN.md` |
+| Health display | on-screen hearts (player) + health bar (boss), `hud.v`, `mem/hud.mem`, about +3 Block RAM | `docs/SPRITE_STATUS.md` section 5b |
 | Animations | Human idle / attack / hurt / death built, **OFF by default** (flags in `sprites.json`) | item P3.1 below |
-| Tooling | `scripts/check_all.sh`, one-command rebuild + preview `scripts/update_sprites.sh`, 7 Python test suites, iverilog suite | `docs/README.md` |
+| Tooling | `scripts/check_all.sh`, one-command rebuild + preview `scripts/update_sprites.sh`, 8 Python test suites, iverilog suite | `docs/README.md` |
 
 ---
 

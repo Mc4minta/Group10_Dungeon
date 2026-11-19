@@ -53,6 +53,8 @@ module renderer (
     input  wire [2:0]   txt_scr,          // ข้อความ: 0 ไม่มี 1 TITLE 2 FLOOR CLEAR 3 ESCAPE! 4 WIN 5 GAME OVER
     input  wire         txt_blink,        // 1 = ซ่อนบรรทัดที่กะพริบ
     input  wire [3:0]   t_floor, t_m1, t_m0, t_s1, t_s0,   // ตัวเลขสดในข้อความ
+    input  wire [2:0]   hud_hp, hud_hp_max,                // player hearts (hud.v)
+    input  wire [4:0]   hud_b_hp,                          // boss bar (shown while boss_act)
     output reg  [11:0]  color = 12'h000
 );
     `include "text_layout.vh"
@@ -207,10 +209,15 @@ module renderer (
         r2_font <= fontmem[r1_faddr];
     end
     wire txt_on = r2_txt && r2_font[3'd7 - r2_gx];
+    // on-screen health: hearts (player) + bar (boss), same latency as the tile path; game screen only
+    wire [11:0] hud_px; wire hud_on;
+    hud hud0 (.clk(clk), .hcount(hcount), .vcount(vcount), .hp(hud_hp), .hp_max(hud_hp_max), .boss_on(boss_act), .floor(floor),
+              .b_hp(hud_b_hp), .hud_px(hud_px), .hud_on(hud_on));
 
     // ======================= stage 3: เลือกชั้น =======================
     always @(posedge clk) begin
         if (txt_on)                                  color <= 12'hFFF;    // ข้อความอยู่บนสุด
+        else if (r2_scr == 2'd0 && hud_on)           color <= hud_px;     // hearts / boss bar above the world
         else if (DEATH_ANIM_EN && r2_scr == 2'd2 && r2_p && r2_asel == 3'd4 && spr_fin != C_T) color <= spr_fin;   // death animation over the GAME OVER colour
         else if (r2_scr == 2'd2)                     color <= C_OVER;
         else if (r2_scr == 2'd3)                     color <= C_WIN;

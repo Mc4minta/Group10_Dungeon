@@ -147,3 +147,15 @@ module bossspr_rom (
     initial $readmemh("boss.mem", mem);
     always @(posedge clk) data <= mem[addr];
 endmodule
+
+// on-screen health display (hearts + boss bar): 4 pages x 32 rows x 64 columns x 12 bit, two read ports (frame + fill)
+// page 0 heart full, 1 heart empty, 2 bar frame, 3 bar fill; address = {page, y[4:0], x[5:0]}
+module hud_rom (
+    input  wire        clk,
+    input  wire [12:0] addr_a, addr_b,
+    output reg  [11:0] data_a, data_b
+);
+    reg [11:0] mem [0:8191];
+    initial $readmemh("hud.mem", mem);
+    always @(posedge clk) begin data_a <= mem[addr_a]; data_b <= mem[addr_b]; end
+endmodule
