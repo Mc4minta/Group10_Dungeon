@@ -186,6 +186,7 @@ docs/         ภาพ preview ของ placeholder + ภาพจาก simul
 ## แก้แมพ / sprite
 
 - แก้แมพ: แก้ `maps/*.txt` แล้วรัน `python3 scripts/build_maps.py` (สัญลักษณ์ตาม Core Mechanics Bible, แผ่น Simon ใช้ `q w e r`)
+- sprite ผู้เล่น: วาด PNG ใน `picture/form1-4.png` แล้วรัน `python scripts/build_player_mem.py` (หรือ `scripts/update_sprites.sh`) — สร้าง `mem/player.mem` ให้เอง, เฟรมที่ขาด/ผิดใช้ภาพเก่า `mem/player_v1.mem`; อ่าน `sprites/README.md`
 - เปลี่ยน sprite จริง: ใช้ sprite_tool ทำ `.mem` แล้ววางทับ `mem/tileset.mem` / `mem/player.mem` ขนาดและลำดับเฟรมต้องเหมือนเดิม
   - tileset: 3 ชั้น × 16 tile, address = (ชั้น×16 + tile)×1024 + y×32 + x
   - player: เฟรม = ร่าง×12 + ทิศ×3 + ท่า (ทิศ 0 ลง 1 ขึ้น 2 ซ้าย 3 ขวา, ท่า 0 idle 1 ก้าว A 2 ก้าว B)

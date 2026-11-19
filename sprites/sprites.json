@@ -1,0 +1,26 @@
+{
+  "_help": [
+    "Source of truth for the player art. mem/player.mem is GENERATED from this file + the PNGs.",
+    "Rebuild: python scripts/build_player_mem.py   (see sprites/README.md)",
+    "rows are numbered 1-4 (top to bottom), columns 0-3 (left to right) inside a sheet.",
+    "Anything missing / transparent / wrong size falls back to mem/player_v1.mem (old art) with a warning."
+  ],
+  "key_color": "F0F",
+  "alpha_threshold": 128,
+  "fallback_mem": "mem/player_v1.mem",
+  "output_mem": "mem/player.mem",
+  "forms": {
+    "1": { "png": "picture/form1.png", "cell": 32, "enabled": true },
+    "2": { "png": "picture/form2.png", "cell": 32, "enabled": true },
+    "3": { "png": "picture/form3.png", "cell": 32, "enabled": true },
+    "4": { "png": "picture/form4.png", "cell": 32, "enabled": true }
+  },
+  "mapping": {
+    "dir_row": { "down": 1, "up": 3, "left": 2, "right": 1 },
+    "pose_col": { "idle": 0, "A": 1, "B": 3 }
+  },
+  "overrides": {
+    "_example_1": "put entries like  \"form2.left.A\": [2, 1]   (row, col)  or  \"form3.up.B\": {\"skip\": true}  here",
+    "_example_2": "remove the leading underscore names are ignored; keys starting with _ are comments"
+  }
+}
