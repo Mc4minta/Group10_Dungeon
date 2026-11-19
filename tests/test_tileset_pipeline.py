@@ -36,7 +36,7 @@ def sha(p):
         return hashlib.sha256(f.read()).hexdigest()
 
 
-def indep_tile(png, row, col, recolor="rgb", cs=16, scale=2, base=None):
+def indep_tile(png, row, col, recolor="rgb", cs=16, scale=2, base=None, gain=1.0):
     """independent conversion (does not use build code); None if the cell is empty"""
     im = Image.open(png).convert("RGBA")
     out = list(base) if base else [None] * N
@@ -48,7 +48,7 @@ def indep_tile(png, row, col, recolor="rgb", cs=16, scale=2, base=None):
             if a < 128:
                 continue
             opq += 1
-            ch = (r, g, b)
+            ch = tuple(min(255, int(q * gain + 0.5)) for q in (r, g, b))
             v = [(ch[idx[c]] * 15 + 127) // 255 for c in recolor]
             w = (v[0] << 8) | (v[1] << 4) | v[2]
             for dy in range(scale):
@@ -98,18 +98,18 @@ class RealProject(unittest.TestCase):
             if r["fallback"] or spec.get("base") is not None:
                 continue
             png = os.path.join(ROOT, self.cfg["floors"][n]["sheet"])
-            exp = indep_tile(png, spec["cell"][0], spec["cell"][1], self.cfg["floors"][n]["recolor"])
+            exp = indep_tile(png, spec["cell"][0], spec["cell"][1], spec.get("recolor", self.cfg["floors"][n]["recolor"]), gain=spec.get("gain", self.cfg["floors"][n]["gain"]))
             i = T.tidx(n, t)
             self.assertEqual(self.mem[i * N:(i + 1) * N], exp, (n, t))
 
     def test_base_tiles_composite(self):
         """a tile with a base shows the base tile wherever its cell is see-through"""
-        n, t = 1, 12
+        n, t = 3, 12                                           # floor 3: Simon plate over the floor tile
         spec = self.cfg["tiles"][t]
         png = os.path.join(ROOT, self.cfg["floors"][n]["sheet"])
         bi = T.tidx(n, spec["base"])
         base = self.mem[bi * N:(bi + 1) * N]
-        exp = indep_tile(png, spec["cell"][0], spec["cell"][1], self.cfg["floors"][n]["recolor"], base=base)
+        exp = indep_tile(png, spec["cell"][0], spec["cell"][1], spec.get("recolor", self.cfg["floors"][n]["recolor"]), base=base, gain=spec.get("gain", self.cfg["floors"][n]["gain"]))
         i = T.tidx(n, t)
         self.assertEqual(self.mem[i * N:(i + 1) * N], exp)
 
@@ -220,7 +220,7 @@ class Fallbacks(unittest.TestCase):
         self.assertEqual(sha(self.out), self.v1sha)
 
     def test_bad_config(self):
-        for bad in ("{oops", json.dumps({"cell": 12}), json.dumps({"floors": {"1": {"recolor": "rrg"}}}),
+        for bad in ("{oops", json.dumps({"cell": 12}), json.dumps({"floors": {"1": {"recolor": "rrg"}}}), json.dumps({"floors": {"1": {"gain": 9}}}),
                     json.dumps({"tiles": {"99": {"cell": [0, 0]}}}), json.dumps({"overrides": {"x": {}}})):
             with open(self.cfgp, "w") as f:
                 f.write(bad)

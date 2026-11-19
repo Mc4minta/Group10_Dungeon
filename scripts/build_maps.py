@@ -26,7 +26,17 @@ TILE = {
     'F': 0x6,  # fence
     'O': 0x7,  # pressure plate
     'q': 0xC, 'w': 0xD, 'e': 0xE, 'r': 0xF,  # Simon plates 1-4
+    # decoration (visual only): tile ids C-F are walkable like floor for the player, monsters and bullets everywhere
+    # except inside the Simon puzzle, so on floors 1-2 they carry floor decoration art (see sprites/tileset.json)
+    ',': 0xC,  # cracked floor
+    ';': 0xD,  # bones
+    ':': 0xE,  # skull
+    '`': 0xF,  # rubble
 }
+DECOR = set(',;:`')
+# rooms where decoration is allowed: only rooms that are drawn with floor 1 or 2 art and are not a puzzle room that reads tile ids.
+# NOT allowed: 1 (floor 3), 2 (boss, floors 1+3), 9 (Sokoban: boxes only move onto tile 1/7), 10-12 (floor 3: C-F = Simon plate art)
+DECOR_ROOMS = {0, 3, 4, 5, 6, 7, 8}
 # object -> tile ใต้ object (object เองเก็บแยกใน objects.txt)
 OBJ_FLOOR = set('PSTBabcd1234KGIN')
 MONSTER = {'S': 0, 'T': 1}   # ตัวอักษรในแมพ -> ชนิดมอน (0 = A ไล่, 1 = B ป้อม)
@@ -44,6 +54,8 @@ for g, path in enumerate(maps):
     for ty, row in enumerate(rows):
         assert len(row) == 20, f'{path} row {ty}: {len(row)} chars'
         for tx, ch in enumerate(row):
+            if ch in DECOR and g not in DECOR_ROOMS:
+                raise ValueError(f'{path} ({tx},{ty}): decoration {ch!r} is not allowed in this room (grid {g})')
             if ch in TILE:
                 mem.append(TILE[ch])
             elif ch in OBJ_FLOOR:

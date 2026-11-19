@@ -13,9 +13,9 @@
   "cell": 16,
   "scale": 2,
   "floors": {
-    "1": { "enabled": true, "recolor": "rgb" },
-    "2": { "enabled": true, "recolor": "gbr" },
-    "3": { "enabled": true, "recolor": "rbg" }
+    "1": { "enabled": true, "recolor": "rgb", "gain": 1.7 },
+    "2": { "enabled": true, "recolor": "gbr", "gain": 1.7 },
+    "3": { "enabled": true, "recolor": "brg", "gain": 1.7 }
   },
   "tile_names": {
     "0": "wall", "1": "floor", "2": "door (closed)", "3": "boss door (locked)", "4": "exit (closed)",
@@ -25,7 +25,7 @@
   },
   "tiles": {
     "0":  { "cell": [0, 2] },
-    "1":  { "cell": [1, 2] },
+    "1":  { "cell": [2, 3] },
     "2":  { "cell": [3, 6], "base": 1 },
     "3":  { "cell": [3, 7], "base": 1 },
     "4":  { "cell": [4, 9], "base": 1 },
@@ -36,12 +36,21 @@
     "9":  { "cell": [6, 7], "base": 1 },
     "10": { "cell": [3, 9], "base": 1 },
     "11": { "cell": [3, 8], "base": 7 },
-    "12": { "cell": [8, 9], "base": 1 },
-    "13": { "cell": [8, 7], "base": 1 },
-    "14": { "cell": [8, 6], "base": 1 },
-    "15": { "cell": [8, 8], "base": 1 }
+    "12": { "cell": [8, 9], "base": 1, "recolor": "rgb", "gain": 1.0 },
+    "13": { "cell": [8, 7], "base": 1, "recolor": "rgb", "gain": 1.0 },
+    "14": { "cell": [8, 6], "base": 1, "recolor": "rgb", "gain": 1.0 },
+    "15": { "cell": [8, 8], "base": 1, "recolor": "rgb", "gain": 1.0 }
   },
   "overrides": {
+    "_decor": "tile ids 12-15 are decoration (crack, bones, skull, rubble) on floors 1 and 2; floor 3 keeps them as the Simon plates",
+    "f1.t12": { "cell": [0, 7] },
+    "f1.t13": { "cell": [6, 8], "base": 1 },
+    "f1.t14": { "cell": [7, 7], "base": 1 },
+    "f1.t15": { "cell": [5, 9], "base": 1 },
+    "f2.t12": { "cell": [0, 7] },
+    "f2.t13": { "cell": [6, 8], "base": 1 },
+    "f2.t14": { "cell": [7, 7], "base": 1 },
+    "f2.t15": { "cell": [5, 9], "base": 1 },
     "_example_1": "\"f2.t5\": { \"cell\": [7, 8] }   floor 2, tile 5 uses another cell (f1..f3, t0..t15)",
     "_example_2": "\"f3.t0\": { \"skip\": true }     floor 3, tile 0 uses the old art"
   }

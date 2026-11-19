@@ -8,6 +8,7 @@
 Layout (unchanged, no Verilog change): 3 floors x 16 tile ids x 32x32 RGB444 words,
 address = (floor*16 + tile)*1024 + y*32 + x  ->  exactly 49152 words.
 Sheet cells (default 16x16) are scaled by an exact integer factor (nearest neighbour, never smoothed).
+Per floor: "gain" (brightness) and "recolor" (channel permutation); a tile spec may carry its own gain/recolor.
 Rule 1: anything missing / skipped / transparent / outside the sheet falls back to the old art
 (mem/tileset_v1.mem) with a warning. The build never fails because art is missing.
 
@@ -69,6 +70,16 @@ def _spec(v, what):
     if not (isinstance(c, list) and len(c) == 2):
         raise ConfigError(f"{what}: cell must be [row, col]")
     spec = {"cell": (_int(c[0], 0, 255, f"{what} row"), _int(c[1], 0, 255, f"{what} col")), "base": None}
+    if "recolor" in v:
+        rc = v["recolor"]
+        if not (isinstance(rc, str) and len(rc) == 3 and sorted(rc) == ["b", "g", "r"]):
+            raise ConfigError(f'{what}: recolor must be a permutation of "rgb", got {rc!r}')
+        spec["recolor"] = rc
+    if "gain" in v:
+        g = v["gain"]
+        if isinstance(g, bool) or not isinstance(g, (int, float)) or not 0.25 <= g <= 4.0:
+            raise ConfigError(f"{what}: gain must be a number 0.25..4.0, got {g!r}")
+        spec["gain"] = float(g)
     if v.get("base") is not None:
         spec["base"] = _int(v["base"], 0, TILES - 1, f"{what} base")
     return spec
@@ -110,7 +121,10 @@ def load_config(path, root):
         en = e.get("enabled", True)
         if not isinstance(en, bool):
             raise ConfigError(f'floors."{n}".enabled must be true or false')
-        cfg["floors"][n] = {"enabled": en, "recolor": rc, "sheet": e.get("sheet", cfg["sheet"])}
+        gain = e.get("gain", 1.0)
+        if isinstance(gain, bool) or not isinstance(gain, (int, float)) or not 0.25 <= gain <= 4.0:
+            raise ConfigError(f'floors."{n}".gain must be a number 0.25..4.0 (1.0 = unchanged), got {gain!r}')
+        cfg["floors"][n] = {"enabled": en, "recolor": rc, "gain": float(gain), "sheet": e.get("sheet", cfg["sheet"])}
     tiles = {}
     for k, v in raw.get("tiles", {}).items():
         if k.startswith("_"):
@@ -178,7 +192,7 @@ class SheetFile:
         return self.im.crop((x, y, x + cs, y + cs)), None
 
 
-def cell_words(cell, scale, recolor, alpha, base_words):
+def cell_words(cell, scale, recolor, alpha, base_words, gain=1.0):
     """RGBA cell -> 1024 RGB444 words (exact integer upscale). Transparent pixels show base_words.
     -> (words | None if fully transparent, opaque pixel count)"""
     cs = cell.width
@@ -193,7 +207,7 @@ def cell_words(cell, scale, recolor, alpha, base_words):
             if a < alpha:
                 continue
             opaque += 1
-            ch = (r, g, b)
+            ch = tuple(min(255, int(v * gain + 0.5)) for v in (r, g, b))
             c = to_rgb444(ch[perm[0]], ch[perm[1]], ch[perm[2]])
             for dy in range(scale):
                 for dx in range(scale):
@@ -251,7 +265,7 @@ def build(cfg, root):
                     if cell is None:
                         info["fallback"] = why
                     else:
-                        w, opq = cell_words(cell, cfg["scale"], fc["recolor"], cfg["alpha"], base)
+                        w, opq = cell_words(cell, cfg["scale"], spec.get("recolor", fc["recolor"]), cfg["alpha"], base, spec.get("gain", fc["gain"]))
                         if w is None:
                             info["fallback"] = f"{sheet.label} row{spec['cell'][0]} col{spec['cell'][1]} fully transparent"
                         elif any(v is None for v in w):
@@ -324,6 +338,10 @@ def tile_img(words, i, zoom=2):
     return im.resize((TILE_PX * zoom, TILE_PX * zoom), Image.NEAREST)
 
 
+# floor whose art is used to draw each room (grid 0 = floors 1+2, grid 2 = floors 1+3: drawn with floor 1)
+ROOM_FLOOR = [1, 3, 1, 2, 1, 1, 1, 2, 2, 2, 3, 3, 3]
+
+
 def make_previews(cfg, b, root):
     pdir = os.path.join(root, "preview")
     os.makedirs(pdir, exist_ok=True)
@@ -391,7 +409,7 @@ def make_previews(cfg, b, root):
         rooms = Image.new("RGB", (4 * (640 + 8), 4 * (480 + 8)), (30, 30, 30))
         cache = {}
         for g in range(13):
-            floor = 1 if g < 4 else 2 if g < 9 else 3
+            floor = ROOM_FLOOR[g]
             room = Image.new("RGB", (640, 480))
             for ty in range(15):
                 for tx in range(20):

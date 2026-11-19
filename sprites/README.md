@@ -127,8 +127,8 @@ and `sprites/tileset.json`. **Generated:** `mem/tileset.mem`. **Old art, never t
 
     python scripts/build_monster_mem.py              # rebuild   (--check / --preview as before)
 
-* Chosen: **A = skeleton1 movement, columns 1 and 4**; **B = vampire idle, columns 0 and 3** (most different skeleton from the
-  player's bone-coloured ... see `preview/monster_contact.png` and `preview/monster_options.png` for the other pairings).
+* Chosen: **A = skeleton1 movement, columns 1 and 4**; **B = vampire idle, columns 0 and 3** (see `preview/monster_contact.png`
+  and `preview/monster_options.png` for the other pairings I compared).
   A (a walker) and B (a stationary shooter) look clearly different from each other. No scaling, cells are already 32x32.
 * Change a frame: edit `"monsters"` -> `"A"`/`"B"` -> `"frames"` in `monsters.json`, e.g. `{ "sheet": "skeleton2_move", "col": 3 }`
   (col counted from 0, row from 1, default row 1). Sheets are listed under `"sheets"`;
@@ -151,3 +151,22 @@ and `sprites/tileset.json`. **Generated:** `mem/tileset.mem`. **Old art, never t
 * The table prints colour counts per frame (8-bit -> RGB444): no colours merge, so no banding.
 * The new bosses are drawn smaller inside the 64x64 box than the old placeholder blobs (about 40x40 px of art). Nothing else changes (hitbox/HP/timing untouched).
 * Edit frames/`enabled`/`skip` in `bosses.json` exactly like for monsters. Roll back: `cp mem/boss_v1.mem mem/boss.mem`.
+
+---
+
+# Map look (decoration, brightness)
+
+Only how the floors LOOK changed. `maps_v1/` holds the original maps and generated files (never edit).
+
+* **Brightness and colour per floor** (`sprites/tileset.json` -> `"floors"`): `"gain": 1.7` brightens every tile of that floor
+  (1.0 = unchanged), `"recolor"` swaps colour channels (floor 1 `rgb` purple, floor 2 `gbr` teal, floor 3 `brg` olive).
+  A single tile may carry its own `"gain"` / `"recolor"` (the floor-3 Simon plates keep their real colours: `"recolor": "rgb", "gain": 1.0`).
+* **Decoration tiles** (draw them in `maps/*.txt`): `,` cracked floor, `;` bones, `:` skull, `` ` `` rubble. They are tile ids 12-15 (C-F), which
+  the game already treats exactly like floor for the player, monsters and bullets, so they change nothing but looks.
+  Allowed only in rooms 00, 03, 04, 05, 06, 07, 08 (floors 1-2 art). **Not allowed** in rooms 01, 02, 10, 11 (floor 3: ids 12-15 are the Simon plates),
+  09 (Sokoban: boxes only move onto floor/plate) or 12 (Simon). `build_maps.py` refuses decoration in those rooms.
+* Floor 1-2 decoration art is set by the overrides `f1.t12 ... f2.t15` in `tileset.json`; change the cell numbers to change the pictures.
+* After editing maps run: `python scripts/build_maps.py` then `python tests/test_maps.py` (checks objects, monsters, puzzle layout,
+  exits unchanged and Sokoban solvable) and `python scripts/solve_sokoban.py`.
+* Roll back the maps: `cp maps_v1/[0-9]*.txt maps/ && cp scripts/build_maps_v1.py scripts/build_maps.py && python scripts/build_maps.py`,
+  and set the floor `"gain"` values back to 1.0 in `tileset.json`.
