@@ -104,7 +104,7 @@ class RealProject(unittest.TestCase):
 
     def test_base_tiles_composite(self):
         """a tile with a base shows the base tile wherever its cell is see-through"""
-        n, t = 3, 12                                           # floor 3: Simon plate over the floor tile
+        n, t = 3, 2                                            # floor 3: closed door over the floor tile
         spec = self.cfg["tiles"][t]
         png = os.path.join(ROOT, self.cfg["floors"][n]["sheet"])
         bi = T.tidx(n, spec["base"])
@@ -113,6 +113,42 @@ class RealProject(unittest.TestCase):
         i = T.tidx(n, t)
         self.assertEqual(self.mem[i * N:(i + 1) * N], exp)
 
+    def test_plate_tiles_from_own_picture(self):
+        """tiles 7 / 11 (Sokoban plate raised / pressed) and 12-15 (Simon plates, tinted) come from my_asset/props/plate.png at 1:1"""
+        from PIL import Image
+        im = Image.open(os.path.join(ROOT, "my_asset", "props", "plate.png")).convert("RGBA")
+        floor1 = self.mem[T.tidx(3, 1) * N:(T.tidx(3, 1) + 1) * N]
+        for floor in (1, 2, 3):
+            for t, row, tint in ((7, 0, None), (11, 1, None), (12, 0, (235, 60, 60)), (13, 0, (70, 120, 255)),
+                                 (14, 0, (70, 200, 90)), (15, 0, (245, 215, 60))):
+                if floor != 3 and t >= 12:
+                    continue                                   # floors 1-2 use 12-15 as decoration
+                base = self.mem[T.tidx(floor, 1) * N:(T.tidx(floor, 1) + 1) * N]
+                exp = list(base)
+                for y in range(32):
+                    for x in range(32):
+                        r, g, b, a = im.getpixel((x, y + row * 32))
+                        if a < 128:
+                            continue
+                        ch = (r, g, b) if tint is None else tuple(min(255, int(v * k / 180.0 + 0.5)) for v, k in zip((r, g, b), tint))
+                        exp[y * 32 + x] = T.to_rgb444(*ch)
+                i = T.tidx(floor, t)
+                self.assertEqual(self.mem[i * N:(i + 1) * N], exp, f"floor {floor} tile {t}")
+        self.assertNotEqual(self.mem[T.tidx(2, 7) * N:(T.tidx(2, 7) + 1) * N], self.mem[T.tidx(2, 11) * N:(T.tidx(2, 11) + 1) * N])
+
+    def test_bad_tint_is_config_error(self):
+        c = json.loads(json.dumps(load_json(os.path.join(ROOT, "sprites", "tileset.json"))))
+        c["tiles"]["12"]["tint"] = [1, 2]
+        t = tempfile.mkdtemp()
+        try:
+            p = os.path.join(t, "tileset.json")
+            with open(p, "w", encoding="utf-8") as f:
+                json.dump(c, f)
+            with self.assertRaises(T.ConfigError):
+                T.load_config(p, ROOT)
+        finally:
+            shutil.rmtree(t)
+
 
 class Fallbacks(unittest.TestCase):
     def setUp(self):
@@ -120,6 +156,8 @@ class Fallbacks(unittest.TestCase):
         for d in ("mem", "my_asset", "sprites"):
             os.makedirs(os.path.join(self.t, d))
         shutil.copy(os.path.join(ROOT, "mem", "tileset_v1.mem"), os.path.join(self.t, "mem"))
+        os.makedirs(os.path.join(self.t, "my_asset", "props"))
+        shutil.copy(os.path.join(ROOT, "my_asset", "props", "plate.png"), os.path.join(self.t, "my_asset", "props"))
         shutil.copy(os.path.join(ROOT, "my_asset", "tileset", "Dungeon_Tileset.png"),
                     os.path.join(self.t, "my_asset", "sheet.png"))
         self.cfgp = os.path.join(self.t, "sprites", "tileset.json")

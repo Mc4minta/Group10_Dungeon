@@ -52,8 +52,8 @@ Tick `[x]` when an item is done and update `docs/SPRITE_STATUS.md` / `docs/SOUND
 
 ## Design plan items (19/11 design notes) - PLAN ONLY, see `docs/DESIGN_PLAN.md`
 
-- [ ] **Phase A (small):** W1 door = spike trap, W2 pressure plate = tulip plate (needs your picture), W3 charged shot stops on hit, W4 clap on the board (mic debug), W6 new start screen, W9a prologue screen.
-- [ ] **Phase B (bosses):** W10 boss 1 fast + clap stun, W11 boss 2 summon (hurt only while minions live), W12 boss 3 armour + charge + big attack, W13 form 3 AOE split.
+- [ ] **Phase A (small):** W15 SW15 = pause / SW14 = sprint / facing lock -> SW12, W1 door = spike trap, W2 pressure plate = tulip plate (needs your picture), W3 charged shot stops on hit, W4 clap on the board (mic debug), W6 new start screen, W9a prologue screen.
+- [ ] **Phase B (bosses):** W10 boss 1 fast + clap stun, W11 boss 2 summon (hurt only when all minions are dead), W12 boss 3 armour + charge + big attack, W13 form 3 AOE split.
 - [ ] **Phase C:** W5 breakable block, trap, solid decoration (overlay layer). **Phase D:** W7 key -> door -> Ball in a Maze (accelerometer) -> WIN. **Phase E:** W9b story.
 - [x] W8 hearts + boss bar (done).
 - Answer the defaults in `docs/DESIGN_PLAN.md` section 6 first.
@@ -68,3 +68,5 @@ Tick `[x]` when an item is done and update `docs/SPRITE_STATUS.md` / `docs/SOUND
 
 Rule 1 (the game always builds; missing or invalid art / sound falls back with a warning), `*_v1.mem` backups never edited, `mem/*.mem` are generated, branch from `sprite-zip`,
 run `scripts/check_all.sh` before committing, no merge to `main` without an explicit "merge", nothing with a deadline risk goes in after the freeze.
+
+Standing rules (owner, 19/11): **every implementation updates `docs/FEATURES.md` in the same commit**; **every new idea is written into `docs/DESIGN_PLAN.md` first** and implemented only after the owner approves.

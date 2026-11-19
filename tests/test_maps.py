@@ -41,6 +41,8 @@ class Maps(unittest.TestCase):
         self.assertEqual(len(old), 4096)
         for i, (c, o) in enumerate(zip(cur, old)):
             g = i // 300
+            if g == SIMON_GRID:
+                continue                     # Simon room: plates moved to even rows (see test_simon_plates_are_even_blocks)
             if c != o:
                 self.assertIn(c, "cdef", f"index {i}: only decoration ids may differ, got {c} (was {o})")
                 self.assertEqual(o, "1", f"index {i}: decoration may only replace plain floor")
@@ -59,12 +61,28 @@ class Maps(unittest.TestCase):
             cur = os.path.join(ROOT, "maps", os.path.basename(old))
             a, b = text(old).split("\n"), text(cur).split("\n")
             self.assertEqual(len(a), len(b))
+            if os.path.basename(old).startswith('12_'):
+                continue                     # Simon room: see test_simon_plates_are_even_blocks
             for y, (ra, rb) in enumerate(zip(a, b)):
                 self.assertEqual(len(ra), len(rb))
                 for x, (ca, cb) in enumerate(zip(ra, rb)):
                     if ca != cb:
                         self.assertEqual(ca, ".", f"{os.path.basename(old)} ({x},{y})")
                         self.assertIn(cb, decor)
+
+    def test_simon_plates_are_even_blocks(self):
+        """each Simon plate is a 2x2 block of tiles starting on an even column and an even row (the renderer draws it as ONE big plate);
+        apart from the plate positions the room equals the original"""
+        n = "12_f3_puzzle_simon.txt"
+        a, b = text(os.path.join(V1, n)).split("\n"), text(os.path.join(ROOT, "maps", n)).split("\n")
+        for ch in "qwer":
+            pos = [(x, y) for y, row in enumerate(b) for x, c in enumerate(row) if c == ch]
+            self.assertEqual(len(pos), 4, f"plate {ch}: needs exactly 4 tiles")
+            x0, y0 = min(p[0] for p in pos), min(p[1] for p in pos)
+            self.assertEqual(sorted(pos), sorted([(x0, y0), (x0 + 1, y0), (x0, y0 + 1), (x0 + 1, y0 + 1)]), f"plate {ch}: not a 2x2 block")
+            self.assertEqual((x0 % 2, y0 % 2), (0, 0), f"plate {ch} at ({x0},{y0}): must start on an even column and row")
+        strip = lambda rows: ["".join("." if c in "qwer" else c for c in r) for r in rows]
+        self.assertEqual(strip(a), strip(b), "only the plates may move")
 
     def test_sokoban_room_unchanged_and_solvable(self):
         n = "09_f2_puzzle_sokoban.txt"

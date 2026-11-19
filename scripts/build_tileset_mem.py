@@ -82,6 +82,19 @@ def _spec(v, what):
         spec["gain"] = float(g)
     if v.get("base") is not None:
         spec["base"] = _int(v["base"], 0, TILES - 1, f"{what} base")
+    if "file" in v:                                   # own picture instead of the sheet (cells of cell_size px)
+        if not isinstance(v["file"], str) or not v["file"]:
+            raise ConfigError(f'{what}: file must be a path string')
+        spec["file"] = v["file"]
+    if "cell_size" in v:
+        spec["cell_size"] = _int(v["cell_size"], 1, 32, f"{what} cell_size")
+        if TILE_PX % spec["cell_size"]:
+            raise ConfigError(f"{what}: cell_size {spec['cell_size']} must divide 32")
+    if "tint" in v:                                   # grey art -> this colour (grey 180 becomes the tint, lighter / darker parts follow)
+        t = v["tint"]
+        if not (isinstance(t, list) and len(t) == 3 and all(isinstance(x, int) and not isinstance(x, bool) and 0 <= x <= 255 for x in t)):
+            raise ConfigError(f"{what}: tint must be [r, g, b] with 0..255")
+        spec["tint"] = tuple(t)
     return spec
 
 
@@ -192,7 +205,7 @@ class SheetFile:
         return self.im.crop((x, y, x + cs, y + cs)), None
 
 
-def cell_words(cell, scale, recolor, alpha, base_words, gain=1.0):
+def cell_words(cell, scale, recolor, alpha, base_words, gain=1.0, tint=None):
     """RGBA cell -> 1024 RGB444 words (exact integer upscale). Transparent pixels show base_words.
     -> (words | None if fully transparent, opaque pixel count)"""
     cs = cell.width
@@ -207,7 +220,11 @@ def cell_words(cell, scale, recolor, alpha, base_words, gain=1.0):
             if a < alpha:
                 continue
             opaque += 1
-            ch = tuple(min(255, int(v * gain + 0.5)) for v in (r, g, b))
+            if tint is not None:
+                ch = tuple(min(255, int(v * t / 180.0 + 0.5)) for v, t in zip((r, g, b), tint))
+            else:
+                ch = (r, g, b)
+            ch = tuple(min(255, int(v * gain + 0.5)) for v in ch)
             c = to_rgb444(ch[perm[0]], ch[perm[1]], ch[perm[2]])
             for dy in range(scale):
                 for dx in range(scale):
@@ -261,15 +278,24 @@ def build(cfg, root):
                 elif bt is not None:
                     info["fallback"] = f"base tile {bt} loops back to tile {t}"
                 if info["fallback"] is None:
-                    cell, why = sheet.cell(spec["cell"][0], spec["cell"][1], cfg["cell"])
+                    sh = sheet
+                    if spec.get("file"):
+                        fp = os.path.join(root, spec["file"])
+                        if fp not in b.sheets:
+                            b.sheets[fp] = SheetFile(fp)
+                            if b.sheets[fp].status == "unreadable":
+                                b.unreadable.append(b.sheets[fp].detail)
+                        sh = b.sheets[fp]
+                    csz = spec.get("cell_size", cfg["cell"])
+                    cell, why = sh.cell(spec["cell"][0], spec["cell"][1], csz)
                     if cell is None:
                         info["fallback"] = why
                     else:
-                        w, opq = cell_words(cell, cfg["scale"], spec.get("recolor", fc["recolor"]), cfg["alpha"], base, spec.get("gain", fc["gain"]))
+                        w, opq = cell_words(cell, TILE_PX // csz, spec.get("recolor", fc["recolor"]), cfg["alpha"], base, spec.get("gain", fc["gain"]), spec.get("tint"))
                         if w is None:
-                            info["fallback"] = f"{sheet.label} row{spec['cell'][0]} col{spec['cell'][1]} fully transparent"
+                            info["fallback"] = f"{sh.label} row{spec['cell'][0]} col{spec['cell'][1]} fully transparent"
                         elif any(v is None for v in w):
-                            info["fallback"] = (f"{sheet.label} row{spec['cell'][0]} col{spec['cell'][1]} has see-through "
+                            info["fallback"] = (f"{sh.label} row{spec['cell'][0]} col{spec['cell'][1]} has see-through "
                                                 f"pixels but no \"base\" tile (set \"base\": 1)")
                         else:
                             info["words"] = w

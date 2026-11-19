@@ -79,6 +79,15 @@ Unused enemy art in `my_asset/enemies/`: attack, death and damage strips for all
 | gate closed / open | spikes up / retracted (background cut out) | FINAL |
 | item floor 1 / 2 / 3 | gold key / silver key / red shield | FINAL |
 
+## 5a. Pressure plates (`my_asset/props/plate.png`, tiles 7 / 11 / 12-15 in `sprites/tileset.json`)
+
+| Use | Art | Status |
+|---|---|---|
+| Sokoban plates (floor 2): no box on it / box on it | **your** plate picture: row 0 raised / row 1 pressed (1:1, 32x32) | FINAL |
+| Simon plates (floor 3): 4 big plates (each = 2x2 tiles, drawn as one 64x64 plate) | the same picture at half-size sampling, tinted red / blue / green / yellow (`"tint"`) | FINAL; lit = brightened raised plate (no pressed art for lit) |
+
+The Simon map has its plates on even rows now (`maps/12_f3_puzzle_simon.txt`); tests: `tests/test_maps.py`, `scripts/run_sim.sh simonplate`.
+
 ## 5b. Health display (mem/hud.mem, `scripts/build_hud_mem.py`, `sprites/hud.json`)
 
 | Part | Art | Status |
