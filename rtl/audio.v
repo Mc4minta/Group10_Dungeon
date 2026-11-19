@@ -16,7 +16,7 @@ module audio #(
     input  wire        clk,
     input  wire        rst,
     input  wire        frame_tick,
-    input  wire [10:1] ev,              // pulse เอฟเฟกต์ 1..10
+    input  wire [12:1] ev,              // pulse เอฟเฟกต์ 1..12 (11 = บอสปรากฏ, 12 = ผ่านประตู; 12 ต่ำกว่า 11 เพื่อให้เสียงบอสแทรกเสียงประตูได้)
     input  wire [1:0]  shoot_k,
     input  wire        simon_note_on,
     input  wire [1:0]  simon_note,
@@ -51,6 +51,8 @@ module audio #(
         else if (ev[8]) new_id = 4'd8;
         else if (ev[9]) new_id = 4'd9;
         else if (ev[10]) new_id = 4'd10;
+        else if (ev[11]) new_id = 4'd11;
+        else if (ev[12]) new_id = 4'd12;
         new_hp = 0; new_sl = 0; new_len = 0;
         case (new_id)
             4'd1:  begin new_hp = SFX_HURT_HP;  new_sl = SFX_HURT_SL;  new_len = SFX_HURT_LEN;  end
@@ -68,6 +70,8 @@ module audio #(
                        default: begin new_hp = SFX_SHOOT3_HP; new_sl = SFX_SHOOT3_SL; new_len = SFX_SHOOT3_LEN; end
                    endcase
             4'd10: begin new_hp = SFX_MELEE_HP; new_sl = SFX_MELEE_SL; new_len = SFX_MELEE_LEN; end
+            4'd11: begin new_hp = SFX_BOSS_HP;  new_sl = SFX_BOSS_SL;  new_len = SFX_BOSS_LEN;  end
+            4'd12: begin new_hp = SFX_DOOR_HP;  new_sl = SFX_DOOR_SL;  new_len = SFX_DOOR_LEN;  end
             default: ;
         endcase
     end

@@ -8,7 +8,7 @@ module tb_audio;
     localparam FR = 1680000 / 64;                 // clock ต่อเฟรม
     reg clk = 0; always #5 clk = ~clk;
     reg rst = 1;
-    reg [10:1] ev = 0; reg [1:0] shoot_k = 0;
+    reg [12:1] ev = 0; reg [1:0] shoot_k = 0;
     reg simon_on = 0; reg [1:0] simon_n = 0;
     reg bgm_en = 0; reg [2:0] track = 0;
     integer fc = 0; reg tick = 0;
@@ -83,6 +83,8 @@ module tb_audio;
         shoot_k = 2; check_sfx(9, SFX_SHOOT2_HP, SFX_SHOOT2_SL, SFX_SHOOT2_LEN, "sfx 9 shoot form 4 tap");
         shoot_k = 3; check_sfx(9, SFX_SHOOT3_HP, SFX_SHOOT3_SL, SFX_SHOOT3_LEN, "sfx 9 big shot (lower, longer)");
         check_sfx(10, SFX_MELEE_HP, SFX_MELEE_SL, SFX_MELEE_LEN, "sfx 10 melee");
+        check_sfx(11, SFX_BOSS_HP, SFX_BOSS_SL, SFX_BOSS_LEN, "sfx 11 boss appears");
+        check_sfx(12, SFX_DOOR_HP, SFX_DOOR_SL, SFX_DOOR_LEN, "sfx 12 door / room change");
         check(SFX_SHOOT3_LEN > SFX_SHOOT0_LEN && SFX_SHOOT3_HP > SFX_SHOOT0_HP, "big shot is lower and longer than the normal shot");
         // ---- priority ----
         fire(10); repeat (FR) @(posedge clk);
@@ -95,6 +97,15 @@ module tb_audio;
         check(dut.sfx_len >= SFX_HURT_LEN - 3, "same priority is dropped (hurt not restarted)");
         repeat (FR * (SFX_HURT_LEN + 2)) @(posedge clk);
         check(!dut.sfx_on, "sfx ends after its length");
+        fire(12); repeat (FR) @(posedge clk);
+        check(dut.sfx_on && dut.sfx_id == 12, "door sound playing");
+        fire(11); @(posedge clk);
+        check(dut.sfx_id == 11, "boss sound interrupts the door sound (boss enters right after the door)");
+        fire(12); @(posedge clk);
+        check(dut.sfx_id == 11, "door sound (lower priority) does not interrupt the boss sound");
+        fire(10); @(posedge clk);
+        check(dut.sfx_id == 10, "melee (higher priority) interrupts the boss sound");
+        repeat (FR * (SFX_MELEE_LEN + 2)) @(posedge clk);
         // ---- โน้ต Simon: 4 เสียง, ทับ SFX ----
         fire(1);
         for (k = 0; k < 4; k = k + 1) begin
