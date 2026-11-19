@@ -1,7 +1,7 @@
 # Project guide - start here
 
 Group 10 Dungeon: a VGA dungeon game in Verilog for the Nexys A7-100T (Vivado 2024.2), with a Python pipeline that builds all art, map and music ROMs from files you edit.
-This page is the index. Last full refresh: branch `sprite-zip`, tag `board-test-2`.
+This page is the index. Last full refresh: branches `main` / `dev` (19/11).
 
 ## 1. Which document do I read?
 
@@ -50,15 +50,14 @@ Golden rules: Rule 1 (any missing or invalid art / sound falls back to the origi
 
 | Name | What it is |
 |---|---|
-| `main` | the last team-approved version (before the art / sound work). Not updated yet: merge only when the owner says so |
-| `board-prep` | the version before the sprite work (base of everything below) |
-| **`sprite-zip`** | **the development line: everything finished and tested is here (art, map, enemies, bosses, puzzle, difficulty, controls, sound, music, animations OFF)** |
-| `wip/wall-variants` | unfinished work kept on purpose: room-border wall pictures. Read `docs/wip/README.md` on that branch to resume |
-| tag `board-test-2` | the build for the board: RTL, `mem/` and art are identical to `sprite-zip`; commits after the tag only change docs and helper scripts |
-| tag `board-test-1` | the earlier known-good build (rollback target) |
-| tags `archive/p2-game-fsm` ... `archive/p6-tweaks` | the old phase branches of the first version, kept as tags (all merged) |
+| **`main`** | **the working, tested version** (= the old `sprite-zip` at 8d2613e: art, map, enemies, bosses, puzzle, difficulty, controls, sound, music, hearts, hurt box). Only updated when the owner says "merge" |
+| **`dev`** | **the development line**: `main` + the features in progress (pressure plates now). New work branches from `dev`, goes back into `dev`; `dev` -> `main` only on "merge" |
+| tag `board-test-2` | the build for the board (older); tag `board-test-1` = the earlier known-good build (rollback target) |
+| tag `archive/wip-wall-variants` | the unfinished room-border wall pictures (was branch `wip/wall-variants`; read `docs/wip/README.md` inside that tag to resume: `git checkout -b feature/walls archive/wip-wall-variants`) |
+| tag `archive/board-prep` | the version before the sprite work |
+| tags `archive/p2-game-fsm` ... `archive/p6-tweaks` | the old phase branches of the first version (all merged) |
 
-Rule for new work: branch from `sprite-zip` (`git checkout -b feature/<name>`), keep the branch small, merge it back into `sprite-zip` after `scripts/check_all.sh` passes, then delete the branch.
+Rule for new work: `git checkout dev && git checkout -b feature/<name>`, keep it small, merge it back into `dev` after `scripts/check_all.sh` passes, then delete the branch.
 
 ## 5. What exists / what does not (one line each)
 
