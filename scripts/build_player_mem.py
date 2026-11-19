@@ -5,7 +5,7 @@
     python scripts/build_player_mem.py --check      validate only, write nothing
     python scripts/build_player_mem.py --preview    build + write preview/*.png / *.gif
 
-Rule: the build never fails because art is missing. Any frame whose source is missing,
+Rule 1: the build never fails because art is missing. Any frame whose source is missing,
 fully transparent, too small, skipped or unreadable is copied from the old art
 (mem/player_v1.mem) and a warning is printed. Output is always exactly
 48 frames x 1024 words (frame = form*12 + dir*3 + pose), so no Verilog change is needed.
@@ -16,10 +16,12 @@ Exit code: 0 ok (fallbacks are fine) | 1 unreadable art file (build still writte
 import argparse
 import json
 import os
+import re
+import shutil
 import sys
 
 try:
-    from PIL import Image, ImageDraw
+    from PIL import Image
 except ImportError:  # pragma: no cover
     print("ERROR: Pillow is required (pip install pillow)")
     sys.exit(2)
@@ -33,11 +35,19 @@ TOTAL_FRAMES = FORMS * len(DIRS) * len(POSES)    # 48
 HIT_LO, HIT_HI = 4, 27                           # hitbox area (inclusive)
 WALK_ORDER = [0, 1, 0, 2]                        # idle, A, idle, B
 
+# expected sheet sizes (pixels) per sheet kind. Other sizes only give a NOTE
+# (or a per-cell fallback if a needed cell lies outside the sheet).
+EXPECTED = {"walk": (128, 128), "attack": (128, 128), "dmg": (128, 128), "jump": (128, 128),
+            "idle": (512, 128), "charged": (192, 96), "soul_die": (384, 32), "spin_die": (384, 32)}
+
 ROOT_DEFAULT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class ConfigError(Exception):
     pass
+
+
+_ROOT = [os.getcwd()]
 
 
 def shortpath(p):
@@ -47,9 +57,6 @@ def shortpath(p):
         return r if not r.startswith("..") else p
     except ValueError:
         return p
-
-
-_ROOT = [os.getcwd()]
 
 
 def fidx(form, d, pose):
@@ -72,6 +79,24 @@ def parse_color(s):
         raise ConfigError(f"key_color is not hex: {s!r}")
 
 
+def _int(v, lo, hi, what):
+    if not isinstance(v, int) or isinstance(v, bool) or not lo <= v <= hi:
+        raise ConfigError(f"{what} must be an integer {lo}..{hi}, got {v!r}")
+    return v
+
+
+def _candidates(v, what):
+    """[["idle",0],["walk",0]] -> [("idle",0),("walk",0)]"""
+    if not isinstance(v, list) or not v:
+        raise ConfigError(f'{what} must be a list like [["walk", 1]]')
+    out = []
+    for c in v:
+        if not (isinstance(c, list) and len(c) == 2 and isinstance(c[0], str)):
+            raise ConfigError(f"{what}: each entry must be [sheet_name, column], got {c!r}")
+        out.append((c[0], _int(c[1], 0, 63, f"{what} column")))
+    return out
+
+
 def load_config(path, root):
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -84,10 +109,7 @@ def load_config(path, root):
         raise ConfigError("config top level must be an object")
 
     cfg = {"key": parse_color(raw.get("key_color", "F0F"))}
-    a = raw.get("alpha_threshold", 128)
-    if not isinstance(a, int) or not 1 <= a <= 255:
-        raise ConfigError("alpha_threshold must be an integer 1..255")
-    cfg["alpha"] = a
+    cfg["alpha"] = _int(raw.get("alpha_threshold", 128), 1, 255, "alpha_threshold")
     cfg["fallback"] = os.path.join(root, raw.get("fallback_mem", "mem/player_v1.mem"))
     cfg["output"] = os.path.join(root, raw.get("output_mem", "mem/player.mem"))
 
@@ -107,25 +129,31 @@ def load_config(path, root):
             raise ConfigError(
                 f'forms."{n}".cell = {cell!r}: only 32 is supported (game frames are 32x32 and '
                 f"nearest-neighbour only, no silent resize)")
+        sheets = e.get("sheets", {})
+        if not isinstance(sheets, dict) or not all(isinstance(v, str) for v in sheets.values()):
+            raise ConfigError(f'forms."{n}".sheets must map a sheet name to a PNG path')
         enabled = e.get("enabled", True)
         if not isinstance(enabled, bool):
             raise ConfigError(f'forms."{n}".enabled must be true or false')
-        forms[n] = {"png": e.get("png", f"picture/form{n}.png"), "cell": cell, "enabled": enabled}
+        forms[n] = {"cell": cell, "enabled": enabled,
+                    "sheets": {k: v for k, v in sheets.items() if not k.startswith("_")}}
     cfg["forms"] = forms
 
     m = raw.get("mapping", {})
     dir_row = {"down": 1, "up": 3, "left": 2, "right": 1}
-    pose_col = {"idle": 0, "A": 1, "B": 3}
-    for key, default, names, lo, hi in (("dir_row", dir_row, DIRS, 1, 4), ("pose_col", pose_col, POSES, 0, 3)):
-        got = dict(default)
-        got.update(m.get(key, {}))
-        for nm in got:
-            if nm not in names:
-                raise ConfigError(f'mapping.{key}: unknown name "{nm}" (valid: {", ".join(names)})')
-            v = got[nm]
-            if not isinstance(v, int) or isinstance(v, bool) or not lo <= v <= hi:
-                raise ConfigError(f"mapping.{key}.{nm} must be an integer {lo}..{hi}, got {v!r}")
-        cfg[key] = got
+    dir_row.update(m.get("dir_row", {}))
+    for nm, v in dir_row.items():
+        if nm not in DIRS:
+            raise ConfigError(f'mapping.dir_row: unknown direction "{nm}" (valid: {", ".join(DIRS)})')
+        _int(v, 1, 64, f"mapping.dir_row.{nm}")
+    pose = {"idle": [["idle", 0], ["walk", 0]], "A": [["walk", 1]], "B": [["walk", 3]]}
+    pose.update(m.get("pose", {}))
+    cfg["dir_row"] = dir_row
+    cfg["pose"] = {}
+    for nm, v in pose.items():
+        if nm not in POSES:
+            raise ConfigError(f'mapping.pose: unknown pose "{nm}" (valid: {", ".join(POSES)})')
+        cfg["pose"][nm] = _candidates(v, f"mapping.pose.{nm}")
 
     ov = {}
     for k, v in raw.get("overrides", {}).items():
@@ -137,17 +165,15 @@ def load_config(path, root):
             raise ConfigError(f'override key "{k}" must look like form2.left.A '
                               f"(form1-4 . {'/'.join(DIRS)} . {'/'.join(POSES)})")
         key = (int(parts[0][4:]), DIRS.index(parts[1]), POSES.index(parts[2]))
-        if isinstance(v, list):
-            v = {"row": v[0], "col": v[1]} if len(v) == 2 else None
+        if isinstance(v, list) and len(v) == 2:
+            v = {"row": v[0], "col": v[1]}
         if not isinstance(v, dict) or (not v.get("skip") and not ("row" in v and "col" in v)):
-            raise ConfigError(f'override "{k}": use [row, col] or {{"skip": true}}')
+            raise ConfigError(f'override "{k}": use [row, col], {{"sheet":"walk","row":2,"col":1}} or {{"skip": true}}')
         if v.get("skip"):
             ov[key] = {"skip": True}
         else:
-            r, c = v["row"], v["col"]
-            if not (isinstance(r, int) and isinstance(c, int) and r >= 1 and c >= 0):
-                raise ConfigError(f'override "{k}": row must be >= 1 and col >= 0, got [{r}, {c}]')
-            ov[key] = {"row": r, "col": c}
+            ov[key] = {"sheet": v.get("sheet", "walk"), "row": _int(v["row"], 1, 64, f'override "{k}" row'),
+                       "col": _int(v["col"], 0, 63, f'override "{k}" col')}
     cfg["overrides"] = ov
     return cfg
 
@@ -180,12 +206,14 @@ def read_fallback(path):
 class Sheet:
     """Loaded PNG. status: 'ok' | 'missing' | 'unreadable' | 'badsize'"""
 
-    def __init__(self, path):
+    def __init__(self, kind, path):
+        self.kind = kind
         self.path = path
         self.im = None
         self.size = None
         self.status = "ok"
         self.detail = ""
+        self.label = os.path.basename(path)
         if not os.path.isfile(path):
             self.status, self.detail = "missing", f"file missing: {shortpath(path)}"
             return
@@ -198,10 +226,11 @@ class Sheet:
             return
         self.size = self.im.size
         w, h = self.size
+        exp = EXPECTED.get(kind)
+        exps = f"{exp[0]}x{exp[1]}" if exp else "a multiple of 32"
         if w % FRAME_PX or h % FRAME_PX or w < FRAME_PX or h < FRAME_PX:
             self.status = "badsize"
-            self.detail = (f"wrong size {w}x{h}: must be a multiple of {FRAME_PX} "
-                           f"(expected 128x128 = 4x4 cells of 32x32)")
+            self.detail = f"wrong size {w}x{h} ({self.label}): must be a multiple of {FRAME_PX}, expected {exps}"
 
     def cell(self, row1, col):
         """-> ('ok', cell_image) or ('fail', reason)"""
@@ -210,9 +239,14 @@ class Sheet:
         w, h = self.size
         x, y = col * FRAME_PX, (row1 - 1) * FRAME_PX
         if x + FRAME_PX > w or y + FRAME_PX > h:
-            return "fail", (f"sheet is {w}x{h} (expected 128x128), cell row{row1} col{col} "
-                            f"is outside it")
+            exp = EXPECTED.get(self.kind)
+            return "fail", (f"{self.label} is {w}x{h}" + (f" (expected {exp[0]}x{exp[1]})" if exp else "")
+                            + f", cell row{row1} col{col} is outside it")
         return "ok", self.im.crop((x, y, x + FRAME_PX, y + FRAME_PX))
+
+
+def to_rgb444(r, g, b):
+    return (((r * 15 + 127) // 255) << 8) | (((g * 15 + 127) // 255) << 4) | ((b * 15 + 127) // 255)
 
 
 def convert_cell(cell, key, alpha_thr):
@@ -228,7 +262,7 @@ def convert_cell(cell, key, alpha_thr):
                 continue
             if a < 255:
                 semi += 1
-            c = (((r * 15 + 127) // 255) << 8) | (((g * 15 + 127) // 255) << 4) | ((b * 15 + 127) // 255)
+            c = to_rgb444(r, g, b)
             if c == key:                       # real art must not turn into the key colour
                 c = key ^ 0x001
                 nudged += 1
@@ -239,65 +273,105 @@ def convert_cell(cell, key, alpha_thr):
     return out, {"opaque": opaque, "outside": outside, "nudged": nudged, "semi": semi}
 
 
-# ---------------------------------------------------------------- build
-def build(cfg, root):
-    fallback, nl = read_fallback(cfg["fallback"])
-    sheets = {}
-    result = []          # per frame dict
-    out = [0] * (TOTAL_FRAMES * FRAME_WORDS)
-    unreadable = []
-    extra_notes = []
+def get_cell_words(sheet, row, col, cfg):
+    """-> (words|None, stats|None, reason|None)"""
+    st, res = sheet.cell(row, col)
+    if st == "fail":
+        return None, None, res
+    words, stats = convert_cell(res, cfg["key"], cfg["alpha"])
+    if stats["opaque"] == 0:
+        return None, None, f"{sheet.label} row{row} col{col} fully transparent"
+    return words, stats, None
 
+
+# ---------------------------------------------------------------- build
+class Build:
+    pass
+
+
+def load_sheets(cfg, root):
+    """-> sheets[form][name] = Sheet, unreadable list, NOTE lines"""
+    sheets, unreadable, notes = {}, [], []
+    clean_dir = os.path.join(root, "picture", "_clean")
     for n in range(1, FORMS + 1):
         fc = cfg["forms"][n]
-        if fc["enabled"]:
-            sh = Sheet(os.path.join(root, fc["png"]))
-            sheets[n] = sh
+        sheets[n] = {}
+        if not fc["enabled"]:
+            continue
+        for name, rel in fc["sheets"].items():
+            p = os.path.join(root, rel)
+            sh = Sheet(name, p)
+            sheets[n][name] = sh
             if sh.status == "unreadable":
                 unreadable.append(sh.detail)
             elif sh.status == "ok":
                 w, h = sh.size
-                if (w, h) != (128, 128):
-                    extra_notes.append(
-                        f"form{n}: sheet is {w}x{h} (expected 128x128); "
-                        f"{'cells outside 4x4 are ignored' if w >= 128 and h >= 128 else 'missing cells fall back'}")
+                exp = EXPECTED.get(name)
+                if exp and (w, h) != exp:
+                    notes.append(f"form{n} {name}: {sh.label} is {w}x{h} (expected {exp[0]}x{exp[1]})")
+                base = os.path.basename(rel)
+                if re.search(r"\.png\.[A-Za-z]+$", base, re.I):
+                    # odd double extension: write a clean copy (original is never renamed)
+                    try:
+                        os.makedirs(clean_dir, exist_ok=True)
+                        dst = os.path.join(clean_dir, f"form{n}_{name}.png")
+                        shutil.copyfile(p, dst)
+                        notes.append(f"form{n} {name}: odd file name {base} -> clean copy "
+                                     f"picture/_clean/form{n}_{name}.png (original untouched)")
+                    except OSError:
+                        pass
+    return sheets, unreadable, notes
 
+
+def build_main(cfg, sheets, fallback):
+    """48-frame main ROM. -> (words, result list)"""
+    out = [0] * (TOTAL_FRAMES * FRAME_WORDS)
+    result = []
     for n in range(1, FORMS + 1):
+        fc = cfg["forms"][n]
         for d in range(4):
             for p in range(3):
                 i = fidx(n, d, p)
-                name = fname(n, d, p)
                 base = i * FRAME_WORDS
+                info = {"idx": i, "name": fname(n, d, p), "form": n, "dir": d, "pose": p,
+                        "source": None, "fallback": None, "stats": None, "notes": [], "src": None}
                 ov = cfg["overrides"].get((n, d, p))
-                row = cfg["dir_row"][DIRS[d]]
-                col = cfg["pose_col"][POSES[p]]
-                if ov and not ov.get("skip"):
-                    row, col = ov["row"], ov["col"]
-                info = {"idx": i, "name": name, "form": n, "dir": d, "pose": p,
-                        "source": None, "fallback": None, "stats": None}
-                reason = None
                 words = None
-                if not cfg["forms"][n]["enabled"]:
-                    reason = "form disabled in config"
+                if not fc["enabled"]:
+                    info["fallback"] = "form disabled in config"
+                elif not fc["sheets"]:
+                    info["fallback"] = "no art configured for this form"
                 elif ov and ov.get("skip"):
-                    reason = "config skip"
+                    info["fallback"] = "config skip"
                 else:
-                    st, res = sheets[n].cell(row, col)
-                    if st == "fail":
-                        reason = res
+                    if ov:
+                        cands, row = [(ov["sheet"], ov["col"])], ov["row"]
                     else:
-                        words, stats = convert_cell(res, cfg["key"], cfg["alpha"])
-                        if stats["opaque"] == 0:
-                            reason, words = f"cell row{row} col{col} fully transparent", None
-                        else:
-                            info["stats"] = stats
-                            info["source"] = f"{os.path.basename(cfg['forms'][n]['png'])} row{row} col{col}"
+                        cands, row = cfg["pose"][POSES[p]], cfg["dir_row"][DIRS[d]]
+                    reasons, unconf = [], []
+                    for sname, col in cands:
+                        sh = sheets[n].get(sname)
+                        if sh is None:                       # sheet not listed for this form: just try the next candidate
+                            unconf.append(f"sheet '{sname}' not configured for form{n}")
+                            continue
+                        w, stats, why = get_cell_words(sh, row, col, cfg)
+                        if w is None:
+                            reasons.append(why)
+                            continue
+                        words = w
+                        info["stats"] = stats
+                        info["source"] = f"{sh.label} r{row} c{col}"
+                        info["src"] = (sname, row, col)
+                        if reasons:
+                            info["notes"].append("used after: " + "; ".join(reasons))
+                        break
+                    if words is None:
+                        info["fallback"] = "; ".join(dict.fromkeys(reasons or unconf))
                 if words is None:
                     words = fallback[base:base + FRAME_WORDS]
-                    info["fallback"] = reason
                 out[base:base + FRAME_WORDS] = words
                 result.append(info)
-    return out, result, nl, unreadable, extra_notes, fallback
+    return out, result
 
 
 def write_mem(path, words, nl):
@@ -323,7 +397,7 @@ def print_table(result, out_words, previous):
             print(f"{r['idx']:>5}  {r['name']:<18} {'old art (player_v1)':<28} FALLBACK ({r['fallback']})")
         else:
             s = r["stats"]
-            note = []
+            note = list(r["notes"])
             if s["outside"]:
                 note.append(f"{s['outside']} px outside hitbox area {HIT_LO}-{HIT_HI}")
             if s["nudged"]:
@@ -350,129 +424,27 @@ def print_table(result, out_words, previous):
 
 
 def warn_fallbacks(result):
+    byform = {}
     for r in result:
         if r["fallback"]:
-            print(f"WARNING: {r['name']} (frame {r['idx']}) -> FALLBACK old art: {r['fallback']}")
-
-
-# ---------------------------------------------------------------- previews
-def _checker(w, h, s=4):
-    im = Image.new("RGB", (w, h), (70, 70, 70))
-    d = ImageDraw.Draw(im)
-    for y in range(0, h, s):
-        for x in range(0, w, s):
-            if (x // s + y // s) % 2:
-                d.rectangle([x, y, x + s - 1, y + s - 1], fill=(100, 100, 100))
-    return im
-
-
-def frame_image(words, i, key, zoom):
-    """frame i -> RGB image zoomed (nearest), key colour shown as checkerboard"""
-    base = i * FRAME_WORDS
-    im = _checker(FRAME_PX * zoom, FRAME_PX * zoom, max(2, zoom // 2))
-    d = ImageDraw.Draw(im)
-    for y in range(FRAME_PX):
-        for x in range(FRAME_PX):
-            c = words[base + y * FRAME_PX + x]
-            if c == key:
-                continue
-            col = (((c >> 8) & 15) * 17, ((c >> 4) & 15) * 17, (c & 15) * 17)
-            d.rectangle([x * zoom, y * zoom, x * zoom + zoom - 1, y * zoom + zoom - 1], fill=col)
-    return im
-
-
-def make_previews(words, result, cfg, root):
-    pdir = os.path.join(root, "preview")
-    os.makedirs(pdir, exist_ok=True)
-    key = cfg["key"]
-    zoom = 4
-    cw, ch = FRAME_PX * zoom, FRAME_PX * zoom + 14
-    pad = 6
-    sheets = []
-    for n in range(1, FORMS + 1):
-        W = pad + 3 * (cw + pad)
-        H = 18 + pad + 4 * (ch + pad)
-        sheet = Image.new("RGB", (W, H), (30, 30, 30))
-        d = ImageDraw.Draw(sheet)
-        nfb = sum(1 for r in result if r["form"] == n and r["fallback"])
-        d.text((pad, 4), f"form{n}  ({12 - nfb}/12 new art)", fill=(255, 255, 255))
-        for dd in range(4):
-            for p in range(3):
-                i = fidx(n, dd, p)
-                x = pad + p * (cw + pad)
-                y = 18 + pad + dd * (ch + pad)
-                sheet.paste(frame_image(words, i, key, zoom), (x, y))
-                fb = result[i]["fallback"]
-                d.text((x + 1, y + FRAME_PX * zoom + 2), f"f{n} {DIRS[dd]} {POSES[p]}",
-                       fill=(255, 120, 120) if fb else (220, 220, 220))
-                if fb:
-                    d.rectangle([x - 2, y - 2, x + cw + 1, y + FRAME_PX * zoom + 1], outline=(255, 0, 0), width=3)
-        sheet.save(os.path.join(pdir, f"form{n}_contact.png"))
-        sheets.append(sheet)
-    # all forms side by side
-    W = sum(s.width for s in sheets)
-    H = max(s.height for s in sheets)
-    allim = Image.new("RGB", (W, H), (30, 30, 30))
-    x = 0
-    for s in sheets:
-        allim.paste(s, (x, 0))
-        x += s.width
-    allim.save(os.path.join(pdir, "all_forms.png"))
-    # walk GIFs (idle, A, idle, B), 8x
-    for n in range(1, FORMS + 1):
-        for dd in range(4):
-            frames = []
-            for p in WALK_ORDER:
-                i = fidx(n, dd, p)
-                fr = frame_image(words, i, key, 8)
-                if result[i]["fallback"]:
-                    ImageDraw.Draw(fr).rectangle([0, 0, fr.width - 1, fr.height - 1], outline=(255, 0, 0), width=4)
-                frames.append(fr)
-            frames[0].save(os.path.join(pdir, f"form{n}_{DIRS[dd]}_walk.gif"), save_all=True,
-                           append_images=frames[1:], duration=200, loop=0, disposal=2)
-    make_layout_guide(cfg, root)
-    print(f"Previews written to {pdir}")
-
-
-def make_layout_guide(cfg, root):
-    pdir = os.path.join(root, "preview")
-    os.makedirs(pdir, exist_ok=True)
-    cs, left, top = 120, 150, 70
-    im = Image.new("RGB", (left + 4 * cs + 20, top + 4 * cs + 150), (245, 245, 245))
-    d = ImageDraw.Draw(im)
-    d.text((10, 8), "Sheet layout: 128x128 PNG = 4x4 cells of 32x32 (rows 1-4, columns 0-3)", fill=(0, 0, 0))
-    d.text((10, 24), "Cells with a coloured tag are USED by the game. Grey cells are ignored.", fill=(0, 0, 0))
-    tags = {}
-    for dname, r in cfg["dir_row"].items():
-        for pname, c in cfg["pose_col"].items():
-            tags.setdefault((r, c), []).append(f"{dname}/{pname}")
-    rowdesc = {1: "row 1: front, facing RIGHT", 2: "row 2: front, facing LEFT",
-               3: "row 3: back, facing RIGHT", 4: "row 4: back, facing LEFT"}
-    for c in range(4):
-        d.text((left + c * cs + 8, top - 18), f"col {c}  (walk {c + 1})", fill=(0, 0, 0))
-    for r in range(1, 5):
-        d.text((6, top + (r - 1) * cs + 50), rowdesc[r], fill=(0, 0, 0))
-        for c in range(4):
-            x0, y0 = left + c * cs, top + (r - 1) * cs
-            used = (r, c) in tags
-            d.rectangle([x0, y0, x0 + cs - 1, y0 + cs - 1], fill=(200, 230, 255) if used else (215, 215, 215),
-                        outline=(0, 0, 0))
-            d.rectangle([x0 + 44, y0 + 44, x0 + 75, y0 + 75], outline=(150, 150, 150))   # a 32x32 cell
-            d.text((x0 + 4, y0 + 4), f"row{r} col{c}", fill=(0, 0, 0))
-            for k, t in enumerate(tags.get((r, c), [])):
-                d.text((x0 + 4, y0 + 18 + k * 12), t, fill=(0, 0, 160))
-    y = top + 4 * cs + 10
-    for ln in ("Game frames: dir = down/up/left/right, pose = idle/A/B. Walk cycle = idle, A, idle, B.",
-               "Edit sprites/sprites.json -> mapping to change which cell is used.",
-               "Form 1-4 = picture/form1.png ... form4.png.  Missing/empty cell = old art (player_v1.mem).",
-               "Keep art inside pixels 4-27 of each cell (that is the hitbox area).",
-               "Transparent background = transparent PNG pixels (they become key colour F0F)."):
-        d.text((10, y), ln, fill=(0, 0, 0))
-        y += 14
-    im.save(os.path.join(pdir, "layout_guide.png"))
+            byform.setdefault(r["form"], []).append(r)
+    for n, lst in byform.items():
+        if len(lst) == 12 and len({r["fallback"] for r in lst}) == 1:
+            print(f"WARNING: form{n}: all 12 frames -> FALLBACK old art: {lst[0]['fallback']}")
+        else:
+            for r in lst:
+                print(f"WARNING: {r['name']} (frame {r['idx']}) -> FALLBACK old art: {r['fallback']}")
 
 
 # ---------------------------------------------------------------- main
+def run(cfg, root):
+    b = Build()
+    b.fallback, b.nl = read_fallback(cfg["fallback"])
+    b.sheets, b.unreadable, b.notes = load_sheets(cfg, root)
+    b.main, b.result = build_main(cfg, b.sheets, b.fallback)
+    return b
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Build mem/player.mem from sprite sheets.")
     ap.add_argument("--check", action="store_true", help="validate only, do not write mem/player.mem")
@@ -485,29 +457,31 @@ def main(argv=None):
     cfg_path = a.config or os.path.join(root, "sprites", "sprites.json")
     try:
         cfg = load_config(cfg_path, root)
-        out, result, nl, unreadable, notes, _ = build(cfg, root)
+        b = run(cfg, root)
     except ConfigError as e:
         print(f"ERROR: {e}")
         return 2
 
     previous = read_words_quiet(cfg["output"])
-    for u in unreadable:
+    for u in b.unreadable:
         print(f"ERROR: {u}  (its frames use old art)")
-    for n_ in notes:
+    for n_ in b.notes:
         print(f"NOTE: {n_}")
-    warn_fallbacks(result)
+    warn_fallbacks(b.result)
     print()
-    print_table(result, out, previous)
-    assert len(out) == TOTAL_FRAMES * FRAME_WORDS
+    print_table(b.result, b.main, previous)
+    assert len(b.main) == TOTAL_FRAMES * FRAME_WORDS
 
     if a.check:
         print("\n--check: nothing written.")
     else:
-        write_mem(cfg["output"], out, nl)
-        print(f"\nWrote {cfg['output']}  ({len(out)} words)")
+        write_mem(cfg["output"], b.main, b.nl)
+        print(f"\nWrote {shortpath(cfg['output'])}  ({len(b.main)} words)")
     if a.preview:
-        make_previews(out, result, cfg, root)
-    return 1 if unreadable else 0
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import sprite_preview
+        sprite_preview.make_previews(b, cfg, root)
+    return 1 if b.unreadable else 0
 
 
 if __name__ == "__main__":
