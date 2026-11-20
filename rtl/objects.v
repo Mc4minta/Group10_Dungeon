@@ -40,6 +40,9 @@ module objects (
     input  wire         boss_act,
     input  wire [9:0]   boss_x, boss_y,   // มุมซ้ายบน sprite 64x64, hitbox 48x48 ที่ +8
     input  wire         boss_fire,        // pulse: ยิง 4 ทิศจากจุดกลางบอส
+    input  wire [7:0]   brk,                // W5: บล็อกพังได้ของห้องนี้ที่พังแล้ว (overlay.v)
+    output reg          brk_set = 1'b0,     // pulse: กระสุน / ฟันโดนบล็อกพังได้ -> overlay.v ตั้งบิต brk_idx
+    output reg  [2:0]   brk_idx = 3'd0,
     input  wire         summon,           // pulse (W11): บอส 2 เรียกลูกน้อง -> spawn มอน A ที่ SUMMON*_T* ใน slot ว่าง
     output reg          boss_dmg = 1'b0,  // pulse: บอสโดนกระสุน / ฟัน
     output reg  [2:0]   boss_dmg_amt = 3'd0,
@@ -120,12 +123,17 @@ module objects (
     // ---------- tile ROM (2 อ่านต่อ clock) ----------
     reg  [11:0] ta = 0, tb = 0;
     wire [3:0]  tda, tdb;
-    tilemap_rom rom_a (.addr(ta), .data(tda));
-    tilemap_rom rom_b (.addr(tb), .data(tdb));
+    wire [7:0]  ova, ovb, ovt, ovm;
+    tilemap_rom rom_a (.addr(ta), .brk(brk), .data(tda), .ov(ova));
+    tilemap_rom rom_b (.addr(tb), .brk(brk), .data(tdb), .ov(ovb));
     `include "tilebase.vh"
     function [11:0] taddr(input [3:0] g, input [9:0] x, input [9:0] y);
         taddr = rbase(g) + rowx20(y[8:5]) + x[9:5];
     endfunction
+    // W5: tile under the player's centre (spike trap) and under the centre of the melee box (breakable block)
+    wire [11:0] addr_t = taddr(grid, px + 10'd16, py + 10'd16);
+    tilemap_rom rom_t (.addr(addr_t), .brk(brk), .data(), .ov(ovt));
+    wire trap_under = (ovt[3:0] == 4'd2);
     // กระสุน: หยุดที่ # ประตูปิด (D ตอนล็อก, L ตอนยังไม่เปิด, E); ผ่าน H F
     function bpass(input [3:0] t);
         case (t)
@@ -157,6 +165,9 @@ module objects (
 
     reg [10:0] plx, ply, mbx, mby;           // คิดเฉพาะช่วงตรวจชน (ไม่เป็น logic ทุก clock)
     reg [6:0]  mbw, mbh;
+    wire [9:0]  mcx = mbx[9:0] - 10'd64 + {5'd0, mbw[5:1]}, mcy = mby[9:0] - 10'd64 + {5'd0, mbh[5:1]};
+    wire [11:0] addr_m = taddr(grid, mcx, mcy);
+    tilemap_rom rom_m (.addr(addr_m), .brk(brk), .data(), .ov(ovm));
 
     // ---------- FSM ----------
     localparam [4:0] S_IDLE = 5'd0, S_SPAWN = 5'd1, S_ATK = 5'd2, S_PB = 5'd3, S_EB = 5'd4,
@@ -246,7 +257,7 @@ module objects (
         if (atk_press && run) atk_req <= 1'b1;
         if (!run) atk_req <= 1'b0;
         if (room_load) spawn_req <= 1'b1;
-        boss_dmg <= 1'b0; boss_dmg_big <= 1'b0;
+        boss_dmg <= 1'b0; boss_dmg_big <= 1'b0; brk_set <= 1'b0;
         if (boss_fire) bfire_req <= 1'b1;
         if (summon) summon_req <= 1'b1;
         if (dbg_clear && st == S_IDLE && !spawn_req) m_act <= 0;   // ห้องเคลียร์ที่ S_END ของเฟรมถัดไป
@@ -401,7 +412,12 @@ module objects (
                     if (p_lifev[i[2:0]*5 +: 5] == 0) p_act[i[2:0]] <= 1'b0;
                     else p_lifev[i[2:0]*5 +: 5] <= p_lifev[i[2:0]*5 +: 5] - 1'b1;
                 end
-            end else p_act[i[2:0]] <= 1'b0;
+            end else begin
+                p_act[i[2:0]] <= 1'b0;
+                // W5: กระสุนหยุดที่บล็อกพังได้ (ปลายทาง ta หรือช่อง x tb) -> พัง (1 ที)
+                if (ova[3:0] == 4'd1 && !brk[ova[6:4]]) begin brk_set <= 1'b1; brk_idx <= ova[6:4]; end
+                else if (ovb[3:0] == 4'd1 && !brk[ovb[6:4]]) begin brk_set <= 1'b1; brk_idx <= ovb[6:4]; end
+            end
             ph <= 0;
             if (i == NP - 1) begin j <= 0; st <= S_EB; end
             i <= i + 1'b1;
@@ -544,10 +560,20 @@ module objects (
                 if (m_hpv[(i)*3 +: 3] <= damage) begin m_hpv[(i)*3 +: 3] <= 0; m_act[i] <= 1'b0; ev_mdie <= 1'b1; end
                 else m_hpv[(i)*3 +: 3] <= m_hpv[(i)*3 +: 3] - damage;
             end
+            // W5: ฟันโดนบล็อกพังได้ตรงกลางกล่องฟัน -> พัง
+            if (i == 0 && melee_cnt != 0 && ovm[3:0] == 4'd1 && !brk[ovm[6:4]] && mcx < 10'd640 && mcy < 10'd480) begin
+                brk_set <= 1'b1; brk_idx <= ovm[6:4];
+            end
             if (i == NM - 1) begin i <= 0; st <= S_CPM; end
             else i <= i + 1'b1;
         end
-        S_CPM: begin                         // ผู้เล่น x มอน (ชนตัว)
+        S_CPM: begin                         // ผู้เล่น x มอน (ชนตัว) + W5 กับดักหนาม
+            // กับดัก: ยืนบนหนาม (ร่าง 3 บินผ่าน) -> HP -1 + knockback ถอยหลังตามทิศที่หัน (ใช้ช่วงอมตะเดียวกัน)
+            if (i == 0 && hurt_cnt == 0 && trap_under && form != 2'd2) begin
+                hit <= 1'b1; kb_start <= 1'b1;
+                kb_dir <= (facing == 2'd0) ? 2'd1 : (facing == 2'd1) ? 2'd0 : (facing == 2'd2) ? 2'd3 : 2'd2;
+                hurt_cnt <= KB_FRAMES + INV_FRAMES;
+            end
             if (hurt_cnt == 0 && m_act[i] &&
                 ovl(plx, ply, HURT_BOX, HURT_BOX,
                     {1'b0, m_xv[(i)*10 +: 10]} + OFS + 11'd4, {1'b0, m_yv[(i)*10 +: 10]} + OFS + 11'd4, 7'd24, 7'd24)) begin

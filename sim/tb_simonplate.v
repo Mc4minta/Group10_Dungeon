@@ -5,7 +5,7 @@ module tb_simonplate;
     reg clk = 0; always #5 clk = ~clk;
     reg [9:0] hc = 0, vc = 0;
     wire [11:0] color;
-    renderer dut (.clk(clk), .ce(1'b1), .hcount(hc), .vcount(vc), .grid(4'd12), .floor(2'd2), .form(2'd0),
+    renderer dut (.open_E(1'b0), .brk(8'd0), .clk(clk), .ce(1'b1), .hcount(hc), .vcount(vc), .grid(4'd12), .floor(2'd2), .form(2'd0),
         .doors_open(1'b0), .open_L(1'b0), .screen(3'd0), .hide_player(1'b1), .px(10'd0), .py(10'd0), .pframe(6'd0),
         .p_anim(3'd0), .p_aframe(6'd0), .mon_act(6'd0), .mon_type(6'd0), .mon_flash(6'd0), .mon_x(60'd0), .mon_y(60'd0), .mon_anim(1'b0),
         .pb_act(6'd0), .pb_x(60'd0), .pb_y(60'd0), .pb_kind(12'd0), .p_tint(1'b0), .eb_act(16'd0), .eb_x(160'd0), .eb_y(160'd0),

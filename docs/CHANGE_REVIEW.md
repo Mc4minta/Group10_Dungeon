@@ -70,6 +70,7 @@ All four flags are `false` in `sprites/sprites.json`, so the build is exactly th
 | `scripts/check_all.sh` (generated files current, all Python tests, `run_sim.sh all`) | PASS (`run_sim.sh all` = ALL OK) |
 | Whole-system test with all four animation flags forced ON (`run_sim.sh topanim`) | PASS |
 | Fallback drill on the real tree (4 scenarios) | PASS |
+| Verilator `full_game.txt` script | NOT valid any more after the W7 maze: the run used to end with the ESCAPE dash to door E; now boss 3 gives a key and door E starts the tilt maze (the script has no maze solution; extend it with button moves or use `SW10`) |
 | Verilator full game to WIN | last passed on the commit before the tuning / face lock / SW14 / music RTL changes (screenshots in `preview/game`); NOT repeated on the newest RTL because Verilator cannot be rebuilt on the build machine |
 | Vivado synthesis and board run | pending: the owner builds in the GUI (`docs/BOARD_TEST_STEPS.md`); Block RAM and WNS numbers are still to be recorded |
 

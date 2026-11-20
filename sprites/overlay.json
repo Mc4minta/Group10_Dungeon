@@ -1,0 +1,13 @@
+{
+  "_help": [
+    "W5 overlay art (breakable block Z, spike trap X, solid decoration Y). mem/ovtile.mem is GENERATED from this file.  Rebuild: python scripts/build_overlay_mem.py",
+    "pics 0..2 = Z / X / Y (3 = spare). file = 16x16 picture, scale 2 -> 32x32. cut = exact [r,g,b] colours that become see-through. plate = [r,g,b] rectangle under the picture.",
+    "Missing / invalid file -> a procedural placeholder (printed warning), the game still builds. Keys starting with _ are comments."
+  ],
+  "alpha_threshold": 128,
+  "pics": {
+    "0": { "file": "my_asset/props/box_1_1.png", "scale": 2 },
+    "1": { "file": "my_asset/props/peaks_1.png", "scale": 2, "cut": [[61, 37, 59]], "plate": [80, 32, 32] },
+    "2": { "file": "my_asset/props/candlestick_1_1.png", "scale": 2 }
+  }
+}

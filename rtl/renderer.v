@@ -19,6 +19,8 @@ module renderer (
     input  wire [1:0]   form,
     input  wire         doors_open, open_L,
     input  wire [2:0]   screen,
+    input  wire         open_E,           // W7: ประตู E เปิด (มีกุญแจ) -> วาดเป็นพื้น
+    input  wire [7:0]   brk,              // W5: บล็อกพังได้ของห้องนี้ที่พังแล้ว (overlay.v)
     input  wire         hide_player,
     input  wire [9:0]   px, py,
     input  wire [5:0]   pframe,        // form*12 + facing*3 + pose
@@ -64,7 +66,8 @@ module renderer (
 
     // ======================= stage 1 =======================
     // ----- tile -----
-    wire [3:0] tid;
+    wire [3:0] tid_map;
+    wire       maze_on = (screen == 3'd5);   // W7: Ball in a Maze: tiles come from maze_rom instead of the room map
     // จอสั่น: ทุกชั้นภาพใช้พิกัดที่เลื่อนแล้ว (hs, vs); นอกจอ = ดำ
     wire [9:0] hs = hcount + sh_dx;
     wire [9:0] vs = vcount + sh_dy;
@@ -72,18 +75,24 @@ module renderer (
     `include "tilebase.vh"
     reg [9:0]  hs_r = 0, vs_r = 0;
     reg [11:0] taddr = 0;
+    reg [11:0] maddr = 0;
     always @(posedge clk) begin
         hs_r  <= hs;
         vs_r  <= vs;
         taddr <= rbase(grid) + rowx20(vs[8:5]) + hs[9:5];
+        maddr <= rowx20(vs[8:5]) + hs[9:5];
     end
-    tilemap_rom map (.addr(taddr), .data(tid));
+    wire [7:0] ovraw;                // W5 overlay entry of this tile (art drawn from ovtile_rom over the base tile)
+    tilemap_rom #(.RAW(1)) map (.addr(taddr), .brk(8'd0), .data(tid_map), .ov(ovraw));
+    wire [1:0] mzd;
+    maze_rom mzr (.addr(maddr[8:0]), .data(mzd));
+    wire [3:0] tid = maze_on ? ((mzd == 2'd1) ? 4'h0 : (mzd == 2'd2) ? 4'h7 : 4'h1) : tid_map;   // wall / goal plate / floor
     reg [3:0] tvis;
     always @* begin                  // สถานะประตูเลือกรูปเปิด/ปิด
         case (tid)
             4'h2: tvis = doors_open ? 4'h8 : 4'h2;
             4'h3: tvis = open_L     ? 4'h9 : 4'h3;
-            4'h4: tvis = (form == 2'd3) ? 4'hA : 4'h4;
+            4'h4: tvis = open_E ? 4'hA : 4'h4;
             4'h7: tvis = ((pbox_en[0] && taddr == pbox0) || (pbox_en[1] && taddr == pbox1)) ? 4'hB : 4'h7;
             default: tvis = tid;
         endcase
@@ -100,6 +109,8 @@ module renderer (
     reg [2:0]  r1_asel = 0;
     reg        r1_p = 0, r1_lit = 0, r1_red = 0, r1_out = 0, r1_tint = 0;
     reg [2:0]  r1_scr = 0;
+    reg [1:0]  r1_ovs = 0, r2_ovs = 0;         // overlay picture: 0 none, 1 breakable block, 2 spike trap, 3 solid decoration
+    reg [11:0] r1_oaddr = 0;
     reg [2:0]  r1_vb = 0, r2_vb = 0;            // W6: แถบแนวนอน 8 แถบ (vcount[8:6]) ทำพื้นหน้า TITLE เป็นไล่สี
     // ----- ข้อความ: ไม่เกิน 2 บรรทัดต่อหน้าจอ, ฟอนต์ 8x8 ขยาย 2x / 4x (คิดเฉพาะตอนมีข้อความบนจอ) -----
     reg [5:0]  txtmem [0:511];
@@ -162,6 +173,8 @@ module renderer (
         r1_p     <= in_spr && !hide_player;
         r1_tint  <= p_tint;
         r1_scr   <= screen;
+        r1_ovs   <= maze_on ? 2'd0 : (ovraw[3:0] == 4'd1 && !brk[ovraw[6:4]]) ? 2'd1 : (ovraw[3:0] == 4'd2) ? 2'd2 : (ovraw[3:0] == 4'd3) ? 2'd3 : 2'd0;
+        r1_oaddr <= {((ovraw[3:0] == 4'd2) ? 2'd1 : (ovraw[3:0] == 4'd3) ? 2'd2 : 2'd0), vs_r[4:0], hs_r[4:0]};
         r1_vb    <= vcount[8:6];
         r1_lit   <= simon_lit_on && (tid == {2'b11, simon_lit});
         r1_red   <= simon_wrong && (tid >= 4'hC);
@@ -170,6 +183,8 @@ module renderer (
     // ======================= stage 2: ROM =======================
     wire [11:0] tile_px, spr_px, obj_px;
     tileset_rom tset (.clk(clk), .addr(r1_taddr), .data(tile_px));
+    wire [11:0] ov_px;
+    ovtile_rom  otr  (.clk(clk), .addr(r1_oaddr), .data(ov_px));
     player_rom  pspr (.clk(clk), .addr(r1_paddr), .data(spr_px));
     // animation ROMs: only built when their flag in sprite_cfg.vh is 1
     wire [11:0] idle_px, atk_px, hurt_px, die_px;
@@ -203,7 +218,7 @@ module renderer (
     reg [2:0] r2_gx = 0;
     reg [7:0] r2_font = 0;
     always @(posedge clk) begin
-        r2_p <= r1_p; r2_tint <= r1_tint; r2_scr <= r1_scr; r2_vb <= r1_vb; r2_lit <= r1_lit; r2_red <= r1_red; r2_out <= r1_out;
+        r2_p <= r1_p; r2_tint <= r1_tint; r2_scr <= r1_scr; r2_vb <= r1_vb; r2_ovs <= r1_ovs; r2_lit <= r1_lit; r2_red <= r1_red; r2_out <= r1_out;
         r2_txt <= r1_txt; r2_gx <= r1_gx;
         r2_font <= fontmem[r1_faddr];
     end
@@ -227,6 +242,7 @@ module renderer (
         else if (obj_px_d != C_T)                    color <= obj_px_d;   // มอน < กระสุน < ฟัน (เรียงใน objline)
         else if (r2_red)                             color <= {4'hF, 1'b0, tile_px[7:5], 1'b0, tile_px[3:1]};   // Simon ผิด: แดง
         else if (r2_lit)                             color <= {1'b1, tile_px[11:9], 1'b1, tile_px[7:5], 1'b1, tile_px[3:1]}; // สว่าง
+        else if (r2_ovs != 2'd0 && ov_px != C_T)     color <= ov_px;       // W5: breakable block / trap / decoration over the floor
         else                                         color <= tile_px;
     end
 endmodule

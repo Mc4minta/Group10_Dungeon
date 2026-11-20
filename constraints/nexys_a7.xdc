@@ -102,6 +102,12 @@ set_property -dict { PACKAGE_PIN J5 IOSTANDARD LVCMOS33 } [get_ports M_CLK]
 set_property -dict { PACKAGE_PIN H5 IOSTANDARD LVCMOS33 } [get_ports M_DATA]
 set_property -dict { PACKAGE_PIN F5 IOSTANDARD LVCMOS33 } [get_ports M_LRSEL]
 
+## Accelerometer ADXL362 (SPI), pins checked against the Digilent Nexys-A7-100T-Master.xdc (20/11)
+set_property -dict { PACKAGE_PIN E15 IOSTANDARD LVCMOS33 } [get_ports ACL_MISO]
+set_property -dict { PACKAGE_PIN F14 IOSTANDARD LVCMOS33 } [get_ports ACL_MOSI]
+set_property -dict { PACKAGE_PIN F15 IOSTANDARD LVCMOS33 } [get_ports ACL_SCLK]
+set_property -dict { PACKAGE_PIN D15 IOSTANDARD LVCMOS33 } [get_ports ACL_CSN]
+
 ## Configuration
 set_property CONFIG_VOLTAGE 3.3 [current_design]
 set_property CFGBVS VCCO [current_design]

@@ -47,6 +47,7 @@ module boss (
     input  wire [2:0]  dmg_amt,
     input  wire        clap,             // pulse จาก pdm_mic.v (หรือ SW11)
     input  wire        dmg_big,          // pulse มาพร้อม dmg: กระสุนชาร์จ (ร่าง 4) -- บอส 3 รับดาเมจเฉพาะอันนี้
+    input  wire [7:0]  brk,              // W5: บล็อกพังได้ที่พังแล้ว
     input  wire [2:0]  minions,          // มอนที่เหลือในห้อง (objects.alive): บอส 2 ตีได้เมื่อ 0
     output reg         act = 1'b0,
     output reg  [9:0]  bx = 0, by = 0,   // มุมซ้ายบน sprite 64x64
@@ -76,8 +77,8 @@ module boss (
     // ---------- tile ROM ----------
     reg  [11:0] ta = 0, tb = 0;
     wire [3:0]  tda, tdb;
-    tilemap_rom rom_a (.addr(ta), .data(tda));
-    tilemap_rom rom_b (.addr(tb), .data(tdb));
+    tilemap_rom rom_a (.addr(ta), .brk(brk), .data(tda), .ov());
+    tilemap_rom rom_b (.addr(tb), .brk(brk), .data(tdb), .ov());
     `include "tilebase.vh"
     function [11:0] taddr(input [3:0] g, input [9:0] x, input [9:0] y);
         taddr = rbase(g) + rowx20(y[8:5]) + x[9:5];

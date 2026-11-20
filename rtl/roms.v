@@ -3,13 +3,43 @@
 
 // tile map: 13 ห้อง x 300 tile x 4 bit, อ่านแบบ async (distributed ROM)
 // ใช้หลาย instance ได้ (renderer 1 + player 2)
-module tilemap_rom (
+module tilemap_rom #(
+    parameter RAW = 0          // 1 = the base tile (renderer: draws overlay art separately); 0 = collision view (overlay folded in)
+) (
     input  wire [11:0] addr,   // grid*300 + ty*20 + tx
-    output wire [3:0]  data
+    input  wire [7:0]  brk,    // broken breakable blocks of the current room (overlay.v)
+    output wire [3:0]  data,
+    output wire [7:0]  ov      // raw overlay entry: [3:0] 0 none, 1 breakable block, 2 spike trap, 3 solid decoration; [6:4] block index
 );
     reg [3:0] mem [0:4095];
-    initial $readmemh("tilemap.mem", mem);
+    reg [7:0] omem [0:4095];
+    initial begin $readmemh("tilemap.mem", mem); $readmemh("overlay.mem", omem); end
+    wire [3:0] base = mem[addr];
+    assign ov = omem[addr];
+    // collision view: an unbroken breakable block and a solid decoration act like a wall (tile 0); a broken block and a trap are floor (the base tile)
+    wire solid = (ov[3:0] == 4'd1 && !brk[ov[6:4]]) || (ov[3:0] == 4'd3);
+    assign data = (RAW != 0) ? base : (solid ? 4'd0 : base);
+endmodule
+
+// W7 maze: 20x15 tiles x 2 bit (0 floor, 1 wall, 2 goal, 3 start), address = row * 20 + col (mem/maze.mem from maps/maze/maze.txt)
+module maze_rom (
+    input  wire [8:0] addr,
+    output wire [1:0] data
+);
+    reg [1:0] mem [0:511];
+    initial $readmemh("maze.mem", mem);
     assign data = mem[addr];
+endmodule
+
+// overlay art: 4 pictures x 32x32 (0 breakable block, 1 spike trap, 2 solid decoration, 3 spare) x 12 bit, F0F = see-through (BRAM, sync)
+module ovtile_rom (
+    input  wire        clk,
+    input  wire [11:0] addr,   // pic*1024 + y*32 + x
+    output reg  [11:0] data
+);
+    reg [11:0] mem [0:4095];
+    initial $readmemh("ovtile.mem", mem);
+    always @(posedge clk) data <= mem[addr];
 endmodule
 
 // tileset: 3 ชั้น x 16 tile x 1024 px x 12 bit, อ่านแบบ sync (BRAM)

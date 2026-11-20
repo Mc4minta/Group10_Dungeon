@@ -220,12 +220,26 @@ class Fallbacks(unittest.TestCase):
         self.ok_shape()
         self.assertNotIn("WARNING", out)
 
+    def assert_sheet_tiles_are_v1(self, w):
+        """every tile that is drawn from the sheet falls back to the old art; tiles with their own picture (plates, spike doors) stay new"""
+        n_own = 0
+        for f in (1, 2, 3):
+            for t in range(16):
+                spec = self.c["tiles"].get(str(t), {})
+                spec = self.c["overrides"].get(f"f{f}.t{t}", spec)
+                i = (f - 1) * 16 + t
+                if spec.get("file"):
+                    n_own += 1
+                    continue
+                self.assertEqual(w[i * 1024:(i + 1) * 1024], self.v1[i * 1024:(i + 1) * 1024], f"floor {f} tile {t}")
+        self.assertGreater(n_own, 10)
+
     def test_sheet_missing_all_fallback(self):
         os.remove(self.sheet)
         rc, out = run_build(self.t)
         self.assertEqual(rc, 0)
-        self.assertEqual(self.ok_shape(), self.v1)
-        self.assertEqual(out.count("WARNING"), 3)            # one line per floor
+        self.assert_sheet_tiles_are_v1(self.ok_shape())
+        self.assertGreaterEqual(out.count("WARNING"), 3)   # at least one line per floor (tiles that sit on a fallen-back floor tile warn too)
         self.assertIn("file missing", out)
 
     def test_sheet_corrupt_is_error_but_builds(self):
@@ -233,7 +247,7 @@ class Fallbacks(unittest.TestCase):
             f.write(b"junk")
         rc, out = run_build(self.t)
         self.assertEqual(rc, 1)
-        self.assertEqual(self.ok_shape(), self.v1)
+        self.assert_sheet_tiles_are_v1(self.ok_shape())
 
     def test_sheet_too_small(self):
         im = Image.open(self.sheet)

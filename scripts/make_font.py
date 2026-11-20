@@ -90,7 +90,8 @@ LINES = [
     (1, 0, GAME_NAME,        4,  96, 0),
     (1, 1, 'PRESS BTNC',     2, 360, 1),
     (2, 0, 'FLOOR {F} CLEAR', 4, 176, 0),
-    (3, 0, 'ESCAPE!',        4,  40, 0),
+    (3, 0, 'TILT THE BOARD TO', 2, 40, 0),     # W7: banner at the start of the maze (END-04)
+    (3, 1, 'ROLL THE BALL OUT!', 2, 64, 0),
     (4, 0, 'YOU WIN',        4, 160, 0),
     (4, 1, '{M1}{M0}:{S1}{S0}', 4, 260, 0),
     (5, 0, 'GAME OVER',      4, 160, 0),

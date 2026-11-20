@@ -28,6 +28,7 @@ module puzzles #(
     input  wire [1:0]  melee_dir,
     input  wire [5:0]  pb_act,               // กระสุนผู้เล่น 6 slot
     input  wire [59:0] pb_x, pb_y,
+    input  wire [7:0]  brk,                  // W5: บล็อกพังได้ที่พังแล้ว
     input  wire        soko_reset,           // SW13 rise
     output reg         got_item = 1'b0,      // pulse -> game_fsm (EVOLVE)
     output reg         hit = 1'b0,           // pulse -> game_fsm take_hit (Simon ผิด)
@@ -86,7 +87,7 @@ module puzzles #(
     // ---------- tile ROM (ปลายทางกล่อง / จุดกลางผู้เล่นใน Simon) ----------
     reg  [11:0] ta = 0;
     wire [3:0]  td;
-    tilemap_rom rom (.addr(ta), .data(td));
+    tilemap_rom rom (.addr(ta), .brk(brk), .data(td), .ov());
 
     // ---------- state ----------
     reg [2:0]  picked = 0;
