@@ -28,7 +28,7 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 | Feature | Details | Code |
 |---|---|---|
 | Melee (form 1) | 24x16 swing in front, hits monsters, levers | `objects.v` |
-| Shots (forms 2-4) | form 2 normal, form 3 spread, form 4 fast + hold to charge a big ball (pierces monsters, destroys enemy bullets) | `objects.v` |
+| Shots (forms 2-4) | form 2 normal, form 3 spread, form 4 fast + hold to charge a big ball (stops on the first monster / boss it hits, destroys enemy bullets in its path) | `objects.v` |
 | Collision | AABB between player / monsters / bullets / boss, per-pair checks | `objects.v` |
 | Limits | 6 monsters, 6 player bullets, 16 enemy bullets at a time | `objects.v` |
 

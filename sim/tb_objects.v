@@ -447,17 +447,18 @@ module tb_objects;
         nb_big = 0; for (n = 0; n < 6; n = n + 1) if (pb_act[n] && pb_kind[n*2 +: 2] == 3) nb_big = nb_big + 1;
         check(nb_big == 1 && !charged, "release after 45 frames: one big 16x16 shot");
         clear_all;
-        // ลูกใหญ่ทะลุมอน 2 ตัวในแนวเดียว + ทำลายกระสุนศัตรู
+        // W3: ลูกใหญ่หยุดเมื่อโดน: ฆ่ามอนตัวแรก ตัวที่สองไม่โดน ลูกหายไป
         place(0, 100, 224); right = 1; frames(1); right = 0; frames(16); clear_all;
         put_mon(0, 1, 260, 224, 3);
         put_mon(1, 1, 360, 224, 3);
-        put_eb(0, 460, 232, 2);                    // กระสุนศัตรูวิ่งซ้ายเข้าหา
         dut.hurt_cnt = 7'd100;
         @(posedge clk) begin atk_press <= 1; atk_hold <= 1; end @(posedge clk) atk_press <= 0;
         frames(1); frames(45); atk_hold = 0;
         for (n = 0; n < 80; n = n + 1) begin while (busy) @(posedge clk); dut.hurt_cnt = 7'd100; frames(1); end
-        check(dut.m_act[1:0] == 2'b00, "big shot (damage 4) pierces and kills 2 monsters in a line");
-        check(eb_act[0] == 0, "big shot destroys the enemy bullet in its path");
+        check(dut.m_act[0] == 1'b0, "big shot (damage 4) kills the first monster");
+        check(dut.m_act[1] == 1'b1 && dut.m_hpv[1*3 +: 3] == 3'd3, "W3: big shot stops on hit, the second monster behind is untouched");
+        nb_big = 0; for (n = 0; n < 6; n = n + 1) if (pb_act[n] && pb_kind[n*2 +: 2] == 3) nb_big = nb_big + 1;
+        check(nb_big == 0, "W3: big shot is gone after the hit");
         clear_all;
         // --- ฟันอัตโนมัติร่าง 2-4 เมื่อมีศัตรูในกล่องหน้าตัว ---
         for (n2 = 1; n2 <= 3; n2 = n2 + 1) begin

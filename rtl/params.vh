@@ -100,7 +100,7 @@ localparam TAP_SPEED       = 6;            // ร่าง 4 กดครั้�
 localparam TAP_COOLDOWN    = 15;           // ร่าง 4: เฟรมระหว่างนัด
 localparam CHARGE_FRAMES   = 45;           // ร่าง 4: กดค้างกี่เฟรมถึงชาร์จเต็ม (0.75 วิ)
 localparam BIG_SPEED       = 4;            // ร่าง 4 ลูกใหญ่ 16x16 px/เฟรม
-localparam BIG_DMG         = 4;            // ร่าง 4 ลูกใหญ่: ดาเมจ (ทะลุมอน, โดนแต่ละตัวครั้งเดียว)
+localparam BIG_DMG         = 4;            // ร่าง 4 ลูกใหญ่: ดาเมจ (หยุดเมื่อโดน, W3)
 
 // ---------- เสียง (P6) ----------
 localparam AUD_PWM_BITS    = 8;            // PWM 8 bit, carrier = 100 MHz / 256 = 390 kHz
