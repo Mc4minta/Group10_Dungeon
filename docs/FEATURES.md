@@ -8,9 +8,9 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 ## 1. Game flow and rules
 | Feature | Details | Code |
 |---|---|---|
-| States | TITLE -> PLAY -> EVOLVE (60 frames) -> FLOOR CLEAR (120 frames) -> ESCAPE (30 s timer) -> WIN, GAME OVER from any HP 0 | `rtl/game_fsm.v` |
+| States | TITLE -> PROLOGUE (4 black pages of story text, BTNC = next page, 6 s per page) -> PLAY -> EVOLVE (60 frames) -> FLOOR CLEAR (120 frames) -> ESCAPE (30 s timer) -> WIN, GAME OVER from any HP 0 | `rtl/game_fsm.v` |
 | 3 floors, 13 rooms | start, 2 combat rooms, 1 puzzle room, 1 boss room per floor (+ extra start/boss variants) | `maps/*.txt`, `rtl/world.v` |
-| 4 forms (evolution) | form 1 Human (melee), 2 Orc (shot), 3 Angel (3-way spread), 4 gold (fast shot + charged big ball); each puzzle item evolves the hero and opens that floor's boss door | `game_fsm.v`, `objects.v` |
+| 4 forms (evolution) | form 1 Human (melee), 2 Orc (shot), 3 Angel (3-way spread; a bullet that hits a monster splits into 4 short child bullets), 4 gold (fast shot + charged big ball); each puzzle item evolves the hero and opens that floor's boss door | `game_fsm.v`, `objects.v` |
 | Health | HP 4 on every form, invulnerable 90 frames after a hit, knockback | `params.vh` (`HP1..4`, `INV_FRAMES`) |
 | Timer | mm.ss on the 7-segment display, runs from START | `game_fsm.v`, `seg7.v` |
 | Debug shortcuts | SW0-SW4 (open boss door, skip floor, clear room, evolve, hurt) only when `DEBUG = 1`; off in the hand-in build | `top.v` |
@@ -28,7 +28,7 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 | Feature | Details | Code |
 |---|---|---|
 | Melee (form 1) | 24x16 swing in front, hits monsters, levers | `objects.v` |
-| Shots (forms 2-4) | form 2 normal, form 3 spread, form 4 fast + hold to charge a big ball (stops on the first monster / boss it hits, destroys enemy bullets in its path) | `objects.v` |
+| Shots (forms 2-4) | form 2 normal, form 3 spread + split on hit (AOE), form 4 fast + hold to charge a big ball (stops on the first monster / boss it hits, destroys enemy bullets in its path) | `objects.v` |
 | Collision | AABB between player / monsters / bullets / boss, per-pair checks | `objects.v` |
 | Limits | 6 monsters, 6 player bullets, 16 enemy bullets at a time | `objects.v` |
 
@@ -40,12 +40,12 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 | Spawn lists | per room from the map letters `S` / `T` | `scripts/build_maps.py`, `mem/monsters.mem` |
 | Art | your enemy sheets (2 types, 2 frames each) | `mem/monster.mem` |
 
-## 5. Bosses (3, current version - will be redesigned, see DESIGN_PLAN W10-W12)
-| Boss | Today | Code |
+## 5. Bosses (3, reworked 20/11: DESIGN_PLAN W10-W12)
+| Boss | Behaviour | Code |
 |---|---|---|
-| 1 (floor 1) | HP 10, slow chase, no shot | `rtl/boss.v` |
-| 2 (floor 2) | HP 16, bounces in the fence, shoots 4 ways, **stunned by a clap** | `boss.v`, `rtl/pdm_mic.v` |
-| 3 (floor 3) | HP 24, fast chase, shoots 4 ways, death starts ESCAPE | `boss.v` |
+| 1 (floor 1) | HP 10, very fast (2 px every frame), no shot, always takes damage; **a clap (or SW11) stuns it 3 s**, then 4 s cooldown | `rtl/boss.v`, `rtl/pdm_mic.v` |
+| 2 (floor 2) | HP 16, stationary, no shot; summons 3 minions per round; **shielded (blinks) while any minion lives, hurt only when all minions are dead (VULNERABLE 2 s)**, then summons again | `boss.v`, `objects.v` (summon) |
+| 3 (floor 3) | HP 3, **armour: only the charged shot (form 4) hurts, 1 per hit**; chases and shoots 3 s, then charges a big attack for 2 s (blinks, stands still): if it completes the player dies (GAME OVER); a charged hit interrupts and restarts the cycle; death starts ESCAPE (key + maze come with W7) | `boss.v`, `game_fsm.v` (`kill`) |
 | Shared | 64x64 sprite, hit flash, boss room locks while alive, boss HP bar on screen (+ LED0-7) | `boss.v`, `hud.v` |
 
 ## 6. Puzzles and items
@@ -86,8 +86,8 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 | VGA 640x480 | 4-stage pixel pipeline, 20x15 tiles of 32 px, layers: tile < objects < player < HUD < text | `rtl/renderer.v`, `objline.v`, `vga_sync.v` |
 | Player hearts | one heart per max HP (full = HP left), top left, 2x | `rtl/hud.v`, `mem/hud.mem` |
 | Boss health bar | top right, boss room only, fill = hp / max hp | `hud.v` |
-| Text | 8x8 font, TITLE, FLOOR CLEAR, ESCAPE, WIN, GAME OVER (2 lines max, A-Z 0-9 `- : ! .`) | `renderer.v`, `text_layout.vh`, `mem/text.mem` |
-| Screens | title (navy + hero), game over (dark red + death), win (gold) | `renderer.v` |
+| Text | 8x8 font; screens: TITLE, FLOOR CLEAR, ESCAPE, WIN, GAME OVER, PAUSED, 4 prologue pages, 3 NEW FORM banners (2 lines max, A-Z 0-9 `- : ! .`); wording in `docs/STORY.md` | `renderer.v`, `scripts/make_font.py` -> `text_layout.vh`, `text_select.vh`, `mem/text.mem` |
+| Screens | title (navy-to-blue gradient + hero), prologue (black), game over (dark red + death), win (gold) | `renderer.v` |
 | Screen shake | on hit, UI does not shake | `top.v` |
 
 ## 10. Audio
@@ -106,10 +106,11 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 | BTNC | start (TITLE) / attack (PLAY) / back to TITLE (WIN, GAME OVER) |
 | SW15 | **PAUSE** (game frozen, PAUSED text, music + sfx muted; PLAY / ESCAPE only) |
 | SW14 | sprint (+1 px/frame) |
+| SW11 | clap fallback: up = one stun pulse for boss 1 |
 | SW12 | facing lock |
 | SW13 | Sokoban box reset |
 | SW0-SW4 | debug (only `DEBUG = 1`) |
-| Microphone (PDM) | clap = stun boss 2 (only tested in simulation) |
+| Microphone (PDM) | clap = stun boss 1 (only tested in simulation); SW11 = same pulse as a fallback |
 | 7-segment | floor - HP - mm.ss |
 | LEDs | LED0-3 buttons / lamps / Simon round, LED4-7 monsters left (boss room: boss HP), LED8-11 HP, LED12 door locked, LED13 item, LED14 sprint (SW14), LED15 WIN; RGB16 = form colour, RGB17 red = hit |
 

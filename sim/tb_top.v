@@ -33,7 +33,7 @@ module tb_top;
         else begin $display("FAIL  %0s  7seg=%c%c%c%c%c%c%c%c LED=%b", msg, shown[7], shown[6], shown[5], shown[4], shown[3], shown[2], shown[1], shown[0], LED); disp_err = disp_err + 1; end
     end endtask
     integer pwm_edges = 0; reg pwm_q = 0;
-    top #(.DEBOUNCE(4)) dut (.CLK100MHZ(clk), .CPU_RESETN(rstn), .BTNC(BTNC), .BTNU(BTNU), .BTND(BTND),
+    top #(.DEBOUNCE(4), .PROLOGUE(0)) dut (.CLK100MHZ(clk), .CPU_RESETN(rstn), .BTNC(BTNC), .BTNU(BTNU), .BTND(BTND),
         .BTNL(BTNL), .BTNR(BTNR), .SW(SW), .LED(LED), .LED16_R(), .LED16_G(), .LED16_B(),
         .LED17_R(), .LED17_G(), .LED17_B(), .CA(CA), .CB(CB), .CC(CC), .CD(CD), .CE(CE), .CF(CF), .CG(CG), .DP(DP), .AN(AN),
         .VGA_R(R), .VGA_G(G), .VGA_B(B), .VGA_HS(HS), .VGA_VS(VS), .AUD_PWM(AUD_PWM), .AUD_SD(AUD_SD), .M_CLK(), .M_DATA(1'b0), .M_LRSEL());

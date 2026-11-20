@@ -19,7 +19,7 @@ module tb_objects;
     // ---------- DUT ----------
     reg up = 0, down = 0, left = 0, right = 0;
     reg atk_press = 0, atk_hold = 0;
-    reg fsm_btnc = 0, item = 0;
+    reg fsm_btnc = 0, item = 0, summon_t = 0;
     reg [1:0] floor = 0; reg [2:0] room = 0; reg [3:0] grid = 0;
     reg p_load = 0, o_load = 0, restart_tb = 0; reg [9:0] lx = 288, ly = 224;
     reg open_L = 0;
@@ -33,8 +33,8 @@ module tb_objects;
     wire [5:0] mon_act, mon_type, mon_flash; wire [59:0] mon_x, mon_y;
     wire [59:0] pb_x, pb_y; wire [15:0] eb_act; wire [159:0] eb_x, eb_y;
 
-    game_fsm fsm (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(fsm_btnc), .got_item(item),
-                  .take_hit(hit), .floor_done(1'b0), .exit_evt(1'b0), .escape_start(1'b0), .exit_direct(1'b1), .sprint(1'b0),
+    game_fsm #(.PROLOGUE(0)) fsm (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(fsm_btnc), .got_item(item),
+                  .take_hit(hit), .floor_done(1'b0), .exit_evt(1'b0), .escape_start(1'b0), .exit_direct(1'b1), .sprint(1'b0), .kill(1'b0),
                   .state(state), .restart(restart), .next_floor(next_floor), .form(form), .hp(hp),
                   .hp_max(hp_max), .speed(speed), .damage(damage), .rgb(rgb), .freeze(freeze),
                   .hide_player(fsm_hide), .m_t(m_t), .m_o(m_o), .s_t(s_t), .s_o(s_o));
@@ -50,7 +50,7 @@ module tb_objects;
                  .px(px), .py(py), .facing(facing), .form(form), .damage(damage),
                  .atk_press(atk_press), .atk_hold(atk_hold), .dbg_clear(1'b0),
                  .blk0(12'd0), .blk1(12'd0), .blk2(12'd0), .blk_en(3'd0),
-                 .boss_act(1'b0), .boss_x(10'd0), .boss_y(10'd0), .boss_fire(1'b0), .boss_dmg(), .boss_dmg_amt(),
+                 .boss_act(1'b0), .boss_x(10'd0), .boss_y(10'd0), .boss_fire(1'b0), .summon(summon_t), .boss_dmg(), .boss_dmg_amt(), .boss_dmg_big(),
                  .doors_open(doors_open), .alive(alive), .hit(hit), .kb_start(kb_start), .kb_dir(kb_dir),
                  .invuln(invuln), .player_blink(blink), .busy(busy),
                  .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
@@ -483,6 +483,46 @@ module tb_objects;
         for (n = 0; n < 40 && (eb_act[0] || pb_act != 0); n = n + 1) begin while (busy) @(posedge clk); dut.hurt_cnt = 7'd100; frames(1); end
         check(eb_act[0] == 0 && pb_act == 0 && n < 30, "player bullet + enemy bullet collide: both disappear");
         clear_all; heal;
+
+        // ================= 9. W13 form 3 AOE split + W11 boss 2 summon =================
+        begin : w13
+            integer nch, dmask, maxch, hp_a, hp_b;
+            while (busy) @(posedge clk); fsm.form = 2'd2;
+            enter(0, 0, 0, 288, 224); clear_all; heal;
+            right = 1; frames(1); right = 0; frames(16); clear_all;
+            put_mon(0, 1, 420, 224, 7);                // turrets (type B) stand still, tmr 500 = never fire
+            put_mon(1, 1, 420, 288, 7);                // below the first: the child going down hits it
+            hp_a = 7; hp_b = 7; maxch = 0; dmask = 0;
+            dut.hurt_cnt = 7'd100;
+            press;
+            for (n = 0; n < 70; n = n + 1) begin
+                frames(1); dut.hurt_cnt = 7'd100;
+                nch = 0;
+                for (n2 = 0; n2 < 6; n2 = n2 + 1)
+                    if (pb_act[n2] && dut.p_child[n2]) begin nch = nch + 1; dmask = dmask | (1 << dut.p_dirv[n2*3 +: 3]); end
+                if (nch > maxch) maxch = nch;
+            end
+            hp_a = dut.m_hpv[2:0]; hp_b = dut.m_hpv[5:3];
+            check(hp_a == 7 - DMG3 - 0 || hp_a < 7, "split: the parent bullet hit monster 1");
+            check(maxch == 4 && dmask[3:0] == 4'b1111, "split: a hit makes 4 child bullets (down, up, left, right)");
+            check(hp_b < 7, "split: the child going down hits the monster below it");
+            check(pb_act == 0, "split: children expire after SPLIT_LIFE frames / stop at walls");
+            clear_all;
+            // no recursive split: 2 monsters in a row, only the parent splits (never more than 4 children alive)
+            check(maxch <= 4, "split: children never split again");
+            // W11 summon: BOSS2_MINIONS type-A monsters at the SUMMON tiles, slot limit 6
+            enter(3, 1, 4, 100, 100); clear_all; heal;
+            @(posedge clk) summon_t <= 1; @(posedge clk) summon_t <= 0; frames(1);
+            check(alive == BOSS2_MINIONS && dut.m_act[BOSS2_MINIONS-1:0] == 3'b111, "summon pulse: 3 minions spawn");
+            check(dut.m_typ[2:0] == 3'b000 && dut.m_hpv[2:0] == MON_A_HP, "summoned minions are type A with full HP");
+            check(dut.m_xv[9:0] + 8 >= {SUMMON0_TX, 5'd0} && dut.m_xv[9:0] <= {SUMMON0_TX, 5'd0} + 8 && dut.m_yv[9:0] + 8 >= {1'b0, SUMMON0_TY, 5'd0} && dut.m_yv[9:0] <= {1'b0, SUMMON0_TY, 5'd0} + 8, "minion 1 appears on the SUMMON0 tile (then starts chasing)");
+            dut.hurt_cnt = 7'd100;
+            @(posedge clk) summon_t <= 1; @(posedge clk) summon_t <= 0; frames(1);
+            check(alive == 6, "second summon fills the remaining 3 slots");
+            @(posedge clk) summon_t <= 1; @(posedge clk) summon_t <= 0; frames(1);
+            check(alive == 6, "third summon: no free slot, nothing breaks");
+            clear_all;
+        end
 
         // ================= 7. เวลา vblank =================
         $display("      objects busy max = %0d clocks per frame (budget 36000)", busy_max);

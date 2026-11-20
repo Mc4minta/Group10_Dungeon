@@ -164,18 +164,19 @@ class Fallbacks(unittest.TestCase):
         rc, out = run_build(self.t)
         self.assertEqual(rc, 1)
         w = self.ok_shape()
-        self.assertEqual(w[0:2 * N], self.v1[0:2 * N])
+        self.assertEqual(w[0:N], self.v1[0:N])                           # boss 1 frame 0 (skeleton2_idle) falls back
+        self.assertNotEqual(w[N:2 * N], self.v1[N:2 * N])                # frame 1 (skeleton2_dmg) is still new art
 
     def test_transparent_cell(self):
-        p = self.sheet("skeleton1_dmg")
+        p = self.sheet("skeleton2_dmg")
         im = Image.open(p).convert("RGBA")
-        im.paste((0, 0, 0, 0), (64, 0, 96, 32))                         # col 2 = boss2 stunned
+        im.paste((0, 0, 0, 0), (64, 0, 96, 32))                         # col 2 = boss 1 stunned picture (W10)
         im.save(p)
         rc, out = run_build(self.t)
         w = self.ok_shape()
         self.assertIn("fully transparent", out)
-        self.assertEqual(w[3 * N:4 * N], self.v1[3 * N:4 * N])
-        self.assertNotEqual(w[2 * N:3 * N], self.v1[2 * N:3 * N])
+        self.assertEqual(w[N:2 * N], self.v1[N:2 * N])
+        self.assertNotEqual(w[0:N], self.v1[0:N])
 
     def test_sheet_too_small(self):
         p = self.sheet("vampire_attack")

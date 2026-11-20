@@ -2,7 +2,7 @@
   "_help": [
     "Boss sprites. mem/boss.mem is GENERATED from this file + the PNG strips.  Rebuild: python scripts/build_boss_mem.py",
     "boss.mem: 3 bosses x 2 frames of 64x64. Source cells are 32x32 and are scaled EXACTLY 2x (each pixel -> 2x2, nearest neighbour).",
-    "Boss 1 and 3: frame 0/1 = idle animation. Boss 2: frame 0 = normal, frame 1 = STUNNED picture.",
+    "Boss 1: frame 0 = normal, frame 1 = STUNNED picture (clap stun, W10). Boss 2 and 3: frame 0/1 = idle animation (boss 2 blinks while shielded).",
     "frame = {\"sheet\": name, \"col\": n, \"row\": 1} (col from 0, row from 1). Missing/skipped/empty -> old art (mem/boss_v1.mem).",
     "Keys starting with _ are comments."
   ],
@@ -20,8 +20,8 @@
     "vampire_move": "my_asset/enemies/enemies-vampire_movement.png"
   },
   "bosses": {
-    "1": { "enabled": true, "frames": [ { "sheet": "skeleton2_idle", "col": 0 }, { "sheet": "skeleton2_idle", "col": 3 } ] },
-    "2": { "enabled": true, "frames": [ { "sheet": "skeleton1_idle", "col": 0 }, { "sheet": "skeleton1_dmg", "col": 2 } ] },
+    "1": { "enabled": true, "frames": [ { "sheet": "skeleton2_idle", "col": 0 }, { "sheet": "skeleton2_dmg", "col": 2 } ] },
+    "2": { "enabled": true, "frames": [ { "sheet": "skeleton1_idle", "col": 0 }, { "sheet": "skeleton1_idle", "col": 3 } ] },
     "3": { "enabled": true, "frames": [ { "sheet": "vampire_attack", "col": 4 }, { "sheet": "vampire_attack", "col": 7 } ] }
   }
 }

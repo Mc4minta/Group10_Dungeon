@@ -35,7 +35,7 @@ SLOTS = 8
 USED = 6
 TOTAL = SLOTS * FRAME_WORDS
 SCALE = 2
-NAMES = ["boss1.f0", "boss1.f1", "boss2.f0", "boss2.f1(stunned)", "boss3.f0", "boss3.f1"]
+NAMES = ["boss1.f0", "boss1.f1(stunned)", "boss2.f0", "boss2.f1", "boss3.f0", "boss3.f1"]
 ROOT_DEFAULT = P.ROOT_DEFAULT
 
 
