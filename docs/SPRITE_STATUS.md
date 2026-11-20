@@ -38,7 +38,7 @@ The Human (form 1) has extra pictures that the game does not show yet unless you
 | Animation | Source sheet | Flag | Block RAM (estimate) | State |
 |---|---|---|---|---|
 | idle loop (16 pictures x 4 directions) | `Human/Idle.png` | `idle_anim` | about 22 RAMB36 | built, tested, OFF |
-| melee attack (4 x 4) | `Human/Attack.png` | `attack_anim` | about 6 | built, tested, OFF |
+| melee attack (4 x 4) | `Human/Attack.png` | `attack_anim` | about 6 | built, tested, OFF (W35: waiting for approval to switch it ON; the owner's 20/11 zip of the Human sheets is identical to the files already in the repo) |
 | hurt (4 x 4) | `Human/Dmg.png` | `hurt_anim` | about 6 | built, tested, OFF |
 | death (12 pictures, last held; the last one is empty on purpose) | `Human/SoulDie.png` or `SpinDie.png` (`death_sheet`) | `death_anim` | about 6 | built, tested, OFF |
 
