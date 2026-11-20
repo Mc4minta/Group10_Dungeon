@@ -454,6 +454,7 @@ module top #(
         start_d1 <= restart; start_d2 <= start_d1; vuln_d <= b_vuln;
         state_d <= state; doors_dd <= doors_open; lb_d <= lb_ok; gt_d <= gate_open; sm_d <= sm_ok; tele_d <= b_tele; ban_d <= esc_banner;
         if (restart) begin lock_seen <= 6'd0; fa_done <= 1'b0; end
+        else if (ld_now && locked_n) lock_seen[{floor, c2}] <= 1'b1;        // (one always block drives lock_seen: two blocks were multi-driven in synthesis, the clear messages never fired)
         if (load) ld_chk <= 1'b1;
         if (frame_tick) ld_chk <= 1'b0;
         if (state == S_PLAY && bc_rise_g) fa_done <= 1'b1;
@@ -464,7 +465,6 @@ module top #(
     wire clr_now  = in_c && doors_open && !doors_dd;
     wire f0 = (floor == 2'd0), f1 = (floor == 2'd1), f2 = (floor == 2'd2);
     wire c1 = (room == R_C1), c2 = (room == R_C2);
-    always @(posedge clk) if (ld_now && locked_n) lock_seen[{floor, c2}] <= 1'b1;
     wire evolved = (state_d == 3'd2) && (state == S_PLAY);                    // EVOLVE -> PLAY
     reg seen_intro = 1'b0;                      // W33: the full intro is only told once per power-on / reset
     always @(posedge clk) if (rst) seen_intro <= 1'b0; else if (start_d2) seen_intro <= 1'b1;
@@ -505,7 +505,7 @@ module top #(
     assign dlg_ev[EV_KEY_DROP]         = key_drop_ev;
     assign dlg_ev[EV_ENTER_F3START_KEY] = ld_now && f2 && room == R_START && has_key;
     assign dlg_ev[EV_MAZE_BANNER_END]  = ban_d & ~esc_banner & is_esc;
-    assign dlg_ev[63:EV_MAZE_BANNER_END + 1] = 0;
+    assign dlg_ev[63:EV_START_AGAIN + 1] = 0;                    // (EV_START_AGAIN is the LAST event: the old bound EV_MAZE_BANNER_END + 1 drove bit 36 twice and Vivado kept the constant 0)
     wire [11:0] dlg_b0, dlg_b1; wire [4:0] dlg_n0, dlg_n1; wire [1:0] dlg_spk;
     // ---------- W32 hint strip: objective of the room + W28 tutorial prompts (never freezes the game) ----------
     reg [12:0]  soko_t = 13'd0;                      // W41: frames spent in the unsolved Sokoban room (90 s = probably stuck)
