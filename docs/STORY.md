@@ -57,7 +57,7 @@ Nov 20, 2026 · @min · อนุมัติเรื่องและบท�
 
 | ID | Tier | Trigger | จังหวะ | ผู้พูด | บรรทัด 1 | บรรทัด 2 |
 | --- | --- | --- | --- | --- | --- | --- |
-| TITLE-01 | A | screen:title | หน้า TITLE (บรรทัด 2 กะพริบ) | System | THE CHOSEN ONE | PRESS BTNC |
+| TITLE-01 | A | screen:title | หน้า TITLE (บรรทัด 2 กะพริบ) | System | THE CHOSEN ONE | BTNC PLAY  BTNR HELP |
 
 ### Prologue
 
@@ -161,3 +161,41 @@ Nov 20, 2026 · @min · อนุมัติเรื่องและบท�
 **ตัวเลขอิง plan** — Boss 1 stun 3 วิ / cooldown 4 วิ, Boss 3 ชาร์จ 2 วิ HP 3 charged hit, Maze 60 วิ หมดเวลา = GAME OVER, กระสุนชาร์จทำลายกระสุนศัตรูที่ขวางทาง (ตัดสินใจแล้ว), `ATTACK` = BTNC.
 
 **ชื่อเกม:** THE CHOSEN ONE (แก้ที่ TITLE-01).
+
+## W28 / W29 / W31 / W32 / W33 (20/11): หน้า CONTROLS / CREDITS บน TITLE, กล่องเริ่มเกมซ้ำ, ข้อความ hint strip
+
+หน้า TITLE กด BTNR (หรือลูกศรขวา / D) = หน้าถัดไป, BTNL = หน้าก่อน; ลำดับ TITLE -> CONTROLS 1-5 -> CREDITS 1-3 -> TITLE; BTNC / Space / Enter = เริ่มเกมจากทุกหน้า.
+**CREDITS: ชื่อทีมเป็น placeholder ให้เจ้าของแก้** (และตรวจ credit ของ asset pack ก่อนส่ง).
+
+| ID | Tier | Trigger | จังหวะ | ผู้พูด | บรรทัด 1 | บรรทัด 2 |
+| --- | --- | --- | --- | --- | --- | --- |
+| CTL-01 | A | screen:controls1 | หน้า CONTROLS 1 | System | MOVE | ARROWS WASD OR BTNS |
+| CTL-02 | A | screen:controls2 | หน้า CONTROLS 2 | System | ATTACK | SPACE J ENTER BTNC |
+| CTL-03 | A | screen:controls3 | หน้า CONTROLS 3 | System | SPRINT AND PAUSE | SHIFT SW14  P SW15 |
+| CTL-04 | A | screen:controls4 | หน้า CONTROLS 4 | System | AUTO AIM | L OR SW9  FACE SW12 |
+| CTL-05 | A | screen:controls5 | หน้า CONTROLS 5 | System | OTHER KEYS | R BOXES  C CLAP SW11 |
+| CRD-01 | A | screen:credits1 | หน้า CREDITS 1 | System | THE CHOSEN ONE | GROUP 10 |
+| CRD-02 | A | screen:credits2 | หน้า CREDITS 2 | System | DESIGN AND CODE | NAMES HERE |
+| CRD-03 | A | screen:credits3 | หน้า CREDITS 3 | System | ART AND SOUND | SEE ASSET PACKS |
+| F1-00 | B | start_again! | เริ่มเกมครั้งที่ 2+ (ข้าม intro เต็ม) | Player | FIGHT. SOLVE. WIN. | ONCE MORE! |
+
+Hint strip (กล่องเล็กกลางบนของจอ ไม่หยุดเกม; ไม่เกิน 17 ตัวอักษรต่อบรรทัด): objective ของห้อง + บทสอนที่รอให้ผู้เล่นทำ.
+
+| ID | Tier | Trigger | จังหวะ | ผู้พูด | บรรทัด 1 | บรรทัด 2 |
+| --- | --- | --- | --- | --- | --- | --- |
+| H-01 | B | hint:obj_combat | ห้องต่อสู้ล็อก | System | DEFEAT ALL | ENEMIES |
+| H-02 | B | hint:obj_open | ห้องเคลียร์ | System | DOORS OPEN | GO ON |
+| H-03 | B | hint:obj_bulb | ห้อง puzzle ชั้น 1 | System | LIGHT ALL BULBS | PULL THE LEVERS |
+| H-04 | B | hint:obj_soko | ห้อง puzzle ชั้น 2 | System | PUSH BOXES ONTO | BOTH PLATES |
+| H-05 | B | hint:obj_simon | ห้อง puzzle ชั้น 3 | System | WATCH THE PATTERN | THEN REPEAT IT |
+| H-06 | B | hint:obj_boss1 | บอส 1 | System | DEFEAT THE BOSS | CLAP TO STUN IT |
+| H-07 | B | hint:obj_boss2 | บอส 2 | System | DEFEAT THE BOSS | HIT IT ANYTIME |
+| H-08 | B | hint:obj_boss3 | บอส 3 | System | DEFEAT THE BOSS | CHARGE SHOTS ONLY |
+| H-09 | B | hint:obj_bossdead | บอสตาย | System | BOSS DOWN | TAKE THE DOOR |
+| H-10 | B | hint:obj_key | ได้กุญแจ | System | GO BACK TO START | THE GATE WAITS |
+| H-11 | B | hint:tut_move | บทสอน: เดิน | System | MOVE: ARROWS WASD | OR BUTTONS |
+| H-12 | B | hint:tut_attack | บทสอน: โจมตี | System | ATTACK: SPACE J | ENTER OR BTNC |
+| H-13 | B | hint:tut_sprint | บทสอน: วิ่งเร็ว | System | SPRINT: SHIFT | OR SW14 |
+| H-14 | B | hint:tut_pause | บทสอน: หยุดเกม | System | PAUSE: P ESC | OR SW15 |
+| H-15 | B | hint:tut_aim | บทสอน: auto aim | System | AUTO AIM: L OR | SW9 HELPS AIM |
+| H-16 | B | hint:tut_start | ก่อนเริ่มบทสอน | System | FREE TO MOVE | TRY THE CONTROLS |

@@ -75,6 +75,8 @@ class RealStory(unittest.TestCase):
         for e in self.dlg:
             if e.event is not None:
                 self.assertIn(f"dlg_trigs[{e.index}] = ev[{e.event}];", vh, e.id)
+            elif e.hint:                                      # W32: hint strip text, never triggered
+                self.assertIn(f"localparam HINT_{e.hint.upper()} = {e.index};", vh, e.id)
             else:
                 j = next(d for d in self.dlg if d.id == e.after).index
                 self.assertIn(f"dlg_trigs[{e.index}] = fin[{j}];", vh, e.id)

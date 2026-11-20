@@ -24,6 +24,8 @@ module renderer (
     input  wire         hide_player,
     input  wire [9:0]   px, py,
     input  wire [1:0]   facing,        // W25: 0 down 1 up 2 left 3 right (where the charge ball grows)
+    input  wire         tgt_on,        // W18 level 3: marker on the locked target
+    input  wire [9:0]   tgt_x, tgt_y,  // centre of the target in px
     input  wire [2:0]   chg_lvl,       // W25: charge ball size step 0..4 (objects.v)
     input  wire [5:0]   pframe,        // form*12 + facing*3 + pose
     input  wire [2:0]   p_anim,        // 0 = pframe, 1 idle, 2 attack, 3 hurt, 4 death (from player_frame.v)
@@ -63,7 +65,9 @@ module renderer (
     input  wire         boss_flash,
     input  wire [11:0]  boss_fcol,        // W21: blink colour of the boss
     input  wire [9:0]   sh_dx, sh_dy,     // จอสั่น (two's complement): เลื่อนพิกัดภาพ ไม่ยุ่ง sync
-    input  wire [3:0]   txt_scr,          // ข้อความ: 0 ไม่มี 1 TITLE 2 FLOOR CLEAR 3 ESCAPE! 4 WIN 5 GAME OVER 6 PAUSED 7-10 PROLOGUE 11-13 NEW FORM
+    input  wire [11:0]  hint_b0, hint_b1,      // W32: hint strip text addresses (text ROM)
+    input  wire [4:0]   hint_n0, hint_n1,      // W32: characters in each hint line
+    input  wire [4:0]   txt_scr,          // ข้อความ: 0 ไม่มี 1 TITLE 2 FLOOR CLEAR 3 ESCAPE! 4 WIN 5 GAME OVER 6 PAUSED 7-10 PROLOGUE 11-13 NEW FORM
     input  wire         txt_blink,        // 1 = ซ่อนบรรทัดที่กะพริบ
     input  wire [3:0]   t_floor, t_m1, t_m0, t_s1, t_s0,   // ตัวเลขสดในข้อความ
     input  wire [2:0]   hud_hp, hud_hp_max,                // player hearts (hud.v)
@@ -143,8 +147,14 @@ module renderer (
     wire        orb_in = (chg_lvl != 3'd0) && (orb_ax < 11'd9) && (orb_ay < 11'd9) && (orb_d2 <= orb_r * orb_r);
     wire [11:0] orb_c  = (chg_lvl == 3'd1) ? 12'hF92 : (chg_lvl == 3'd2) ? 12'hFC4 : (chg_lvl == 3'd3) ? 12'hFE8 : 12'hFFF;
     wire        orb_core = (orb_d2 <= (orb_r >> 1) * (orb_r >> 1));
+    // ----- W18 level 3 target marker: four corner brackets (20 x 20 px) around the locked enemy, blinking yellow / red -----
+    wire [10:0] tg_cx = {1'b0, tgt_x} + 11'd64, tg_cy = {1'b0, tgt_y} + 11'd64;
+    wire [10:0] tg_ax = (orb_hb > tg_cx) ? orb_hb - tg_cx : tg_cx - orb_hb;
+    wire [10:0] tg_ay = (orb_vb > tg_cy) ? orb_vb - tg_cy : tg_cy - orb_vb;
+    wire        tg_in = tgt_on && (tg_ax >= 11'd8) && (tg_ax <= 11'd11) && (tg_ay >= 11'd8) && (tg_ay <= 11'd11) && ((tg_ax >= 11'd10) || (tg_ay >= 11'd10));
+    reg         r1_tgt = 0, r2_tgt = 0; reg [11:0] r1_tgtc = 0, r2_tgtc = 0;
     reg         r1_orb = 0, r2_orb = 0; reg [11:0] r1_orbc = 0, r2_orbc = 0;
-    reg        r1_hurt = 0, r2_hurt = 0, r1_band = 0, r2_band = 0;
+    reg        r1_hurt = 0, r2_hurt = 0, r1_band = 0, r2_band = 0, r1_arr = 0, r2_arr = 0;
     reg [2:0]  r1_scr = 0;
     reg        r1_ovl = 0, r2_ovl = 0;                 // the overlay picture is a light source (torch): not darkened
     reg        r1_ovs = 0, r2_ovs = 0;         // overlay picture present
@@ -171,7 +181,9 @@ module renderer (
         a_on <= (txt_scr != 0);
         if (txt_scr != 0) begin
             case (txt_scr)
-                4'd14: begin ly0 = 10'd392; lx0 = 10'd320 - {1'b0, dlg_n0, 4'b0} / 2; lw0 = {1'b0, dlg_n0, 4'b0}; lh0 = 10'd16; ls0 = 1'b0; lb0 = dlg_b0; lk0 = 1'b0;
+                5'd24: begin ly0 = 10'd5;  lx0 = 10'd364 - {1'b0, hint_n0, 4'b0} / 2; lw0 = {1'b0, hint_n0, 4'b0}; lh0 = 10'd16; ls0 = 1'b0; lb0 = hint_b0; lk0 = 1'b0;
+                             ly1 = 10'd23; lx1 = 10'd364 - {1'b0, hint_n1, 4'b0} / 2; lw1 = {1'b0, hint_n1, 4'b0}; lh1 = 10'd16; ls1 = 1'b0; lb1 = hint_b1; lk1 = 1'b0; end
+                5'd14: begin ly0 = 10'd392; lx0 = 10'd320 - {1'b0, dlg_n0, 4'b0} / 2; lw0 = {1'b0, dlg_n0, 4'b0}; lh0 = 10'd16; ls0 = 1'b0; lb0 = dlg_b0; lk0 = 1'b0;
                              ly1 = 10'd416; lx1 = 10'd320 - {1'b0, dlg_n1, 4'b0} / 2; lw1 = {1'b0, dlg_n1, 4'b0}; lh1 = 10'd16; ls1 = 1'b0; lb1 = dlg_b1; lk1 = 1'b0; end
                 `include "text_select.vh"
             endcase
@@ -216,8 +228,11 @@ module renderer (
         r1_tint  <= p_tint;
         r1_hurt  <= p_hurt;
         r1_orb   <= orb_in;
+        r1_tgt   <= tg_in; r1_tgtc <= ov_phase[1] ? 12'hFF4 : 12'hF44;
         r1_orbc  <= orb_core ? orb_c : {1'b0, orb_c[11:9], 1'b0, orb_c[7:5], 1'b0, orb_c[3:1]};   // bright core, darker rim
-        r1_band  <= dlg_on && (vs_r >= 10'd384) && (vs_r < 10'd448);
+        r1_band  <= (dlg_on && (vs_r >= 10'd384) && (vs_r < 10'd448)) || (txt_scr == 5'd24 && hs_r >= 10'd226 && hs_r < 10'd502 && vs_r >= 10'd2 && vs_r < 10'd41);   // W16 dialogue band / W32 hint strip band
+        r1_arr   <= dlg_on && ov_phase[1] && (hs_r >= 10'd604) && (hs_r < 10'd620) && (vs_r >= 10'd418) && (vs_r < 10'd434) &&
+                    ((vs_r < 10'd426 ? (10'd425 - vs_r) : (vs_r - 10'd426)) <= ((10'd619 - hs_r) >> 1));          // W31: blinking arrow = press the attack button
         r1_scr   <= screen;
         // overlay code -> picture: 1 breakable block (if not broken) 0, 2 trap 1, 3 pillar 2, 4 torch 3 + phase, 5 left torch 7, 6 right torch 8, 7 shield 9
         r1_ovs   <= maze_on ? 1'b0 : (ovraw[3:0] == 4'd1) ? !brk[ovraw[6:4]] : (ovraw[3:0] >= 4'd2 && ovraw[3:0] <= 4'd9);
@@ -292,7 +307,7 @@ module renderer (
     reg [2:0] r2_gx = 0;
     reg [7:0] r2_font = 0;
     always @(posedge clk) begin
-        r2_p <= r1_p; r2_orb <= r1_orb; r2_orbc <= r1_orbc; r2_tint <= r1_tint; r2_scr <= r1_scr; r2_vb <= r1_vb; r2_dth <= r1_dth; r2_hurt <= r1_hurt; r2_band <= r1_band; r2_vig <= r1_vig; r2_ovl <= r1_ovl; r2_ovs <= r1_ovs; r2_lit <= r1_lit; r2_red <= r1_red; r2_out <= r1_out;
+        r2_p <= r1_p; r2_tgt <= r1_tgt; r2_tgtc <= r1_tgtc; r2_orb <= r1_orb; r2_orbc <= r1_orbc; r2_tint <= r1_tint; r2_scr <= r1_scr; r2_vb <= r1_vb; r2_dth <= r1_dth; r2_hurt <= r1_hurt; r2_band <= r1_band; r2_arr <= r1_arr; r2_vig <= r1_vig; r2_ovl <= r1_ovl; r2_ovs <= r1_ovs; r2_lit <= r1_lit; r2_red <= r1_red; r2_out <= r1_out;
         r2_txt <= r1_txt; r2_gx <= r1_gx;
         r2_font <= fontmem[r1_faddr];
     end
@@ -305,12 +320,13 @@ module renderer (
     // ======================= stage 3: เลือกชั้น =======================
     always @(posedge clk) begin
         if (txt_on)                                  color <= dlg_on ? dlg_col : 12'hFFF;    // ข้อความอยู่บนสุด (dialogue: สีตามผู้พูด)
-        else if (r2_band)                            color <= 12'h000;    // W16: แถบดำใต้ข้อความ dialogue
+        else if (r2_band)                            color <= r2_arr ? 12'hFFF : 12'h000;    // W16: แถบดำใต้ข้อความ dialogue
         else if (r2_scr == 3'd0 && hud_on)           color <= hud_px;     // hearts / boss bar above the world
         else if (DEATH_ANIM_EN && r2_scr == 3'd2 && r2_p && r2_asel == 3'd4 && spr_fin != C_T) color <= spr_fin;   // death animation over the GAME OVER colour
         else if (r2_scr == 3'd4)                     color <= 12'h000;    // prologue: black screen
         else if (r2_scr == 3'd2)                     color <= C_OVER;
         else if (r2_scr == 3'd3)                     color <= C_WIN;
+        else if (r2_tgt)                             color <= r2_tgtc;    // W18 level 3: target marker
         else if (r2_orb)                             color <= r2_orbc;    // W25: the charge ball is drawn over the hero
         else if (r2_p && spr_fin != C_T)             color <= r2_hurt ? {4'hF, 1'b0, spr_fin[7:5], 1'b0, spr_fin[3:1]} : r2_tint ? (spr_fin | 12'hCCC) : spr_fin;   // W14: hit = red   // ชาร์จเต็ม: สว่าง
         else if (r2_scr == 3'd1 && obj_px_d != C_T)  color <= obj_px_d;   // TITLE: the two torches

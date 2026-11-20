@@ -123,6 +123,11 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 | SW12 | facing lock |
 | SW13 | Sokoban box reset |
 | SW0-SW4 | debug (only `DEBUG = 1`) |
+| Story boxes freeze the game (W31) | every story box (50) freezes the game and the input except pause; timed boxes close on a press or after 2.5 s; boxes show in arrival order (FIFO 8); after a box the attack button must be released once; claps are dropped during a box; a blinking arrow in the box = press the attack button; holding the attack button 1.5 s fast-forwards (W33); the full intro is told once per power-on, later games get one box | `rtl/dialog.v`, `rtl/top.v`, `rtl/renderer.v` |
+| Hint strip (W32 / W28) | top centre, never freezes the game: the objective of the room (defeat all enemies / doors open / puzzle goal / defeat the boss / take the door / go back to the start) and the tutorial prompts in the floor 1 start room (move, attack, sprint, pause, auto aim) with keyboard AND button names; texts `docs/STORY.md` H-01..H-16 | `rtl/top.v`, `rtl/renderer.v`, `rtl/dialog.v` (hint ROM read) |
+| Title pages (W29) | BTNR / right arrow = next page, BTNL / left arrow = previous: TITLE -> CONTROLS 1-5 -> CREDITS 1-3; BTNC starts from any page; credits names are placeholders | `rtl/top.v` (`tpage`), `docs/STORY.md` |
+| Input edge cases (W34) | stuck keyboard keys clear after 2 s of silence, opposite directions cancel, pause = SW15 xor key toggle, PAUSED screen says how to go on | `rtl/ps2_kbd.v`, `rtl/top.v` |
+| Auto-lock level 3 (W18) | sticky target + blinking corner-bracket marker on the locked enemy (SW9 / key L) | `rtl/objects.v`, `rtl/renderer.v` |
 | Clap meter numbers (W30) | `T nnnn` (threshold) and `L nnnn` (live level) under the meter bar, 3x5 pixel digits at 2x, boss 1 fight only | `rtl/hud.v`, `rtl/top.v` (`bin2bcd`) |
 | Microphone (PDM) | clap = stun boss 1; **W4 fix: the detector now removes the DC per 64-sample block and takes the peak loudness (a real mic signal is AC; the old window average could never see it)**; **W27 on-screen clap meter** under the boss bar while boss 1 lives (level bar, white threshold line, yellow flash on a clap); threshold SW5-SW8 (0 = `MIC_TH` 448, else 128 x value); SW11 / key C = same pulse as a fallback; not tested on the board |
 | 7-segment | floor - HP - mm.ss |

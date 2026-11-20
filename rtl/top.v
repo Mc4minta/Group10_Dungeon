@@ -81,10 +81,11 @@ module top #(
             if (k_lock_p)  k_lock_on  <= ~k_lock_on;
         end
     end
-    assign bu = bu_b | k_up;
-    assign bd = bd_b | k_dn;
-    assign bl = bl_b | k_lf;
-    assign br = br_b | k_rt;
+    wire u_raw = bu_b | k_up, d_raw = bd_b | k_dn, l_raw = bl_b | k_lf, r_raw = br_b | k_rt;
+    assign bu = u_raw & ~d_raw;                     // W34: opposite directions cancel (stand still)
+    assign bd = d_raw & ~u_raw;
+    assign bl = l_raw & ~r_raw;
+    assign br = r_raw & ~l_raw;
     assign bc = bc_b | k_atk;
     assign bc_rise = bc_rise_b | (k_atk & ~k_atk_d);
     debounce #(DEBOUNCE) d_s1(.clk(clk), .in(SW[1]),  .level(), .rise(sw1_r));
@@ -107,7 +108,7 @@ module top #(
     wire sw1_rise = dbg & sw1_r, sw2_rise = dbg & sw2_r, sw3_rise = dbg & sw3_r, sw4_rise = dbg & sw4_r;
     wire sw0_key  = dbg & SW[0];
     debounce #(DEBOUNCE) d_s15(.clk(clk), .in(SW[15]), .level(sw15_b), .rise());
-    assign sw15 = sw15_b | k_pause_on;                      // W22: keys P / Esc toggle the pause
+    assign sw15 = sw15_b ^ k_pause_on;                      // W22 / W34: keys P / Esc toggle the pause (SW15 up + P = running again)
     wire sw14, sw14_b;                 // SW14 = sprint (+1 px/เฟรม)
     debounce #(DEBOUNCE) d_s14(.clk(clk), .in(SW[14]), .level(sw14_b), .rise());
     assign sw14 = sw14_b | k_spr;                           // W22: Shift = sprint
@@ -126,6 +127,13 @@ module top #(
     wire paused = sw15 && (state == 3'd1 || state == 3'd4);   // S_PLAY / S_ESCAPE
     wire dlg_show, dlg_block;                // W16: dialogue box (dialog.v); a blocking message freezes the game like pause until BTNC
     wire ft     = frame_tick & ~paused & ~dlg_block;
+    // W31: after a story box closes the attack input stays ignored until the button has been released once (no accidental shot / charge)
+    reg  atk_wait = 1'b0;
+    always @(posedge clk) if (dlg_block) atk_wait <= 1'b1; else if (!bc) atk_wait <= 1'b0;
+    // W33: holding the attack button for 1.5 s on a box fast-forwards through the boxes (one advance every 8 frames)
+    reg [7:0] skip_cnt = 8'd0;
+    always @(posedge clk) if (frame_tick) skip_cnt <= (dlg_block && bc) ? ((skip_cnt == 8'd255) ? 8'd90 : skip_cnt + 8'd1) : 8'd0;
+    wire skip_adv = frame_tick && (skip_cnt >= 8'd90) && (skip_cnt[2:0] == 3'd0);
     wire bc_rise_g = bc_rise & ~paused & ~dlg_block;      // ปุ่มโจมตีไม่เข้าคิวระหว่างหยุด / ระหว่างอ่าน dialogue
     reg  pause_blink = 1'b0;                 // จุดทศนิยม 7-seg กะพริบตอนหยุด (ใช้ frame_tick จริง)
     reg [4:0] pb_cnt = 5'd0;
@@ -143,6 +151,7 @@ module top #(
 
     // ---------- world (ห้อง/ประตู) + game FSM ----------
     wire       has_key, maze_goal, tmo, key_pick, key_vis;
+    wire [9:0] lock_tx, lock_ty;                   // W18 level 3: target centre
     wire       lock_use; wire [1:0] lock_face;     // W18 auto-lock result from objects.v
     reg  [4:0] turn_cnt = 5'd0;                    // the hero faces the locked target for a moment after each attack
     wire [9:0] key_x, key_y;
@@ -241,6 +250,16 @@ module top #(
     wire run      = (state == S_PLAY);             // objects / puzzles / boss ทำงาน (เขาวงกต = ESCAPE: หยุดทุกอย่างยกเว้น maze)
     wire open_E   = has_key | sw0_key;             // W7: ประตู E เปิดเมื่อมีกุญแจ (debug SW0 เปิดด้วย)
     wire is_title = (state == S_TITLE);
+    // ---- W29 title pages: BTNR / right arrow = next page, BTNL / left arrow = previous; 0 title, 1-5 controls, 6-8 credits ----
+    reg [3:0] tpage = 4'd0;
+    reg       br_d = 1'b0, bl_d = 1'b0;
+    always @(posedge clk) begin
+        br_d <= br; bl_d <= bl;
+        if (rst || !is_title) tpage <= 4'd0;
+        else if (br & ~br_d) tpage <= (tpage == 4'd8) ? 4'd0 : tpage + 4'd1;
+        else if (bl & ~bl_d) tpage <= (tpage == 4'd0) ? 4'd8 : tpage - 4'd1;
+    end
+    wire is_title0 = is_title && (tpage == 4'd0);          // the hero / vampire scene is only on the first page
     wire is_win   = (state == S_WIN);
     wire is_pro   = (state == S_PROLOGUE);
 
@@ -255,10 +274,10 @@ module top #(
                .door_evt(door_evt), .door_dir(door_dir), .open_E(open_E), .brk(brk), .moving_o(p_moving));
 
     // ---------- objects: มอน กระสุน ฟัน โดนตี ห้องล็อก ----------
-    objects obj (.clk(clk), .rst(rst), .frame_tick(ft), .run(run), .brk(brk), .brk_set(brk_set), .brk_idx(brk_idx), .auto_lock(sw9), .lock_use(lock_use), .lock_face(lock_face),
+    objects obj (.clk(clk), .rst(rst), .frame_tick(ft), .run(run), .brk(brk), .brk_set(brk_set), .brk_idx(brk_idx), .auto_lock(sw9), .lock_use(lock_use), .lock_tx(lock_tx), .lock_ty(lock_ty), .lock_face(lock_face),
                  .restart(restart), .room_load(load), .floor(floor), .room(room), .grid(grid),
                  .open_L(open_L), .px(px), .py(py), .facing(facing), .form(form), .damage(damage),
-                 .atk_press(bc_rise_g), .atk_hold(bc & ~paused), .dbg_clear(sw2_rise),
+                 .atk_press(bc_rise_g), .atk_hold(bc & ~paused & ~dlg_block & ~atk_wait), .dbg_clear(sw2_rise),
                  .blk0(blk0), .blk1(blk1), .blk2(blk2), .blk_en(blk_en),
                  .boss_act(b_act), .boss_x(b_x), .boss_y(b_y), .boss_fire(b_fire), .boss_pat(b_pat), .boss_heavy(b_heavy),
                  .boss_dmg(b_dmg), .boss_dmg_amt(b_dmg_amt), .boss_dmg_big(b_dmg_big), .summon(b_summon),
@@ -273,7 +292,7 @@ module top #(
     // ---------- บอส + ไมค์ ----------
     boss bs (.clk(clk), .rst(rst), .frame_tick(ft), .run(run), .brk(brk), .restart(restart), .room_load(load),
              .floor(floor), .room(room), .grid(grid), .px(px), .py(py),
-             .dmg(b_dmg), .dmg_amt(b_dmg_amt), .dmg_big(b_dmg_big), .minions(alive), .clap((clap | sw11_rise) & ~paused),
+             .dmg(b_dmg), .dmg_amt(b_dmg_amt), .dmg_big(b_dmg_big), .minions(alive), .clap((clap | sw11_rise) & ~paused & ~dlg_block),
              .act(b_act), .bx(b_x), .by(b_y), .kind(b_kind), .flash(b_flash), .stunned(b_stunned),
              .fire(b_fire), .fire_pat(b_pat), .fire_heavy(b_heavy), .tele_lvl(b_tele_lvl), .chg_w(b_chg_w), .warn(b_warn), .summon(b_summon), .kill(b_kill), .shield(b_shield), .tele(b_tele), .vuln(b_vuln), .intr(b_intr), .died(b_died), .dead(b_dead), .hp(b_hp), .hp_bar(b_hpbar), .anim(b_anim), .busy(b_busy));
     wire        mic_win;                    // W4: window pulse of the mic (meter)
@@ -365,10 +384,11 @@ module top #(
         end
     end
     wire led_blink_on = (blk_cnt < (LED_BLINK + 1) / 2);
+    wire hint_on;                               // W32: the hint strip is shown (assigned below, next to its logic)
     // ข้อความ: 1 TITLE 2 FLOOR CLEAR 3 ESCAPE! 4 WIN 5 GAME OVER 6 PAUSED
-    wire [3:0] txt_scr = paused ? 4'd6 : is_title ? 4'd1 : is_pro ? (4'd7 + {2'b00, pro_page}) :
-                         (state == S_EVOLVE) ? (4'd11 + {2'b00, form}) : (state == S_CLEAR) ? 4'd2 : esc_banner ? 4'd3 :
-                         is_win ? 4'd4 : (state == S_GAME_OVER) ? (tmo ? 4'd15 : 4'd5) : dlg_show ? 4'd14 : 4'd0;
+    wire [4:0] txt_scr = paused ? 5'd6 : is_title ? ((tpage == 4'd0) ? 5'd1 : (5'd15 + {1'b0, tpage})) : is_pro ? (5'd7 + {3'b000, pro_page}) :
+                         (state == S_EVOLVE) ? (5'd11 + {3'b000, form}) : (state == S_CLEAR) ? 5'd2 : esc_banner ? 5'd3 :
+                         is_win ? 5'd4 : (state == S_GAME_OVER) ? (tmo ? 5'd15 : 5'd5) : dlg_show ? 5'd14 : hint_on ? 5'd24 : 5'd0;
     wire [2:0] b_frame = {b_kind, 1'b0} + ((b_kind == 2'd0) ? b_stunned : b_anim);   // บอส 1 เฟรม 1 = ภาพมึน (W10)
 
     // ---------- W7: Ball in a Maze (state ESCAPE) ----------
@@ -392,10 +412,10 @@ module top #(
     wire [3:0]  ball_f     = 4'd10 + {2'b00, ball_ph};
     // title screen: two torches beside the hero (puzzle frames 0 lit / 1 ember alternate = flicker)
     wire [3:0]  tf         = fc[3] ? 4'd1 : 4'd0;
-    wire [8:0]  pz_act_r   = is_title ? 9'd3 : (is_esc || key_vis) ? 9'd1 : pz_act;
-    wire [89:0] pz_x_r     = is_title ? {70'd0, 10'd512, 10'd96} : is_esc ? {80'd0, ball_x - 10'd6} : key_vis ? {80'd0, key_x} : pz_x;
-    wire [89:0] pz_y_r     = is_title ? {70'd0, 10'd208, 10'd208} : is_esc ? {80'd0, ball_y - 10'd6} : key_vis ? {80'd0, key_y} : pz_y;
-    wire [35:0] pz_frame_r = is_title ? {28'd0, tf, tf} : is_esc ? {32'd0, ball_f} : key_vis ? {32'd0, 4'd14} : pz_frame;
+    wire [8:0]  pz_act_r   = is_title0 ? 9'd3 : (is_esc || key_vis) ? 9'd1 : pz_act;
+    wire [89:0] pz_x_r     = is_title0 ? {70'd0, 10'd512, 10'd96} : is_esc ? {80'd0, ball_x - 10'd6} : key_vis ? {80'd0, key_x} : pz_x;
+    wire [89:0] pz_y_r     = is_title0 ? {70'd0, 10'd208, 10'd208} : is_esc ? {80'd0, ball_y - 10'd6} : key_vis ? {80'd0, key_y} : pz_y;
+    wire [35:0] pz_frame_r = is_title0 ? {28'd0, tf, tf} : is_esc ? {32'd0, ball_f} : key_vis ? {32'd0, 4'd14} : pz_frame;
     // room-change fade-in: the picture starts dark and brightens over 6 frames after every room load
     reg [2:0] fade_t = 3'd0;
     always @(posedge clk) if (load) fade_t <= 3'd6; else if (frame_tick && fade_t != 3'd0) fade_t <= fade_t - 3'd1;
@@ -431,7 +451,10 @@ module top #(
     wire c1 = (room == R_C1), c2 = (room == R_C2);
     always @(posedge clk) if (ld_now && locked_n) lock_seen[{floor, c2}] <= 1'b1;
     wire evolved = (state_d == 3'd2) && (state == S_PLAY);                    // EVOLVE -> PLAY
-    assign dlg_ev[EV_START]            = start_d2;
+    reg seen_intro = 1'b0;                      // W33: the full intro is only told once per power-on / reset
+    always @(posedge clk) if (rst) seen_intro <= 1'b0; else if (start_d2) seen_intro <= 1'b1;
+    assign dlg_ev[EV_START]            = start_d2 & ~seen_intro;
+    assign dlg_ev[EV_START_AGAIN]      = start_d2 & seen_intro;
     assign dlg_ev[EV_FIRST_ATTACK]     = (state == S_PLAY) && bc_rise_g && !fa_done;
     assign dlg_ev[EV_LOCK_F1C1]        = ld_now && locked_n && f0 && c1;
     assign dlg_ev[EV_CLEAR_F1C1]       = clr_now && f0 && c1 && lock_seen[{2'd0, 1'b0}];
@@ -469,26 +492,61 @@ module top #(
     assign dlg_ev[EV_MAZE_BANNER_END]  = ban_d & ~esc_banner & is_esc;
     assign dlg_ev[63:EV_MAZE_BANNER_END + 1] = 0;
     wire [11:0] dlg_b0, dlg_b1; wire [4:0] dlg_n0, dlg_n1; wire [1:0] dlg_spk;
+    // ---------- W32 hint strip: objective of the room + W28 tutorial prompts (never freezes the game) ----------
+    wire [6:0]  hint_idx;
+    wire [11:0] hint_b0, hint_b1; wire [4:0] hint_n0, hint_n1;
+    reg  [2:0]  tut_step = 3'd0;                 // 0 start text, 1 move, 2 attack, 3 sprint, 4 pause, 5 auto aim, 6 done
+    reg  [6:0]  tut_mv = 7'd0, tut_t = 7'd0;     // frames walked / frames in a timed step
+    reg         pz_d = 1'b0;
+    always @(posedge clk) begin
+        pz_d <= paused;
+        if (rst || restart) begin tut_step <= 3'd0; tut_mv <= 7'd0; tut_t <= 7'd0; end
+        else if (load && !(floor == 2'd0 && room == R_START)) tut_step <= 3'd6;       // leaving the first room ends the tutorial
+        else if (frame_tick && state == S_PLAY && !paused && !dlg_show) begin
+            case (tut_step)
+                3'd0: if (tut_t == 7'd90) begin tut_step <= 3'd1; tut_t <= 7'd0; end else tut_t <= tut_t + 7'd1;                     // "free to move" for 1.5 s
+                3'd1: if (p_moving) begin if (tut_mv == 7'd48) begin tut_step <= 3'd2; tut_mv <= 7'd0; end else tut_mv <= tut_mv + 7'd1; end
+                3'd2: if (fa_done) tut_step <= 3'd3;
+                3'd3: if (sw14 && p_moving) begin if (tut_mv == 7'd20) begin tut_step <= 3'd4; tut_mv <= 7'd0; end else tut_mv <= tut_mv + 7'd1; end
+                3'd5: if (tut_t == 7'd120 || sw9) begin tut_step <= 3'd6; end else tut_t <= tut_t + 7'd1;
+                default: ;
+            endcase
+        end
+        if (tut_step == 3'd4 && paused && !pz_d) begin tut_step <= 3'd5; tut_t <= 7'd0; end     // first pause started
+    end
+    wire tut_on = (state == S_PLAY) && (tut_step != 3'd6) && floor == 2'd0 && room == R_START;
+    wire in_boss = (room == R_BOSS3) && b_act;
+    wire [6:0] obj_idx = key_vis || has_key ? HINT_OBJ_KEY[6:0] :
+                         in_boss ? ((floor == 2'd0) ? HINT_OBJ_BOSS1[6:0] : (floor == 2'd1) ? HINT_OBJ_BOSS2[6:0] : HINT_OBJ_BOSS3[6:0]) :
+                         (room == R_BOSS3) ? HINT_OBJ_BOSSDEAD[6:0] :
+                         (room == R_PUZ && !((floor == 2'd0) ? lb_ok : (floor == 2'd1) ? gate_open : sm_ok)) ? ((floor == 2'd0) ? HINT_OBJ_BULB[6:0] : (floor == 2'd1) ? HINT_OBJ_SOKO[6:0] : HINT_OBJ_SIMON[6:0]) :
+                         in_c ? ((alive != 3'd0 && !doors_open) ? HINT_OBJ_COMBAT[6:0] : HINT_OBJ_OPEN[6:0]) :
+                         (room == R_PUZ) ? HINT_OBJ_OPEN[6:0] : 7'd127;
+    wire [6:0] tut_idx = (tut_step == 3'd0) ? HINT_TUT_START[6:0] : (tut_step == 3'd1) ? HINT_TUT_MOVE[6:0] : (tut_step == 3'd2) ? HINT_TUT_ATTACK[6:0] :
+                         (tut_step == 3'd3) ? HINT_TUT_SPRINT[6:0] : (tut_step == 3'd4) ? HINT_TUT_PAUSE[6:0] : HINT_TUT_AIM[6:0];
+    assign hint_idx = tut_on ? tut_idx : obj_idx;
+    assign hint_on = (state == S_PLAY) && !paused && (tut_on || obj_idx != 7'd127);
     dialog dlg (.clk(clk), .rst(rst), .restart(restart), .frame_tick(frame_tick), .en((state == S_PLAY || is_esc) && !paused),
-                .ev(dlg_ev), .advance(bc_rise), .show(dlg_show), .block(dlg_block),
+                .ev(dlg_ev), .advance(bc_rise | skip_adv), .show(dlg_show), .block(dlg_block),
+                .hint_idx(hint_idx), .hb0(hint_b0), .hb1(hint_b1), .hn0(hint_n0), .hn1(hint_n1),
                 .b0(dlg_b0), .b1(dlg_b1), .n0(dlg_n0), .n1(dlg_n1), .spk(dlg_spk));
     wire [11:0] dlg_col = (dlg_spk == 2'd0) ? 12'hFFF : (dlg_spk == 2'd1) ? 12'hFF0 : 12'h0FF;      // Player white, Voice yellow, System cyan
 
     // ---------- render ----------
     // TITLE: sprite ร่าง 1 idle หันลง กลางจอ
-    wire [9:0]  rpx = is_title ? 10'd232 : px;                       // title: the hero (left) faces the big vampire (right)
-    wire [9:0]  rpy = is_title ? 10'd240 : py;
+    wire [9:0]  rpx = is_title0 ? 10'd232 : px;                       // title: the hero (left) faces the big vampire (right)
+    wire [9:0]  rpy = is_title0 ? 10'd240 : py;
     always @(posedge clk) if (ev_shoot | ev_melee) turn_cnt <= LOCK_TURN_FRAMES; else if (ft && turn_cnt != 5'd0) turn_cnt <= turn_cnt - 5'd1;
     wire [1:0]  face_vis = (sw9 && turn_cnt != 5'd0 && lock_use) ? lock_face : facing;     // W18: the hero turns to the locked target (picture only)
-    wire [5:0]  pframe = is_title ? 6'd9 : form * 6'd12 + face_vis * 6'd3 + pose;
+    wire [5:0]  pframe = is_title0 ? 6'd9 : form * 6'd12 + face_vis * 6'd3 + pose;
     player_frame pfr (.clk(clk), .rst(rst), .frame_tick(ft), .form(form), .facing(face_vis), .melee_dir(melee_dir),
                       .moving(p_moving), .melee_on(melee_on), .invuln(invuln), .dead(state == S_GAME_OVER), .active(!is_title),
                       .shoot(ev_shoot), .anim_sel(p_anim), .aframe(p_aframe), .hurt_flash(p_hurt));
-    wire [2:0]  screen = is_title ? 3'd1 : (state == S_GAME_OVER) ? 3'd2 : is_win ? 3'd3 : is_pro ? 3'd4 : is_esc ? 3'd5 : 3'd0;
+    wire [2:0]  screen = is_title ? ((tpage == 4'd0) ? 3'd1 : 3'd4) : (state == S_GAME_OVER) ? 3'd2 : is_win ? 3'd3 : is_pro ? 3'd4 : is_esc ? 3'd5 : 3'd0;
     wire [11:0] color;
-    renderer rnd (.brk(brk), .trap_a(trap_a), .trap_b(trap_b), .open_E(open_E), .p_hurt(p_hurt), .ov_phase(fc[4:3]), .fade(fade_lvl), .dlg_on(txt_scr == 4'd14), .dlg_b0(dlg_b0), .dlg_b1(dlg_b1), .dlg_n0(dlg_n0), .dlg_n1(dlg_n1), .dlg_col(dlg_col), .hud_hp(hp), .hud_hp_max(hp_max), .hud_b_hp(b_hp), .chg_w(b_chg_w), .facing(face_vis), .chg_lvl(p_chg_lvl), .boss_fcol(b_fcol), .mic_on(mic_on), .mic_w(mic_w), .mic_th(mic_th_px), .mic_hit(mic_hit_cnt != 5'd0), .mic_th_bcd(mic_th_bcd), .mic_lv_bcd(mic_lv_bcd), .clk(clk), .ce(ce), .hcount(hcount), .vcount(vcount), .grid(grid), .floor(floor),
+    renderer rnd (.brk(brk), .trap_a(trap_a), .trap_b(trap_b), .open_E(open_E), .p_hurt(p_hurt), .ov_phase(fc[4:3]), .fade(fade_lvl), .dlg_on(txt_scr == 5'd14), .dlg_b0(dlg_b0), .dlg_b1(dlg_b1), .dlg_n0(dlg_n0), .dlg_n1(dlg_n1), .dlg_col(dlg_col), .hud_hp(hp), .hud_hp_max(hp_max), .hud_b_hp(b_hp), .chg_w(b_chg_w), .facing(face_vis), .chg_lvl(p_chg_lvl), .tgt_on(sw9 && lock_use && state == S_PLAY && !paused && !dlg_block), .tgt_x(lock_tx), .tgt_y(lock_ty), .boss_fcol(b_fcol), .mic_on(mic_on), .mic_w(mic_w), .mic_th(mic_th_px), .mic_hit(mic_hit_cnt != 5'd0), .mic_th_bcd(mic_th_bcd), .mic_lv_bcd(mic_lv_bcd), .clk(clk), .ce(ce), .hcount(hcount), .vcount(vcount), .grid(grid), .floor(floor),
                   .form(form), .doors_open(doors_open), .open_L(open_L),
-                  .screen(screen), .hide_player(fsm_hide | is_pro | is_esc | (obj_blink && !is_title)),
+                  .screen(screen), .hide_player(fsm_hide | is_pro | is_esc | (is_title && tpage != 4'd0) | (obj_blink && !is_title)),
                   .px(rpx), .py(rpy), .pframe(pframe), .p_anim(p_anim), .p_aframe(p_aframe),
                   .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
                   .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .pb_kind(pb_kind),
@@ -497,8 +555,8 @@ module top #(
                   .pz_act(pz_act_r), .pz_x(pz_x_r), .pz_y(pz_y_r), .pz_frame(pz_frame_r),
                   .pbox0(pbox0), .pbox1(pbox1), .pbox_en(pbox_en),
                   .simon_lit_on(simon_lit_on), .simon_lit(simon_lit), .simon_wrong(simon_wrong),
-                  .boss_act(b_act | is_title), .boss_x(is_title ? 10'd352 : b_x), .boss_y(is_title ? 10'd192 : b_y), .boss_frame(is_title ? {2'b10, fc[5]} : b_frame), .boss_flash(b_flash | (b_shield & fc[3]) | (b_tele & ((b_tele_lvl == 2'd0) ? fc[4] : (b_tele_lvl == 2'd1) ? fc[3] : (b_tele_lvl == 2'd2) ? fc[2] : fc[1])) | (b_warn & fc[2])),
-                  .sh_dx(sh_dx), .sh_dy(sh_dy), .txt_scr(txt_scr), .txt_blink(fc[5]),
+                  .boss_act(b_act | is_title0), .boss_x(is_title0 ? 10'd352 : b_x), .boss_y(is_title0 ? 10'd192 : b_y), .boss_frame(is_title0 ? {2'b10, fc[5]} : b_frame), .boss_flash(b_flash | (b_shield & fc[3]) | (b_tele & ((b_tele_lvl == 2'd0) ? fc[4] : (b_tele_lvl == 2'd1) ? fc[3] : (b_tele_lvl == 2'd2) ? fc[2] : fc[1])) | (b_warn & fc[2])),
+                  .sh_dx(sh_dx), .sh_dy(sh_dy), .hint_b0(hint_b0), .hint_b1(hint_b1), .hint_n0(hint_n0), .hint_n1(hint_n1), .txt_scr(txt_scr), .txt_blink(fc[5]),
                   .t_floor({2'b00, floor} + 4'd1), .t_m1(m_t), .t_m0(m_o), .t_s1(s_t), .t_s0(s_o),
                   .color(color));
 

@@ -47,6 +47,7 @@ module objects (
     output reg  [2:0]   brk_idx = 3'd0,
     input  wire         auto_lock,        // W18 (SW9): auto-lock - attacks aim at the nearest enemy (8 directions) instead of the facing
     output reg          lock_use = 1'b0,  // a target is locked this frame
+    output reg  [9:0]   lock_tx = 10'd0, lock_ty = 10'd0,   // W18 level 3: centre of the locked target in px (for the marker)
     output reg  [1:0]   lock_face = 2'd0,// 4-way direction of the target (the hero turns that way while attacking)
     input  wire         summon,           // pulse (W11): บอส 2 เรียกลูกน้อง -> spawn มอน A ที่ SUMMON*_T* ใน slot ว่าง
     output reg          boss_dmg = 1'b0,  // pulse: บอสโดนกระสุน / ฟัน
@@ -255,6 +256,8 @@ module objects (
     // W18 auto-lock: nearest enemy (6 monsters + boss), 8-direction aim
     reg [11:0] best_d = 12'hFFF, dstm; reg signed [11:0] bdx = 0, bdy = 0, tdx, tdy, lax, lay; reg found = 1'b0, cand_act;
     reg [11:0] ccx, ccy; reg [2:0] aim_dir = 3'd0;
+    reg [2:0]  tgt_idx = 3'd7, best_i = 3'd7;                 // W18 level 3: sticky lock: the current target keeps a 48 px bonus (7 = none)
+    reg [11:0] dstm_s, tgx;
     wire [1:0] fe   = lock_use ? lock_face : facing;               // facing used by the melee box
     wire [2:0] aim8 = lock_use ? aim_dir : {1'b0, facing};         // direction of shots
     function [2:0] ring_p(input [2:0] d);                          // next direction clockwise (right, down-right, down, down-left, left, up-left, up, up-right)
@@ -348,8 +351,8 @@ module objects (
                 fcnt <= fcnt + 1'b1;
                 trap_t <= (trap_t == TRAP_LOOP - 1) ? 8'd0 : trap_t + 1'b1;
                 if (trap_grace != 0) trap_grace <= trap_grace - 1'b1;
-                if (auto_lock) begin i <= 0; best_d <= 12'hFFF; found <= 1'b0; st <= S_LOCK; end
-                else begin lock_use <= 1'b0; st <= S_NEAR; end
+                if (auto_lock) begin i <= 0; best_d <= 12'hFFF; best_i <= 3'd7; found <= 1'b0; st <= S_LOCK; end
+                else begin lock_use <= 1'b0; tgt_idx <= 3'd7; st <= S_NEAR; end
             end
         // ------------------------------------------------------------------
         S_SUMMON: begin                      // W11: ลูกน้องบอส 2 = มอน A BOSS2_MINIONS ตัว ลง slot ว่าง (ตำแหน่ง SUMMON0..2)
@@ -370,12 +373,16 @@ module objects (
             else        begin cand_act = boss_act; ccx = {2'b00, boss_x} + 12'd32; ccy = {2'b00, boss_y} + 12'd32; end
             tdx = ccx - ({2'b00, px} + 12'd16); tdy = ccy - ({2'b00, py} + 12'd16);
             dstm = (tdx[11] ? -tdx : tdx) + (tdy[11] ? -tdy : tdy);
-            if (cand_act && dstm < LOCK_RANGE && dstm < best_d) begin best_d <= dstm; bdx <= tdx; bdy <= tdy; found <= 1'b1; end
+            dstm_s = (i[2:0] == tgt_idx) ? ((dstm > 12'd48) ? dstm - 12'd48 : 12'd0) : dstm;                  // sticky bonus for the current target
+            if (cand_act && dstm < LOCK_RANGE && dstm_s < best_d) begin best_d <= dstm_s; best_i <= i[2:0]; bdx <= tdx; bdy <= tdy; found <= 1'b1; end
             if (i == NM) st <= S_LOCK2; else i <= i + 1'b1;
         end
         S_LOCK2: begin                       // W18: target vector -> 8 directions (|dx| >= 2|dy| horizontal, |dy| >= 2|dx| vertical, else diagonal)
             lax = bdx[11] ? -bdx : bdx; lay = bdy[11] ? -bdy : bdy;
             lock_use <= found;
+            tgt_idx <= found ? best_i : 3'd7;
+            tgx = {2'b00, px} + 12'd16 + bdx; lock_tx <= tgx[9:0];
+            tgx = {2'b00, py} + 12'd16 + bdy; lock_ty <= tgx[9:0];
             if (lax >= 2 * lay)       aim_dir <= bdx[11] ? 3'd2 : 3'd3;
             else if (lay >= 2 * lax)  aim_dir <= bdy[11] ? 3'd1 : 3'd0;
             else aim_dir <= bdx[11] ? (bdy[11] ? 3'd6 : 3'd4) : (bdy[11] ? 3'd7 : 3'd5);
