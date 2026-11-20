@@ -62,6 +62,40 @@ def indep64(png, row, col):
     return out if opq else None
 
 
+def cell32(png, row, col):
+    """independent: the 32x32 cell as a list of RGB444 words (KEY where transparent)"""
+    im = Image.open(png).convert("RGBA")
+    out = []
+    for y in range(32):
+        for x in range(32):
+            r, g, b, a = im.getpixel((col * 32 + x, (row - 1) * 32 + y))
+            if a < 128:
+                out.append(KEY)
+            else:
+                v = (((r * 15 + 127) // 255) << 8) | (((g * 15 + 127) // 255) << 4) | ((b * 15 + 127) // 255)
+                out.append(v ^ 1 if v == KEY else v)
+    return out
+
+
+def bbox32(words):
+    xs = [i % 32 for i, w in enumerate(words) if w != KEY]
+    ys = [i // 32 for i, w in enumerate(words) if w != KEY]
+    return (min(xs), min(ys), max(xs) + 1, max(ys) + 1)
+
+
+def indep_x3(cells):
+    """independent 3x conversion of one boss: every pixel -> 3x3, the 64x64 window is centred on the art of ALL the boss frames (one anchor)"""
+    boxes = [bbox32(c) for c in cells]
+    cx = (min(b[0] for b in boxes) + max(b[2] for b in boxes)) / 2.0
+    cy = (min(b[1] for b in boxes) + max(b[3] for b in boxes)) / 2.0
+    x0 = min(max(int(round(cx * 3 - 32)), 0), 32)
+    y0 = min(max(int(round(cy * 3 - 32)), 0), 32)
+    outs = []
+    for c in cells:
+        outs.append([c[((y0 + y) // 3) * 32 + (x0 + x) // 3] for y in range(64) for x in range(64)])
+    return outs
+
+
 class RealProject(unittest.TestCase):
     def setUp(self):
         self.cfg = BM.load_config(os.path.join(ROOT, "sprites", "bosses.json"), ROOT)
@@ -98,16 +132,34 @@ class RealProject(unittest.TestCase):
                 i = (n - 1) * 2 + a
                 if self.b.result[i]["fallback"] or spec.get("skip"):
                     continue
+                if bc["scale"] == 3:
+                    continue                                   # checked by test_scale3_frames_are_centred_exact_3x_windows
                 exp = indep64(os.path.join(ROOT, self.cfg["sheets"][spec["sheet"]]), spec["row"], spec["col"])
                 self.assertEqual(self.mem[i * N:(i + 1) * N], exp, f"boss{n} frame{a}")
 
-    def test_each_source_pixel_is_a_2x2_block(self):
-        for i in range(6):
-            f = self.mem[i * N:(i + 1) * N]
-            for y in range(0, 64, 2):
-                for x in range(0, 64, 2):
-                    v = f[y * 64 + x]
-                    self.assertTrue(f[y * 64 + x + 1] == v and f[(y + 1) * 64 + x] == v and f[(y + 1) * 64 + x + 1] == v)
+    def test_scale3_frames_are_centred_exact_3x_windows(self):
+        """scale 3 (the bosses are 1.5x bigger than at 2x): each source pixel is a 3x3 block, the art is centred in the 64x64 box, nothing is cut"""
+        for n in (1, 2, 3):
+            bc = self.cfg["bosses"][n]
+            if not bc["enabled"] or bc["scale"] != 3:
+                continue
+            cells = [cell32(os.path.join(ROOT, self.cfg["sheets"][sp["sheet"]]), sp["row"], sp["col"]) for sp in bc["frames"][:2]]
+            for a, exp in enumerate(indep_x3(cells)):
+                i = (n - 1) * 2 + a
+                self.assertEqual(self.mem[i * N:(i + 1) * N], exp, f"boss{n} frame{a}")
+                art = sum(1 for w in exp if w != KEY)
+                self.assertEqual(art, sum(1 for w in cells[a] if w != KEY) * 9, f"boss{n} frame{a}: art was cut by the 64x64 window")
+
+    def test_scale2_frames_are_2x2_blocks(self):
+        for n in (1, 2, 3):
+            if self.cfg["bosses"][n]["scale"] != 2:
+                continue
+            for a in range(2):
+                f = self.mem[((n - 1) * 2 + a) * N:((n - 1) * 2 + a + 1) * N]
+                for y in range(0, 64, 2):
+                    for x in range(0, 64, 2):
+                        v = f[y * 64 + x]
+                        self.assertTrue(f[y * 64 + x + 1] == v and f[(y + 1) * 64 + x] == v and f[(y + 1) * 64 + x + 1] == v)
 
 
 class Fallbacks(unittest.TestCase):

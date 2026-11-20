@@ -20,6 +20,11 @@ DECOR_ROOMS = {0, 3, 4, 5, 6, 7, 8}
 SIMON_GRID = 12
 
 
+def nodecor(s):
+    """wall torches / shields (t [ ] v) are drawn on wall tiles only: for the comparisons with the original maps they count as wall"""
+    return "".join("#" if c in "t[]v" else c for c in s)
+
+
 def text(p):
     with open(p, encoding="utf-8", newline="") as f:
         return f.read().replace("\r\n", "\n")
@@ -57,6 +62,7 @@ class Maps(unittest.TestCase):
 
     def test_map_files_only_differ_by_decoration(self):
         decor = set(",;:`ZXY")        # decoration + W5 overlay (Z breakable block, X spike trap, Y solid decoration): all sit on plain floor
+        walldecor = set("t[]v")       # wall torches / shield: replace a wall tile (looks only)
         for old in sorted(glob.glob(os.path.join(V1, "[0-9][0-9]_*.txt"))):
             cur = os.path.join(ROOT, "maps", os.path.basename(old))
             a, b = text(old).split("\n"), text(cur).split("\n")
@@ -67,6 +73,9 @@ class Maps(unittest.TestCase):
                 self.assertEqual(len(ra), len(rb))
                 for x, (ca, cb) in enumerate(zip(ra, rb)):
                     if ca != cb:
+                        if cb in walldecor:
+                            self.assertEqual(ca, "#", f"{os.path.basename(old)} ({x},{y}): wall decoration only replaces a wall")
+                            continue
                         self.assertEqual(ca, ".", f"{os.path.basename(old)} ({x},{y})")
                         self.assertIn(cb, decor)
 
@@ -83,8 +92,11 @@ class Maps(unittest.TestCase):
             idxs = []
             for i, e in enumerate(ents):
                 code = e & 15
-                self.assertIn(code, (0, 1, 2, 3), f"room {g} tile {i}")
+                self.assertIn(code, (0, 1, 2, 3, 4, 5, 6, 7), f"room {g} tile {i}")
                 self.assertEqual(e >> 7, 0, "bit 7 unused")
+                if 4 <= code <= 7:                       # wall decoration: on a wall tile, no collision, any room
+                    self.assertEqual(tm[g * 300 + i], "0", f"room {g} tile {i}: wall decoration only on a wall")
+                    continue
                 if code:
                     total[code] += 1
                     self.assertIn(g, allowed, f"overlay in room {g}")
@@ -122,7 +134,7 @@ class Maps(unittest.TestCase):
         """each Simon plate is a 2x2 block of tiles starting on an even column and an even row (the renderer draws it as ONE big plate);
         apart from the plate positions the room equals the original"""
         n = "12_f3_puzzle_simon.txt"
-        a, b = text(os.path.join(V1, n)).split("\n"), text(os.path.join(ROOT, "maps", n)).split("\n")
+        a, b = text(os.path.join(V1, n)).split("\n"), nodecor(text(os.path.join(ROOT, "maps", n))).split("\n")
         for ch in "qwer":
             pos = [(x, y) for y, row in enumerate(b) for x, c in enumerate(row) if c == ch]
             self.assertEqual(len(pos), 4, f"plate {ch}: needs exactly 4 tiles")
@@ -134,7 +146,7 @@ class Maps(unittest.TestCase):
 
     def test_sokoban_room_unchanged_and_solvable(self):
         n = "09_f2_puzzle_sokoban.txt"
-        self.assertEqual(text(os.path.join(ROOT, "maps", n)), text(os.path.join(V1, n)))
+        self.assertEqual(nodecor(text(os.path.join(ROOT, "maps", n))), text(os.path.join(V1, n)))
         r = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "solve_sokoban.py")],
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)

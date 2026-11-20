@@ -82,6 +82,12 @@ module tb_top;
         BTNC = 1; repeat (40) @(posedge clk); BTNC = 0; repeat (40) @(posedge clk);
         if (dut.state !== 3'd1) $display("FAIL: expected PLAY after BTNC, state=%0d", dut.state);
         grab("../sim/frame_start_f1.ppm");
+        // W16: the first story message (F1-01, blocking) appears at the start of a game and freezes it until BTNC
+        repeat (2000) @(posedge clk);
+        dchk(dut.dlg_block && dut.txt_scr == 4'd14, "start: the blocking story box F1-01 is shown (game frozen)");
+        grab("../sim/frame_dialog_f1.ppm");
+        BTNC = 1; repeat (40) @(posedge clk); BTNC = 0; repeat (40) @(posedge clk);
+        dchk(!dut.dlg_block && dut.txt_scr == 4'd0, "BTNC closes the box, the game runs");
         // ---------- ตรวจ 7-seg / LED / เสียง จากขา output จริง (ต้องแตะ scan ครบทุกหลัก: 1 รอบ ~ 1M clock) ----------
         repeat (1_200_000) @(posedge clk);
         dchk(shown[7] == "1" && shown[6] == "-" && shown[5] == HP_CH && shown[4] == "-" &&

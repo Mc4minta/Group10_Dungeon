@@ -31,13 +31,13 @@ module maze_rom (
     assign data = mem[addr];
 endmodule
 
-// overlay art: 4 pictures x 32x32 (0 breakable block, 1 spike trap, 2 solid decoration, 3 spare) x 12 bit, F0F = see-through (BRAM, sync)
+// overlay art: 16 pictures x 32x32 (0 breakable block, 1 spike trap, 2 solid decoration, 3-6 torch frames, 7 / 8 side torches, 9 shield, 10-15 spare) x 12 bit, F0F = see-through (BRAM, sync)
 module ovtile_rom (
     input  wire        clk,
-    input  wire [11:0] addr,   // pic*1024 + y*32 + x
+    input  wire [13:0] addr,   // pic*1024 + y*32 + x
     output reg  [11:0] data
 );
-    reg [11:0] mem [0:4095];
+    reg [11:0] mem [0:16383];
     initial $readmemh("ovtile.mem", mem);
     always @(posedge clk) data <= mem[addr];
 endmodule

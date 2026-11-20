@@ -7,7 +7,7 @@ module tb_ovrender;
     reg [7:0] brk_r = 8'h00; reg [2:0] scr_r = 3'd0; reg [1:0] floor_r = 2'd0; reg [3:0] grid_r = 4'd4;
 
     wire [11:0] color;
-    renderer dut (.dlg_on(1'b0), .dlg_b0(12'd0), .dlg_b1(12'd0), .dlg_n0(5'd0), .dlg_n1(5'd0), .dlg_col(12'hFFF), .p_hurt(1'b0), .open_E(1'b0), .brk(brk_r), .clk(clk), .ce(1'b1), .hcount(hc), .vcount(vc), .grid(grid_r), .floor(floor_r), .form(2'd0),
+    renderer dut (.ov_phase(2'd0), .fade(2'd0), .dlg_on(1'b0), .dlg_b0(12'd0), .dlg_b1(12'd0), .dlg_n0(5'd0), .dlg_n1(5'd0), .dlg_col(12'hFFF), .p_hurt(1'b0), .open_E(1'b0), .brk(brk_r), .clk(clk), .ce(1'b1), .hcount(hc), .vcount(vc), .grid(grid_r), .floor(floor_r), .form(2'd0),
         .doors_open(1'b0), .open_L(1'b0), .screen(scr_r), .hide_player(1'b1), .px(10'd0), .py(10'd0), .pframe(6'd0),
         .p_anim(3'd0), .p_aframe(6'd0), .mon_act(6'd0), .mon_type(6'd0), .mon_flash(6'd0), .mon_x(60'd0), .mon_y(60'd0), .mon_anim(1'b0),
         .pb_act(6'd0), .pb_x(60'd0), .pb_y(60'd0), .pb_kind(12'd0), .p_tint(1'b0), .eb_act(16'd0), .eb_x(160'd0), .eb_y(160'd0),
@@ -16,10 +16,11 @@ module tb_ovrender;
         .boss_act(1'b0), .boss_x(10'd0), .boss_y(10'd0), .boss_frame(3'd0), .boss_flash(1'b0),
         .sh_dx(10'd0), .sh_dy(10'd0), .txt_scr(4'd0), .txt_blink(1'b0), .t_floor(4'd0), .t_m1(4'd0), .t_m0(4'd0), .t_s1(4'd0), .t_s0(4'd0),
         .hud_hp(3'd0), .hud_hp_max(3'd0), .hud_b_hp(5'd0), .color(color));
+    `include "vig.vh"
     reg [3:0]  tmap [0:4095];
     reg [7:0]  omap [0:4095];
     reg [11:0] tset [0:49151];
-    reg [11:0] otile [0:4095];
+    reg [11:0] otile [0:16383];
     reg [1:0]  mzm [0:511];
     initial begin $readmemh("tilemap.mem", tmap); $readmemh("overlay.mem", omap); $readmemh("tileset.mem", tset); $readmemh("ovtile.mem", otile); $readmemh("maze.mem", mzm); end
     integer x, y, errors = 0, checks = 0, tid, tx, ty, lx, ly, pass, seen = 0, pic;
@@ -36,8 +37,10 @@ module tb_ovrender;
                     exp = tset[tid * 1024 + ly * 32 + lx];
                     pic = -1;
                     if (o[3:0] == 1 && !brk_r[o[6:4]]) pic = 0; else if (o[3:0] == 2) pic = 1; else if (o[3:0] == 3) pic = 2;
+                    else if (o[3:0] == 4) pic = 3; else if (o[3:0] == 5) pic = 7; else if (o[3:0] == 6) pic = 8; else if (o[3:0] == 7) pic = 9;
                     shown = 0;
                     if (pic >= 0 && otile[pic * 1024 + ly * 32 + lx] != 12'hF0F) begin exp = otile[pic * 1024 + ly * 32 + lx]; shown = 1; end
+                    if (!(shown && o[3:0] >= 4 && o[3:0] <= 6)) exp = vig_shade(exp, x, y, 0);           // torches are light sources: not darkened
                     if (shown) seen = seen + 1;
                     checks = checks + 1;
                     if (color !== exp) begin errors = errors + 1; if (errors < 6) $display("FAIL (%0d,%0d) tile %0d ov %h: got %h expected %h", x, y, tid, o, color, exp); end
@@ -52,7 +55,7 @@ module tb_ovrender;
                 repeat (6) @(posedge clk); #1;
                 tx = x / 32; ty = y / 32; lx = x % 32; ly = y % 32;
                 tid = (mzm[ty * 20 + tx] == 2'd1) ? 0 : (mzm[ty * 20 + tx] == 2'd2) ? 7 : 1;
-                exp = tset[(2 * 16 + tid) * 1024 + ly * 32 + lx];
+                exp = vig_shade(tset[(2 * 16 + tid) * 1024 + ly * 32 + lx], x, y, 0);
                 checks = checks + 1;
                 if (color !== exp) begin errors = errors + 1; if (errors < 6) $display("FAIL maze (%0d,%0d) tile %0d: got %h expected %h", x, y, tid, color, exp); end
             end

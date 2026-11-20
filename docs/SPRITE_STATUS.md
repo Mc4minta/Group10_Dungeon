@@ -66,6 +66,8 @@ Not used by the game at all: `Jump.png`, `ChargedAttack.png`.
 
 ## 4. Enemies and bosses
 
+**Visual polish pass (20/11):** monsters are now drawn at 2x like the hero (the 16x16 pixels around the art are doubled; `monsters.json` -> `scale`), bosses at 3x with the art centred in the 64x64 box (`bosses.json` -> `scale`, 1.5x bigger than before), boss 2 is the **blue-sparked priest** from the 2D Pixel Dungeon pack (a robed caster fits a summoner; `scripts/make_boss2_art.py`), floor palettes are darker and more distinct (floor 1 maroon, floor 2 indigo, floor 3 moss green; walls brighter than floors so the sprites stand out; `tileset.json`), every room has animated wall torches and shields (overlay codes 4-7, `maps/*.txt` chars `t [ ] v`, art from the pack's torch / shield), a soft vignette darkens the screen edges and every room change fades in over 6 frames, the title is a scene (hero vs the big vampire between two torches). Preview any scene with `scripts/make_shots.sh` -> `preview/shots/*.png`.
+
 | Sprite | Source | Status |
 |---|---|---|
 | Monster A (chaser) 2 frames | skeleton1 movement cols 1, 4 (`sprites/monsters.json`) | FINAL (2 frames only, no facing) |

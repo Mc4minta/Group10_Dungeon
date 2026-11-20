@@ -331,10 +331,16 @@ module top #(
                  .floor(floor), .room(room), .play(state == S_PLAY), .vis(key_vis), .kx(key_x), .ky(key_y), .pick(key_pick));
     wire [1:0]  ball_ph    = ball_x[3:2] + ball_y[3:2];                         // rolling: the picture follows the position (4 pictures)
     wire [3:0]  ball_f     = 4'd10 + {2'b00, ball_ph};
-    wire [8:0]  pz_act_r   = (is_esc || key_vis) ? 9'd1 : pz_act;
-    wire [89:0] pz_x_r     = is_esc ? {80'd0, ball_x - 10'd6} : key_vis ? {80'd0, key_x} : pz_x;
-    wire [89:0] pz_y_r     = is_esc ? {80'd0, ball_y - 10'd6} : key_vis ? {80'd0, key_y} : pz_y;
-    wire [35:0] pz_frame_r = is_esc ? {32'd0, ball_f} : key_vis ? {32'd0, 4'd14} : pz_frame;
+    // title screen: two torches beside the hero (puzzle frames 0 lit / 1 ember alternate = flicker)
+    wire [3:0]  tf         = fc[3] ? 4'd1 : 4'd0;
+    wire [8:0]  pz_act_r   = is_title ? 9'd3 : (is_esc || key_vis) ? 9'd1 : pz_act;
+    wire [89:0] pz_x_r     = is_title ? {70'd0, 10'd512, 10'd96} : is_esc ? {80'd0, ball_x - 10'd6} : key_vis ? {80'd0, key_x} : pz_x;
+    wire [89:0] pz_y_r     = is_title ? {70'd0, 10'd208, 10'd208} : is_esc ? {80'd0, ball_y - 10'd6} : key_vis ? {80'd0, key_y} : pz_y;
+    wire [35:0] pz_frame_r = is_title ? {28'd0, tf, tf} : is_esc ? {32'd0, ball_f} : key_vis ? {32'd0, 4'd14} : pz_frame;
+    // room-change fade-in: the picture starts dark and brightens over 6 frames after every room load
+    reg [2:0] fade_t = 3'd0;
+    always @(posedge clk) if (load) fade_t <= 3'd6; else if (frame_tick && fade_t != 3'd0) fade_t <= fade_t - 3'd1;
+    wire [1:0] fade_lvl = fade_t[2:1] + {1'b0, fade_t[0]};              // 6,5 -> 3 | 4,3 -> 2 | 2,1 -> 1 | 0 -> 0
     wire [9:0]  dbg_ballx /*verilator public*/ = ball_x;
     wire [9:0]  dbg_bally /*verilator public*/ = ball_y;
 
@@ -411,17 +417,17 @@ module top #(
 
     // ---------- render ----------
     // TITLE: sprite ร่าง 1 idle หันลง กลางจอ
-    wire [9:0]  rpx = is_title ? 10'd304 : px;
-    wire [9:0]  rpy = is_title ? 10'd224 : py;
+    wire [9:0]  rpx = is_title ? 10'd232 : px;                       // title: the hero (left) faces the big vampire (right)
+    wire [9:0]  rpy = is_title ? 10'd240 : py;
     always @(posedge clk) if (ev_shoot | ev_melee) turn_cnt <= LOCK_TURN_FRAMES; else if (ft && turn_cnt != 5'd0) turn_cnt <= turn_cnt - 5'd1;
     wire [1:0]  face_vis = (sw9 && turn_cnt != 5'd0 && lock_use) ? lock_face : facing;     // W18: the hero turns to the locked target (picture only)
-    wire [5:0]  pframe = is_title ? 6'd0 : form * 6'd12 + face_vis * 6'd3 + pose;
+    wire [5:0]  pframe = is_title ? 6'd9 : form * 6'd12 + face_vis * 6'd3 + pose;
     player_frame pfr (.clk(clk), .rst(rst), .frame_tick(ft), .form(form), .facing(face_vis), .melee_dir(melee_dir),
                       .moving(p_moving), .melee_on(melee_on), .invuln(invuln), .dead(state == S_GAME_OVER), .active(!is_title),
                       .shoot(ev_shoot), .anim_sel(p_anim), .aframe(p_aframe), .hurt_flash(p_hurt));
     wire [2:0]  screen = is_title ? 3'd1 : (state == S_GAME_OVER) ? 3'd2 : is_win ? 3'd3 : is_pro ? 3'd4 : is_esc ? 3'd5 : 3'd0;
     wire [11:0] color;
-    renderer rnd (.brk(brk), .open_E(open_E), .p_hurt(p_hurt), .dlg_on(txt_scr == 4'd14), .dlg_b0(dlg_b0), .dlg_b1(dlg_b1), .dlg_n0(dlg_n0), .dlg_n1(dlg_n1), .dlg_col(dlg_col), .hud_hp(hp), .hud_hp_max(hp_max), .hud_b_hp(b_hp), .clk(clk), .ce(ce), .hcount(hcount), .vcount(vcount), .grid(grid), .floor(floor),
+    renderer rnd (.brk(brk), .open_E(open_E), .p_hurt(p_hurt), .ov_phase(fc[4:3]), .fade(fade_lvl), .dlg_on(txt_scr == 4'd14), .dlg_b0(dlg_b0), .dlg_b1(dlg_b1), .dlg_n0(dlg_n0), .dlg_n1(dlg_n1), .dlg_col(dlg_col), .hud_hp(hp), .hud_hp_max(hp_max), .hud_b_hp(b_hp), .clk(clk), .ce(ce), .hcount(hcount), .vcount(vcount), .grid(grid), .floor(floor),
                   .form(form), .doors_open(doors_open), .open_L(open_L),
                   .screen(screen), .hide_player(fsm_hide | is_pro | is_esc | (obj_blink && !is_title)),
                   .px(rpx), .py(rpy), .pframe(pframe), .p_anim(p_anim), .p_aframe(p_aframe),
@@ -432,7 +438,7 @@ module top #(
                   .pz_act(pz_act_r), .pz_x(pz_x_r), .pz_y(pz_y_r), .pz_frame(pz_frame_r),
                   .pbox0(pbox0), .pbox1(pbox1), .pbox_en(pbox_en),
                   .simon_lit_on(simon_lit_on), .simon_lit(simon_lit), .simon_wrong(simon_wrong),
-                  .boss_act(b_act), .boss_x(b_x), .boss_y(b_y), .boss_frame(b_frame), .boss_flash(b_flash | (b_shield & fc[3]) | (b_tele & fc[2])),
+                  .boss_act(b_act | is_title), .boss_x(is_title ? 10'd352 : b_x), .boss_y(is_title ? 10'd192 : b_y), .boss_frame(is_title ? {2'b10, fc[5]} : b_frame), .boss_flash(b_flash | (b_shield & fc[3]) | (b_tele & fc[2])),
                   .sh_dx(sh_dx), .sh_dy(sh_dy), .txt_scr(txt_scr), .txt_blink(fc[5]),
                   .t_floor({2'b00, floor} + 4'd1), .t_m1(m_t), .t_m0(m_o), .t_s1(s_t), .t_s0(s_o),
                   .color(color));

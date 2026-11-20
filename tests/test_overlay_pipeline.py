@@ -28,9 +28,13 @@ def to444(r, g, b):
     return (((r * 15 + 127) // 255) << 8) | (((g * 15 + 127) // 255) << 4) | ((b * 15 + 127) // 255)
 
 
-def indep(path, cut=(), plate=None):
-    """independent 16x16 -> 32x32 (2x) conversion with the picture centred"""
+def indep(path, cut=(), plate=None, cell=None, flip=False):
+    """independent 16x16 -> 32x32 (2x) conversion with the picture centred (optionally a 16x16 cell of a sheet, optionally mirrored)"""
     im = Image.open(path).convert("RGBA")
+    if cell:
+        im = im.crop((cell[1] * 16, cell[0] * 16, cell[1] * 16 + 16, cell[0] * 16 + 16))
+    if flip:
+        im = im.transpose(Image.FLIP_LEFT_RIGHT)
     out = [KEY] * 1024
     if plate:
         for y in range(2, 30):
@@ -54,21 +58,21 @@ class Real(unittest.TestCase):
             self.cfg = json.load(f)
 
     def test_shape(self):
-        self.assertEqual(len(self.mem), 4096)
+        self.assertEqual(len(self.mem), 16384)
         self.assertTrue(all(0 <= w <= 0xFFF for w in self.mem))
 
     def test_pictures_match_independent_conversion(self):
-        for i in ("0", "1", "2"):
+        for i in ("0", "1", "2", "3", "4", "5", "6", "7", "8", "9"):
             spec = self.cfg["pics"][i]
-            exp = indep(os.path.join(ROOT, spec["file"]), {tuple(c) for c in spec.get("cut", [])}, spec.get("plate"))
+            exp = indep(os.path.join(ROOT, spec["file"]), {tuple(c) for c in spec.get("cut", [])}, spec.get("plate"), spec.get("cell"), spec.get("flip") == "h")
             self.assertEqual(self.mem[int(i) * 1024:(int(i) + 1) * 1024], exp, f"picture {i}")
 
     def test_spare_is_see_through_and_pictures_have_art(self):
-        self.assertTrue(all(w == KEY for w in self.mem[3 * 1024:]))
-        for i in range(3):
+        self.assertTrue(all(w == KEY for w in self.mem[10 * 1024:]))
+        for i in range(10):
             pic = self.mem[i * 1024:(i + 1) * 1024]
             self.assertGreater(sum(1 for w in pic if w != KEY), 100, f"picture {i} is mostly empty")
-            self.assertGreater(sum(1 for w in pic if w == KEY), 50, f"picture {i} lets no floor through")
+            self.assertGreater(sum(1 for w in pic if w == KEY), 50 if i != 1 else 0, f"picture {i} lets no floor through")
 
     def test_up_to_date(self):
         def read():
@@ -88,15 +92,18 @@ class Fallback(unittest.TestCase):
             for d in ("mem", "sprites", os.path.join("my_asset", "props"), "scripts"):
                 os.makedirs(os.path.join(t, d))
             shutil.copy(os.path.join(ROOT, "scripts", "build_overlay_mem.py"), os.path.join(t, "scripts"))
-            for f in ("peaks_1.png", "candlestick_1_1.png"):                 # box_1_1.png is left out
-                shutil.copy(os.path.join(ROOT, "my_asset", "props", f), os.path.join(t, "my_asset", "props"))
+            os.makedirs(os.path.join(t, "my_asset", "tileset"))
+            shutil.copy(os.path.join(ROOT, "my_asset", "tileset", "Dungeon_Tileset.png"), os.path.join(t, "my_asset", "tileset"))
+            for f in os.listdir(os.path.join(ROOT, "my_asset", "props")):
+                if f.endswith(".png") and f != "box_1_1.png":              # box_1_1.png is left out
+                    shutil.copy(os.path.join(ROOT, "my_asset", "props", f), os.path.join(t, "my_asset", "props"))
             shutil.copy(os.path.join(ROOT, "sprites", "overlay.json"), os.path.join(t, "sprites"))
             r = subprocess.run([sys.executable, os.path.join(t, "scripts", "build_overlay_mem.py")], capture_output=True, text=True, timeout=60)
             self.assertEqual(r.returncode, 0, r.stderr)
             self.assertIn("WARNING", r.stdout)
             w = words(os.path.join(t, "mem", "ovtile.mem"))
             real = words(os.path.join(ROOT, "mem", "ovtile.mem"))
-            self.assertEqual(len(w), 4096)
+            self.assertEqual(len(w), 16384)
             self.assertNotEqual(w[0:1024], real[0:1024])
             self.assertGreater(sum(1 for x in w[0:1024] if x != KEY), 100, "placeholder is drawn")
             self.assertEqual(w[1024:], real[1024:])

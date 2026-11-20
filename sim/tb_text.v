@@ -9,7 +9,7 @@ module tb_text;
     reg [39:0] dlgrom [0:127];
     initial $readmemh("dlg.mem", dlgrom);
     wire [11:0] color;
-    renderer dut (.dlg_on(dlg_on_r), .dlg_b0(dlg_b0_r), .dlg_b1(dlg_b1_r), .dlg_n0(dlg_n0_r), .dlg_n1(dlg_n1_r), .dlg_col(dlg_col_r), .p_hurt(1'b0), .open_E(1'b0), .brk(8'd0), .clk(clk), .ce(1'b1), .hcount(hc), .vcount(vc), .grid(4'd0), .floor(2'd0), .form(2'd0),
+    renderer dut (.ov_phase(2'd0), .fade(2'd0), .dlg_on(dlg_on_r), .dlg_b0(dlg_b0_r), .dlg_b1(dlg_b1_r), .dlg_n0(dlg_n0_r), .dlg_n1(dlg_n1_r), .dlg_col(dlg_col_r), .p_hurt(1'b0), .open_E(1'b0), .brk(8'd0), .clk(clk), .ce(1'b1), .hcount(hc), .vcount(vc), .grid(4'd0), .floor(2'd0), .form(2'd0),
         .doors_open(1'b0), .open_L(1'b0), .screen(scr), .hide_player(1'b1), .px(10'd0), .py(10'd0), .pframe(6'd0),
         .p_anim(3'd0), .p_aframe(6'd0), .mon_act(6'd0), .mon_type(6'd0), .mon_flash(6'd0), .mon_x(60'd0), .mon_y(60'd0), .mon_anim(1'b0),
         .pb_act(6'd0), .pb_x(60'd0), .pb_y(60'd0), .pb_kind(12'd0), .p_tint(1'b0), .eb_act(16'd0), .eb_x(160'd0), .eb_y(160'd0),

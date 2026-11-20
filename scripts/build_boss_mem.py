@@ -83,7 +83,10 @@ def load_config(path, root):
         fr = e.get("frames", [])
         if not isinstance(fr, list) or len(fr) > 2:
             raise ConfigError(f'bosses."{n}".frames must be a list of at most 2 entries')
-        cfg["bosses"][int(n)] = {"enabled": en, "frames": [spec(v, f'bosses."{n}".frames[{i}]') for i, v in enumerate(fr)]}
+        sc = e.get("scale", 2)
+        if isinstance(sc, bool) or sc not in (2, 3):
+            raise ConfigError(f'bosses."{n}".scale must be 2 or 3, got {sc!r}')
+        cfg["bosses"][int(n)] = {"enabled": en, "scale": sc, "frames": [spec(v, f'bosses."{n}".frames[{i}]') for i, v in enumerate(fr)]}
     return cfg
 
 
@@ -120,6 +123,27 @@ def scale2(words32):
     return out
 
 
+def art_bbox(words32, key):
+    """bounding box (x0, y0, x1, y1) of the non-key pixels of a 32x32 frame, or None"""
+    xs = [i % 32 for i, w in enumerate(words32) if w != key]
+    ys = [i // 32 for i, w in enumerate(words32) if w != key]
+    return (min(xs), min(ys), max(xs) + 1, max(ys) + 1) if xs else None
+
+
+def scale3(words32, anchor, key):
+    """32x32 words -> 64x64 words at 3x (96x96) cropped to the 64x64 window centred on `anchor` (the centre of the art, in source pixels):
+    the boss is drawn 1.5x bigger than at 2x and sits in the middle of its 64x64 box. Anything outside the window is cut (reported by the caller)."""
+    big = 96
+    cx, cy = anchor
+    x0 = min(max(int(round(cx * 3 - 32)), 0), big - BOSS_PX)
+    y0 = min(max(int(round(cy * 3 - 32)), 0), big - BOSS_PX)
+    out = [key] * FRAME_WORDS
+    for y in range(BOSS_PX):
+        for x in range(BOSS_PX):
+            out[y * BOSS_PX + x] = words32[((y0 + y) // 3) * 32 + (x0 + x) // 3]
+    return out
+
+
 def colour_counts(cell, alpha):
     """(8-bit colours, RGB444 colours) of the opaque pixels of an RGBA cell"""
     cols = set()
@@ -147,6 +171,19 @@ def build(cfg, root):
     b.result = []
     for n in (1, 2, 3):
         bc = cfg["bosses"][n]
+        anchor = None
+        if bc["enabled"] and bc["scale"] == 3:                         # one anchor per boss (union of its frames) so the animation does not jump
+            boxes = []
+            for sp in bc["frames"][:2]:
+                sh0 = b.sheets.get(sp.get("sheet")) if not sp.get("skip") else None
+                if sh0 is None:
+                    continue
+                w0 = P.get_cell_words(sh0, sp["row"], sp["col"], cfg)[0]
+                bb = art_bbox(w0, cfg["key"]) if w0 is not None else None
+                if bb:
+                    boxes.append(bb)
+            if boxes:
+                anchor = ((min(x[0] for x in boxes) + max(x[2] for x in boxes)) / 2.0, (min(x[1] for x in boxes) + max(x[3] for x in boxes)) / 2.0)
         for a in range(2):
             i = (n - 1) * 2 + a
             info = {"idx": i, "name": NAMES[i], "source": None, "fallback": None, "stats": None, "colours": None}
@@ -167,9 +204,12 @@ def build(cfg, root):
                     if w is None:
                         info["fallback"] = why
                     else:
-                        words = scale2(w)
+                        if bc["scale"] == 3 and anchor is not None:
+                            words = scale3(w, anchor, cfg["key"])
+                        else:
+                            words = scale2(w)
                         info["stats"] = st
-                        info["source"] = f"{sh.label} r{sp['row']} c{sp['col']} x2"
+                        info["source"] = f"{sh.label} r{sp['row']} c{sp['col']} x{bc['scale']}"
                         cell = sh.cell(sp["row"], sp["col"])[1]
                         info["colours"] = colour_counts(cell, cfg["alpha"])
             if words is None:

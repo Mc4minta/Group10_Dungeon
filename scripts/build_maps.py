@@ -38,6 +38,8 @@ TILE = {
 DECOR = set(',;:`')
 # W5 overlay layer (separate 4-bit code map, see docs/DESIGN_PLAN.md 5.1): Z breakable block, X spike trap, Y solid decoration
 OVL = {'Z': 1, 'X': 2, 'Y': 3}
+# wall decoration (looks only: the tile stays a wall, no collision change): t torch (animated), [ torch on the left wall, ] torch on the right wall, v shield -> overlay codes 4..7
+WALLDECOR = {'t': 4, '[': 5, ']': 6, 'v': 7}
 MAX_BRK = 8                  # breakable blocks per room (state bits in overlay.v)
 # overlay only in rooms without puzzle logic and not the boss rooms: start rooms 0,1 and combat rooms 4,5,7,8,10,11
 OVL_ROOMS = {0, 1, 4, 5, 7, 8, 10, 11}
@@ -65,6 +67,10 @@ for g, path in enumerate(maps):
         for tx, ch in enumerate(row):
             if ch in DECOR and g not in DECOR_ROOMS:
                 raise ValueError(f'{path} ({tx},{ty}): decoration {ch!r} is not allowed in this room (grid {g})')
+            if ch in WALLDECOR:
+                mem.append(TILE['#'])
+                ovl.append(WALLDECOR[ch])
+                continue
             if ch in OVL:
                 if g not in OVL_ROOMS:
                     raise ValueError(f'{path} ({tx},{ty}): overlay {ch!r} is not allowed in this room (grid {g})')

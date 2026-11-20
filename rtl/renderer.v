@@ -37,6 +37,8 @@ module renderer (
     input  wire [11:0]  dlg_b0, dlg_b1,
     input  wire [4:0]   dlg_n0, dlg_n1,
     input  wire [11:0]  dlg_col,
+    input  wire [1:0]   ov_phase,         // torch flame frame (0..3)
+    input  wire [1:0]   fade,             // extra darkness 0..3 (room-change fade in)
     input  wire         p_hurt,           // W14: red flash of the player sprite (just hit)
     input  wire         p_tint,           // ผู้เล่นสว่าง (ร่าง 4 ชาร์จเต็ม)
     input  wire [15:0]  eb_act,
@@ -92,6 +94,15 @@ module renderer (
     wire [1:0] mzd;
     maze_rom mzr (.addr(maddr[8:0]), .data(mzd));
     wire [3:0] tid = maze_on ? ((mzd == 2'd1) ? 4'h0 : (mzd == 2'd2) ? 4'h7 : 4'h1) : tid_map;   // wall / goal plate / floor
+    // vignette level at this pixel (stage 0 coordinates): distance from the screen centre (dx + 1.5 dy) plus the room-change fade
+    wire [9:0]  vdx = (hs_r >= 10'd320) ? hs_r - 10'd320 : 10'd320 - hs_r;
+    wire [9:0]  vdy = (vs_r >= 10'd240) ? vs_r - 10'd240 : 10'd240 - vs_r;
+    wire [6:0]  vx7 = vdx[9:3];                                           // 0..40
+    wire [6:0]  vy7 = (vdy + {2'b00, vdy[9:2]}) >> 3;                     // dy * 1.25 / 8 = 0..37 (ellipse, not a diamond)
+    wire [11:0] vm  = vx7 * vx7 + vy7 * vy7;                              // squared distance from the centre
+    wire [1:0]  vig_edge = (vm >= 12'd2500) ? 2'd3 : (vm >= 12'd1900) ? 2'd2 : (vm >= 12'd1400) ? 2'd1 : 2'd0;
+    wire [2:0]  vig_sum  = {1'b0, vig_edge} + {1'b0, fade};
+    wire [1:0]  vig_lvl  = (screen == 3'd0 || screen == 3'd5) ? ((vig_sum > 3'd3) ? 2'd3 : vig_sum[1:0]) : 2'd0;
     reg [3:0] tvis;
     always @* begin                  // สถานะประตูเลือกรูปเปิด/ปิด
         case (tid)
@@ -115,8 +126,11 @@ module renderer (
     reg        r1_p = 0, r1_lit = 0, r1_red = 0, r1_out = 0, r1_tint = 0;
     reg        r1_hurt = 0, r2_hurt = 0, r1_band = 0, r2_band = 0;
     reg [2:0]  r1_scr = 0;
-    reg [1:0]  r1_ovs = 0, r2_ovs = 0;         // overlay picture: 0 none, 1 breakable block, 2 spike trap, 3 solid decoration
-    reg [11:0] r1_oaddr = 0;
+    reg        r1_ovl = 0, r2_ovl = 0;                 // the overlay picture is a light source (torch): not darkened
+    reg        r1_ovs = 0, r2_ovs = 0;         // overlay picture present
+    reg [13:0] r1_oaddr = 0;
+    reg [1:0]  r1_vig = 0, r2_vig = 0;          // vignette level (0..3): darker towards the screen edges + the room fade
+    reg        r1_dth = 0, r2_dth = 0;                // ordered dither of the title gradient (smooth instead of 8 visible bands)
     reg [2:0]  r1_vb = 0, r2_vb = 0;            // W6: แถบแนวนอน 8 แถบ (vcount[8:6]) ทำพื้นหน้า TITLE เป็นไล่สี
     // ----- ข้อความ: ไม่เกิน 2 บรรทัดต่อหน้าจอ, ฟอนต์ 8x8 ขยาย 2x / 4x (คิดเฉพาะตอนมีข้อความบนจอ) -----
     reg [5:0]  txtmem [0:4095];
@@ -183,9 +197,14 @@ module renderer (
         r1_hurt  <= p_hurt;
         r1_band  <= dlg_on && (vs_r >= 10'd384) && (vs_r < 10'd448);
         r1_scr   <= screen;
-        r1_ovs   <= maze_on ? 2'd0 : (ovraw[3:0] == 4'd1 && !brk[ovraw[6:4]]) ? 2'd1 : (ovraw[3:0] == 4'd2) ? 2'd2 : (ovraw[3:0] == 4'd3) ? 2'd3 : 2'd0;
-        r1_oaddr <= {((ovraw[3:0] == 4'd2) ? 2'd1 : (ovraw[3:0] == 4'd3) ? 2'd2 : 2'd0), vs_r[4:0], hs_r[4:0]};
+        // overlay code -> picture: 1 breakable block (if not broken) 0, 2 trap 1, 3 pillar 2, 4 torch 3 + phase, 5 left torch 7, 6 right torch 8, 7 shield 9
+        r1_ovs   <= maze_on ? 1'b0 : (ovraw[3:0] == 4'd1) ? !brk[ovraw[6:4]] : (ovraw[3:0] >= 4'd2 && ovraw[3:0] <= 4'd7);
+        r1_oaddr <= {(ovraw[3:0] == 4'd2) ? 4'd1 : (ovraw[3:0] == 4'd3) ? 4'd2 : (ovraw[3:0] == 4'd4) ? (4'd3 + {2'b00, ov_phase}) :
+                     (ovraw[3:0] == 4'd5) ? 4'd7 : (ovraw[3:0] == 4'd6) ? 4'd8 : (ovraw[3:0] == 4'd7) ? 4'd9 : 4'd0, vs_r[4:0], hs_r[4:0]};
+        r1_vig   <= vig_lvl;
+        r1_ovl   <= (ovraw[3:0] >= 4'd4 && ovraw[3:0] <= 4'd6);
         r1_vb    <= vcount[8:6];
+        r1_dth   <= (vcount[5:2] > bayer4({vcount[1:0], hcount[1:0]}));
         r1_lit   <= simon_lit_on && (tid == {2'b11, simon_lit});
         r1_red   <= simon_wrong && (tid >= 4'hC);
     end
@@ -194,7 +213,28 @@ module renderer (
     wire [11:0] tile_px, spr_px, obj_px;
     tileset_rom tset (.clk(clk), .addr(r1_taddr), .data(tile_px));
     wire [11:0] ov_px;
+    function [3:0] bayer4(input [3:0] p);                  // 4x4 Bayer threshold {y[1:0], x[1:0]}
+        case (p)
+            4'd0: bayer4 = 4'd0;  4'd1: bayer4 = 4'd8;  4'd2: bayer4 = 4'd2;  4'd3: bayer4 = 4'd10;
+            4'd4: bayer4 = 4'd12; 4'd5: bayer4 = 4'd4;  4'd6: bayer4 = 4'd14; 4'd7: bayer4 = 4'd6;
+            4'd8: bayer4 = 4'd3;  4'd9: bayer4 = 4'd11; 4'd10: bayer4 = 4'd1; 4'd11: bayer4 = 4'd9;
+            4'd12: bayer4 = 4'd15; 4'd13: bayer4 = 4'd7; 4'd14: bayer4 = 4'd13; default: bayer4 = 4'd5;
+        endcase
+    endfunction
     ovtile_rom  otr  (.clk(clk), .addr(r1_oaddr), .data(ov_px));
+    // vignette: the tiles get darker towards the edges (25 / 37 / 50 %); `fade` adds up to 3 levels for a short fade-in after a room change
+    function [11:0] shade(input [11:0] c, input [1:0] l);
+        reg [3:0] r, g, b;
+        begin
+            r = c[11:8]; g = c[7:4]; b = c[3:0];
+            case (l)
+                2'd1: shade = {(r > 4'd0) ? r - 4'd1 : r, (g > 4'd0) ? g - 4'd1 : g, (b > 4'd0) ? b - 4'd1 : b};
+                2'd2: shade = {(r > 4'd1) ? r - 4'd2 : 4'd0, (g > 4'd1) ? g - 4'd2 : 4'd0, (b > 4'd1) ? b - 4'd2 : 4'd0};
+                2'd3: shade = {(r > 4'd2) ? r - 4'd3 : 4'd0, (g > 4'd2) ? g - 4'd3 : 4'd0, (b > 4'd2) ? b - 4'd3 : 4'd0};
+                default: shade = c;
+            endcase
+        end
+    endfunction
     player_rom  pspr (.clk(clk), .addr(r1_paddr), .data(spr_px));
     // animation ROMs: only built when their flag in sprite_cfg.vh is 1
     wire [11:0] idle_px, atk_px, hurt_px, die_px;
@@ -228,7 +268,7 @@ module renderer (
     reg [2:0] r2_gx = 0;
     reg [7:0] r2_font = 0;
     always @(posedge clk) begin
-        r2_p <= r1_p; r2_tint <= r1_tint; r2_scr <= r1_scr; r2_vb <= r1_vb; r2_hurt <= r1_hurt; r2_band <= r1_band; r2_ovs <= r1_ovs; r2_lit <= r1_lit; r2_red <= r1_red; r2_out <= r1_out;
+        r2_p <= r1_p; r2_tint <= r1_tint; r2_scr <= r1_scr; r2_vb <= r1_vb; r2_dth <= r1_dth; r2_hurt <= r1_hurt; r2_band <= r1_band; r2_vig <= r1_vig; r2_ovl <= r1_ovl; r2_ovs <= r1_ovs; r2_lit <= r1_lit; r2_red <= r1_red; r2_out <= r1_out;
         r2_txt <= r1_txt; r2_gx <= r1_gx;
         r2_font <= fontmem[r1_faddr];
     end
@@ -248,12 +288,13 @@ module renderer (
         else if (r2_scr == 3'd2)                     color <= C_OVER;
         else if (r2_scr == 3'd3)                     color <= C_WIN;
         else if (r2_p && spr_fin != C_T)             color <= r2_hurt ? {4'hF, 1'b0, spr_fin[7:5], 1'b0, spr_fin[3:1]} : r2_tint ? (spr_fin | 12'hCCC) : spr_fin;   // W14: hit = red   // ชาร์จเต็ม: สว่าง
-        else if (r2_scr == 3'd1)                     color <= {4'h1, 2'b00, r2_vb[2:1], 4'h4 + {1'b0, r2_vb}};   // TITLE: navy -> blue gradient (W6)
+        else if (r2_scr == 3'd1 && obj_px_d != C_T)  color <= obj_px_d;   // TITLE: the two torches
+        else if (r2_scr == 3'd1)                     color <= {4'h1, 2'b00, r2_vb[2:1], 4'h4 + {1'b0, r2_vb} + {3'b000, r2_dth}};   // TITLE: dithered navy -> blue gradient (W6)
         else if (r2_out)                             color <= 12'h000;    // จอสั่น: ขอบที่เลื่อนออก
         else if (obj_px_d != C_T)                    color <= obj_px_d;   // มอน < กระสุน < ฟัน (เรียงใน objline)
         else if (r2_red)                             color <= {4'hF, 1'b0, tile_px[7:5], 1'b0, tile_px[3:1]};   // Simon ผิด: แดง
         else if (r2_lit)                             color <= {1'b1, tile_px[11:9], 1'b1, tile_px[7:5], 1'b1, tile_px[3:1]}; // สว่าง
-        else if (r2_ovs != 2'd0 && ov_px != C_T)     color <= ov_px;       // W5: breakable block / trap / decoration over the floor
-        else                                         color <= tile_px;
+        else if (r2_ovs && ov_px != C_T)             color <= r2_ovl ? ov_px : shade(ov_px, r2_vig);     // W5: breakable block / trap / decoration / wall torch over the floor
+        else                                         color <= shade(tile_px, r2_vig);
     end
 endmodule

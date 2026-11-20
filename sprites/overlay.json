@@ -1,13 +1,20 @@
 {
   "_help": [
-    "W5 overlay art (breakable block Z, spike trap X, solid decoration Y). mem/ovtile.mem is GENERATED from this file.  Rebuild: python scripts/build_overlay_mem.py",
-    "pics 0..2 = Z / X / Y (3 = spare). file = 16x16 picture, scale 2 -> 32x32. cut = exact [r,g,b] colours that become see-through. plate = [r,g,b] rectangle under the picture.",
+    "W5 overlay art (breakable block Z, spike trap X, solid decoration Y) + wall decoration (t = torch, [ = left-wall torch, ] = right-wall torch, v = shield; code 4-7, drawn on wall tiles, no collision). mem/ovtile.mem is GENERATED from this file.  Rebuild: python scripts/build_overlay_mem.py",
+    "pics 0..2 = Z / X / Y, 3-6 = torch flame frames, 7 / 8 = side torches, 9 = shield. file = 16x16 picture, scale 2 -> 32x32. cut = exact [r,g,b] colours that become see-through. plate = [r,g,b] rectangle under the picture.",
     "Missing / invalid file -> a procedural placeholder (printed warning), the game still builds. Keys starting with _ are comments."
   ],
   "alpha_threshold": 128,
   "pics": {
     "0": { "file": "my_asset/props/box_1_1.png", "scale": 2 },
     "1": { "file": "my_asset/props/peaks_1.png", "scale": 2, "cut": [[61, 37, 59]], "plate": [80, 32, 32] },
-    "2": { "file": "my_asset/props/candlestick_1_1.png", "scale": 2 }
+    "2": { "file": "my_asset/props/candlestick_1_1.png", "scale": 2 },
+    "3": { "file": "my_asset/props/torch_1.png", "scale": 2 },
+    "4": { "file": "my_asset/props/torch_2.png", "scale": 2 },
+    "5": { "file": "my_asset/props/torch_3.png", "scale": 2 },
+    "6": { "file": "my_asset/props/torch_4.png", "scale": 2 },
+    "7": { "file": "my_asset/props/side_torch_1.png", "scale": 2 },
+    "8": { "file": "my_asset/props/side_torch_1.png", "scale": 2, "flip": "h" },
+    "9": { "file": "my_asset/tileset/Dungeon_Tileset.png", "cell": [7, 4], "scale": 2 }
   }
 }

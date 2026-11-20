@@ -4,7 +4,8 @@
     python scripts/build_overlay_mem.py              build mem/ovtile.mem
     python scripts/build_overlay_mem.py --preview    also write preview/overlay_tiles.png
 
-4 pictures x 32x32 x 12-bit words (address = pic*1024 + y*32 + x): 0 breakable block, 1 spike trap, 2 solid decoration, 3 spare.
+16 pictures x 32x32 x 12-bit words (address = pic*1024 + y*32 + x): 0 breakable block, 1 spike trap, 2 solid decoration, 3-6 wall torch (4 flame frames),
+7 left-wall torch, 8 right-wall torch, 9 wall shield, 10-15 spare.
 F0F = see-through (the floor shows). A 16x16 source is scaled exactly 2x (nearest neighbour). "cut" = exact [r,g,b] colours made see-through,
 "plate" = [r,g,b] rectangle drawn under the picture (the trap's red base).
 Rule 1: a missing / unreadable / empty picture falls back to a simple procedural placeholder with a printed warning. Exit code 0 always (the game builds).
@@ -17,7 +18,8 @@ from PIL import Image, ImageDraw
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 KEY = 0xF0F
-NAMES = ["breakable block", "spike trap", "solid decoration", "spare"]
+NPIC = 16
+NAMES = ["breakable block", "spike trap", "solid decoration", "torch 0", "torch 1", "torch 2", "torch 3", "torch left", "torch right", "wall shield"] + ["spare"] * 6
 
 
 def to444(r, g, b):
@@ -49,6 +51,12 @@ def load_pic(i, spec, alpha, warn):
     except Exception as e:  # pragma: no cover
         warn.append(f"pic {i} ({NAMES[i]}): cannot read {path}: {e} -> placeholder")
         return placeholder(i), True
+    if "cell" in spec:                                     # a cell of a sheet: {"cell": [row, col], "cell_size": 16}
+        cs = int(spec.get("cell_size", 16))
+        r0, c0 = spec["cell"]
+        src = src.crop((c0 * cs, r0 * cs, c0 * cs + cs, r0 * cs + cs))
+    if spec.get("flip") == "h":
+        src = src.transpose(Image.FLIP_LEFT_RIGHT)
     sc = int(spec.get("scale", 2))
     cut = {tuple(c) for c in spec.get("cut", [])}
     if src.width * sc > 32 or src.height * sc > 32:
@@ -81,9 +89,9 @@ def main(argv=None):
         cfg = json.load(f)
     alpha = cfg.get("alpha_threshold", 128)
     warn, words, imgs = [], [], []
-    for i in range(4):
+    for i in range(NPIC):
         spec = cfg.get("pics", {}).get(str(i))
-        if i == 3 and not spec:
+        if i >= 10 and not spec:
             im, fb = Image.new("RGBA", (32, 32), (0, 0, 0, 0)), False
         else:
             im, fb = load_pic(i, spec, alpha, warn)
@@ -98,11 +106,11 @@ def main(argv=None):
         print("WARNING:", w)
     with open(os.path.join(root, "mem", "ovtile.mem"), "w") as f:
         f.write(chr(10).join(f"{w:03x}" for w in words) + chr(10))
-    print("Wrote mem/ovtile.mem (4096 words)")
+    print("Wrote mem/ovtile.mem (%d words)" % (NPIC * 1024))
     if "--preview" in argv:
-        sheet = Image.new("RGBA", (4 * 34 * 3, 34 * 3), (60, 100, 60, 255))
-        for i, im in enumerate(imgs):
-            sheet.paste(im.resize((96, 96), Image.NEAREST), (i * 102, 3), im.resize((96, 96), Image.NEAREST))
+        sheet = Image.new("RGBA", (10 * 68, 68 * 2), (60, 100, 60, 255))
+        for i, im in enumerate(imgs[:10]):
+            sheet.paste(im.resize((64, 64), Image.NEAREST), (i * 68 + 2, 2), im.resize((64, 64), Image.NEAREST))
         os.makedirs(os.path.join(root, "preview"), exist_ok=True)
         sheet.save(os.path.join(root, "preview", "overlay_tiles.png"))
     return 0
