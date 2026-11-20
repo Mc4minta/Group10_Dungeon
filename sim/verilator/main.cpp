@@ -54,6 +54,7 @@ static const char* state_name(int s) {
         case 4: return "ESCAPE";
         case 5: return "WIN: press Space";
         case 6: return "GAME OVER: press Space";
+        case 7: return "PROLOGUE: Space = next page";
         default: return "?";
     }
 }

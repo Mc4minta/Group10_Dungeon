@@ -10,13 +10,19 @@ module tb_game_fsm;
     wire [3:0] m_t, m_o, s_t, s_o;
     wire [3:0] es1, es0, ef1, ef0; wire banner;
 
-    localparam TITLE = 0, PLAY = 1, EVOLVE = 2, CLEAR = 3, ESCAPE = 4, WIN = 5, OVER = 6;
+    localparam TITLE = 0, PLAY = 1, EVOLVE = 2, CLEAR = 3, ESCAPE = 4, WIN = 5, OVER = 6, PROLOG = 7;
 
     reg [1:0] c = 0; reg tick = 0;
     always @(posedge clk) begin c <= c + 1; tick <= (c == 2'd3); end
 
-    game_fsm dut (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(btnc), .got_item(item),
-                  .take_hit(hit), .floor_done(fdone), .exit_evt(ext), .escape_start(esc), .exit_direct(1'b1), .sprint(sprint),
+    // second instance with the prologue (W9a): TITLE -> PROLOGUE pages 0..3 -> PLAY
+    reg btnc2 = 0; reg kill_t = 0;
+    wire [2:0] state2; wire [1:0] page2; wire restart2; wire freeze2;
+    game_fsm #(.PROLOGUE(1)) dut2 (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(btnc2), .got_item(1'b0),
+                  .take_hit(1'b0), .floor_done(1'b0), .exit_evt(1'b0), .escape_start(1'b0), .exit_direct(1'b1), .sprint(1'b0), .kill(1'b0),
+                  .state(state2), .page(page2), .restart(restart2), .freeze(freeze2));
+    game_fsm #(.PROLOGUE(0)) dut (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(btnc), .got_item(item),
+                  .take_hit(hit), .floor_done(fdone), .exit_evt(ext), .escape_start(esc), .exit_direct(1'b1), .sprint(sprint), .kill(kill_t),
                   .state(state), .restart(restart), .next_floor(next_floor), .form(form), .hp(hp),
                   .hp_max(hp_max), .speed(speed), .damage(damage), .rgb(rgb), .freeze(freeze),
                   .hide_player(hide), .m_t(m_t), .m_o(m_o), .s_t(s_t), .s_o(s_o),
@@ -70,6 +76,19 @@ module tb_game_fsm;
         check(state == TITLE && freeze, "reset -> TITLE (frozen)");
         wait_ticks(80);
         check(tm(0) == 16'h0000, "timer stopped in TITLE");
+
+        // ---------- W9a prologue (instance dut2) ----------
+        check(state2 == TITLE, "prologue fsm: reset -> TITLE");
+        @(posedge clk) btnc2 <= 1; @(posedge clk) btnc2 <= 0; repeat (2) @(posedge clk);
+        check(state2 == PROLOG && page2 == 0 && freeze2, "TITLE + BTNC -> PROLOGUE page 0 (frozen)");
+        @(posedge clk) btnc2 <= 1; @(posedge clk) btnc2 <= 0; repeat (2) @(posedge clk);
+        check(state2 == PROLOG && page2 == 1, "BTNC in PROLOGUE -> next page");
+        t0 = 0; while (page2 == 1 && t0 < 500) begin wait_ticks(1); t0 = t0 + 1; end
+        check(page2 == 2 && t0 >= 358 && t0 <= 362, "a page times out after 360 frames");
+        @(posedge clk) btnc2 <= 1; @(posedge clk) btnc2 <= 0; repeat (2) @(posedge clk);
+        check(state2 == PROLOG && page2 == 3, "page 3 (last)");
+        @(posedge clk) btnc2 <= 1; @(posedge clk) btnc2 <= 0; repeat (2) @(posedge clk);
+        check(state2 == PLAY && !freeze2, "BTNC on the last page -> PLAY");
 
         // ---------- TITLE -> PLAY ----------
         restarts = 0;
@@ -171,6 +190,12 @@ module tb_game_fsm;
         // ---------- BTNC ใน PLAY ไม่ทำอะไร ----------
         pulse_btnc;
         check(state == PLAY && form == 0, "BTNC in PLAY does not change state/form");
+        // W12: kill pulse (boss 3 big attack) = HP 0 -> GAME_OVER from full HP
+        check(hp == HP1, "full HP before the kill pulse");
+        @(posedge clk) kill_t <= 1; @(posedge clk) kill_t <= 0; repeat (2) @(posedge clk);
+        check(state == OVER && hp == 0, "kill pulse -> HP 0 -> GAME_OVER (even from full HP)");
+        pulse_btnc; pulse_btnc;
+        check(state == PLAY, "back in PLAY after the kill test");
 
         // ---------- ESCAPE (P5) ----------
         @(posedge clk) esc <= 1; @(posedge clk) esc <= 0; repeat (2) @(posedge clk);

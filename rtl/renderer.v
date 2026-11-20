@@ -1,6 +1,6 @@
 // วาดภาพต่อพิกเซล (pipeline 4 clock ทุกชั้นเท่ากัน — เดิม 3 ก่อน board prep)
 //   ชั้น (ล่าง -> บน): tile < ปริศนา/มอน/บอส/กระสุน/ฟัน (objline) < ผู้เล่น < ข้อความ      F0F = โปร่งใส
-//   screen: 0 เกม · 1 TITLE (พื้นกรมท่า + sprite ที่ px,py ที่ top ส่งมา) · 2 GAME OVER (แดงเข้ม) · 3 WIN (ทอง)
+//   screen: 0 เกม · 1 TITLE (พื้นกรมท่า + sprite ที่ px,py ที่ top ส่งมา) · 2 GAME OVER (แดงเข้ม) · 3 WIN (ทอง) · 4 PROLOGUE (ดำ)
 //   hide_player: ซ่อน sprite (กะพริบตอน EVOLVE / อมตะหลังโดนตี)
 //
 // pipeline (สีของพิกเซล hcount/vcount ออกที่ color หลัง 4 clock -> top หน่วง hsync/vsync/active 4 clock ให้ตรงกัน)
@@ -18,7 +18,7 @@ module renderer (
     input  wire [1:0]   floor,
     input  wire [1:0]   form,
     input  wire         doors_open, open_L,
-    input  wire [1:0]   screen,
+    input  wire [2:0]   screen,
     input  wire         hide_player,
     input  wire [9:0]   px, py,
     input  wire [5:0]   pframe,        // form*12 + facing*3 + pose
@@ -50,7 +50,7 @@ module renderer (
     input  wire [2:0]   boss_frame,
     input  wire         boss_flash,
     input  wire [9:0]   sh_dx, sh_dy,     // จอสั่น (two's complement): เลื่อนพิกัดภาพ ไม่ยุ่ง sync
-    input  wire [2:0]   txt_scr,          // ข้อความ: 0 ไม่มี 1 TITLE 2 FLOOR CLEAR 3 ESCAPE! 4 WIN 5 GAME OVER 6 PAUSED
+    input  wire [3:0]   txt_scr,          // ข้อความ: 0 ไม่มี 1 TITLE 2 FLOOR CLEAR 3 ESCAPE! 4 WIN 5 GAME OVER 6 PAUSED 7-10 PROLOGUE 11-13 NEW FORM
     input  wire         txt_blink,        // 1 = ซ่อนบรรทัดที่กะพริบ
     input  wire [3:0]   t_floor, t_m1, t_m0, t_s1, t_s0,   // ตัวเลขสดในข้อความ
     input  wire [2:0]   hud_hp, hud_hp_max,                // player hearts (hud.v)
@@ -99,9 +99,10 @@ module renderer (
     reg [15:0] r1_aaddr = 0;
     reg [2:0]  r1_asel = 0;
     reg        r1_p = 0, r1_lit = 0, r1_red = 0, r1_out = 0, r1_tint = 0;
-    reg [1:0]  r1_scr = 0;
+    reg [2:0]  r1_scr = 0;
+    reg [2:0]  r1_vb = 0, r2_vb = 0;            // W6: แถบแนวนอน 8 แถบ (vcount[8:6]) ทำพื้นหน้า TITLE เป็นไล่สี
     // ----- ข้อความ: ไม่เกิน 2 บรรทัดต่อหน้าจอ, ฟอนต์ 8x8 ขยาย 2x / 4x (คิดเฉพาะตอนมีข้อความบนจอ) -----
-    reg [5:0]  txtmem [0:127];
+    reg [5:0]  txtmem [0:511];
     reg [7:0]  fontmem [0:511];
     initial $readmemh("text.mem", txtmem);
     initial $readmemh("font.mem", fontmem);
@@ -110,27 +111,16 @@ module renderer (
     reg        r1_txt = 0;
     reg [9:0]  ly0, lx0, lw0, lh0, ly1, lx1, lw1, lh1, rx, ry, rx0, ry0, rx1, ry1;
     reg        ls0, ls1, lk0, lk1, in0, in1, s4, kk;
-    reg [6:0]  lb0, lb1, bb, ta_;
+    reg [8:0]  lb0, lb1, bb, ta_;
     reg [5:0]  code;
     reg [4:0]  colc;
     // stage A: ตำแหน่งในบรรทัดข้อความ (ลบ + เทียบขอบ + เลือกบรรทัด) -> register; stage B: อ่านตัวอักษรจาก text ROM + เลขสด
-    reg [9:0]  a_rx = 0, a_ry = 0; reg a_in = 0, a_s4 = 0, a_kk = 0, a_on = 0; reg [6:0] a_bb = 0;
+    reg [9:0]  a_rx = 0, a_ry = 0; reg a_in = 0, a_s4 = 0, a_kk = 0, a_on = 0; reg [8:0] a_bb = 0;
     always @(posedge clk) begin
         a_on <= (txt_scr != 0);
         if (txt_scr != 0) begin
             case (txt_scr)
-                3'd1: begin ly0 = T10_Y; lx0 = T10_X; lw0 = T10_W; lh0 = T10_H; ls0 = T10_S; lb0 = T10_B; lk0 = T10_K;
-                            ly1 = T11_Y; lx1 = T11_X; lw1 = T11_W; lh1 = T11_H; ls1 = T11_S; lb1 = T11_B; lk1 = T11_K; end
-                3'd2: begin ly0 = T20_Y; lx0 = T20_X; lw0 = T20_W; lh0 = T20_H; ls0 = T20_S; lb0 = T20_B; lk0 = T20_K;
-                            ly1 = T21_Y; lx1 = T21_X; lw1 = T21_W; lh1 = T21_H; ls1 = T21_S; lb1 = T21_B; lk1 = T21_K; end
-                3'd3: begin ly0 = T30_Y; lx0 = T30_X; lw0 = T30_W; lh0 = T30_H; ls0 = T30_S; lb0 = T30_B; lk0 = T30_K;
-                            ly1 = T31_Y; lx1 = T31_X; lw1 = T31_W; lh1 = T31_H; ls1 = T31_S; lb1 = T31_B; lk1 = T31_K; end
-                3'd4: begin ly0 = T40_Y; lx0 = T40_X; lw0 = T40_W; lh0 = T40_H; ls0 = T40_S; lb0 = T40_B; lk0 = T40_K;
-                            ly1 = T41_Y; lx1 = T41_X; lw1 = T41_W; lh1 = T41_H; ls1 = T41_S; lb1 = T41_B; lk1 = T41_K; end
-                3'd6: begin ly0 = T60_Y; lx0 = T60_X; lw0 = T60_W; lh0 = T60_H; ls0 = T60_S; lb0 = T60_B; lk0 = T60_K;
-                            ly1 = T61_Y; lx1 = T61_X; lw1 = T61_W; lh1 = T61_H; ls1 = T61_S; lb1 = T61_B; lk1 = T61_K; end
-                default: begin ly0 = T50_Y; lx0 = T50_X; lw0 = T50_W; lh0 = T50_H; ls0 = T50_S; lb0 = T50_B; lk0 = T50_K;
-                            ly1 = T51_Y; lx1 = T51_X; lw1 = T51_W; lh1 = T51_H; ls1 = T51_S; lb1 = T51_B; lk1 = T51_K; end
+                `include "text_select.vh"
             endcase
             rx0 = hcount - lx0; ry0 = vcount - ly0; in0 = (rx0 < lw0) && (ry0 < lh0);
             rx1 = hcount - lx1; ry1 = vcount - ly1; in1 = (rx1 < lw1) && (ry1 < lh1);
@@ -172,6 +162,7 @@ module renderer (
         r1_p     <= in_spr && !hide_player;
         r1_tint  <= p_tint;
         r1_scr   <= screen;
+        r1_vb    <= vcount[8:6];
         r1_lit   <= simon_lit_on && (tid == {2'b11, simon_lit});
         r1_red   <= simon_wrong && (tid >= 4'hC);
     end
@@ -208,11 +199,11 @@ module renderer (
     reg [11:0] obj_px_d = 12'hF0F;          // ชั้น object มาถึงเร็วกว่า tile 1 clock (tile มี stage 0 เพิ่ม) -> หน่วง 1 clock
     always @(posedge clk) obj_px_d <= obj_px;
     reg r2_p = 0, r2_lit = 0, r2_red = 0, r2_out = 0, r2_txt = 0, r2_tint = 0;
-    reg [1:0] r2_scr = 0;
+    reg [2:0] r2_scr = 0;
     reg [2:0] r2_gx = 0;
     reg [7:0] r2_font = 0;
     always @(posedge clk) begin
-        r2_p <= r1_p; r2_tint <= r1_tint; r2_scr <= r1_scr; r2_lit <= r1_lit; r2_red <= r1_red; r2_out <= r1_out;
+        r2_p <= r1_p; r2_tint <= r1_tint; r2_scr <= r1_scr; r2_vb <= r1_vb; r2_lit <= r1_lit; r2_red <= r1_red; r2_out <= r1_out;
         r2_txt <= r1_txt; r2_gx <= r1_gx;
         r2_font <= fontmem[r1_faddr];
     end
@@ -225,12 +216,13 @@ module renderer (
     // ======================= stage 3: เลือกชั้น =======================
     always @(posedge clk) begin
         if (txt_on)                                  color <= 12'hFFF;    // ข้อความอยู่บนสุด
-        else if (r2_scr == 2'd0 && hud_on)           color <= hud_px;     // hearts / boss bar above the world
-        else if (DEATH_ANIM_EN && r2_scr == 2'd2 && r2_p && r2_asel == 3'd4 && spr_fin != C_T) color <= spr_fin;   // death animation over the GAME OVER colour
-        else if (r2_scr == 2'd2)                     color <= C_OVER;
-        else if (r2_scr == 2'd3)                     color <= C_WIN;
+        else if (r2_scr == 3'd0 && hud_on)           color <= hud_px;     // hearts / boss bar above the world
+        else if (DEATH_ANIM_EN && r2_scr == 3'd2 && r2_p && r2_asel == 3'd4 && spr_fin != C_T) color <= spr_fin;   // death animation over the GAME OVER colour
+        else if (r2_scr == 3'd4)                     color <= 12'h000;    // prologue: black screen
+        else if (r2_scr == 3'd2)                     color <= C_OVER;
+        else if (r2_scr == 3'd3)                     color <= C_WIN;
         else if (r2_p && spr_fin != C_T)             color <= r2_tint ? (spr_fin | 12'hCCC) : spr_fin;   // ชาร์จเต็ม: สว่าง
-        else if (r2_scr == 2'd1)                     color <= C_NAVY;
+        else if (r2_scr == 3'd1)                     color <= {4'h1, 2'b00, r2_vb[2:1], 4'h4 + {1'b0, r2_vb}};   // TITLE: navy -> blue gradient (W6)
         else if (r2_out)                             color <= 12'h000;    // จอสั่น: ขอบที่เลื่อนออก
         else if (obj_px_d != C_T)                    color <= obj_px_d;   // มอน < กระสุน < ฟัน (เรียงใน objline)
         else if (r2_red)                             color <= {4'hF, 1'b0, tile_px[7:5], 1'b0, tile_px[3:1]};   // Simon ผิด: แดง

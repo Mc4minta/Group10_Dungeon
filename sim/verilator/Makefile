@@ -38,7 +38,7 @@ ovr = OPT_FAST="$(OPT_NATIVE) $(1)" OPT_SLOW="$(OPT_NATIVE) $(1)" OPT_GLOBAL="$(
 
 # debounce สั้นลงใน simulation (ของจริง 10 ms = 1,000,000 clock)
 VFLAGS  := --cc --exe -O3 -j 0 --top-module top -I$(ROOT)/rtl -Wno-fatal -Wno-lint -Wno-style \
-           -GDEBOUNCE=2000 -GCE_DIV=1 -GSEED=$(SEED_DEC) --Mdir $(MDIR) --x-assign fast --x-initial fast \
+           -GDEBOUNCE=2000 -GCE_DIV=1 -GSEED=$(SEED_DEC) -GPROLOGUE=$(PROLOGUE_V) --Mdir $(MDIR) --x-assign fast --x-initial fast \
            -CFLAGS "-DNDEBUG -DCE_DIV=1 -DFAST_CLOCK=$(FAST_CLOCK) $(SDL_CF)" -LDFLAGS "$(SDL_LD)"
 
 all: $(MDIR)/Vtop

@@ -6,13 +6,13 @@ module tb_simonplate;
     reg [9:0] hc = 0, vc = 0;
     wire [11:0] color;
     renderer dut (.clk(clk), .ce(1'b1), .hcount(hc), .vcount(vc), .grid(4'd12), .floor(2'd2), .form(2'd0),
-        .doors_open(1'b0), .open_L(1'b0), .screen(2'd0), .hide_player(1'b1), .px(10'd0), .py(10'd0), .pframe(6'd0),
+        .doors_open(1'b0), .open_L(1'b0), .screen(3'd0), .hide_player(1'b1), .px(10'd0), .py(10'd0), .pframe(6'd0),
         .p_anim(3'd0), .p_aframe(6'd0), .mon_act(6'd0), .mon_type(6'd0), .mon_flash(6'd0), .mon_x(60'd0), .mon_y(60'd0), .mon_anim(1'b0),
         .pb_act(6'd0), .pb_x(60'd0), .pb_y(60'd0), .pb_kind(12'd0), .p_tint(1'b0), .eb_act(16'd0), .eb_x(160'd0), .eb_y(160'd0),
         .pz_act(9'd0), .pz_x(90'd0), .pz_y(90'd0), .pz_frame(36'd0), .pbox0(12'd0), .pbox1(12'd0), .pbox_en(2'd0),
         .simon_lit_on(1'b0), .simon_lit(2'd0), .simon_wrong(1'b0), .melee_on(1'b0), .melee_dir(2'd0),
         .boss_act(1'b0), .boss_x(10'd0), .boss_y(10'd0), .boss_frame(3'd0), .boss_flash(1'b0),
-        .sh_dx(10'd0), .sh_dy(10'd0), .txt_scr(3'd0), .txt_blink(1'b0), .t_floor(4'd0), .t_m1(4'd0), .t_m0(4'd0), .t_s1(4'd0), .t_s0(4'd0),
+        .sh_dx(10'd0), .sh_dy(10'd0), .txt_scr(4'd0), .txt_blink(1'b0), .t_floor(4'd0), .t_m1(4'd0), .t_m0(4'd0), .t_s1(4'd0), .t_s0(4'd0),
         .hud_hp(3'd0), .hud_hp_max(3'd0), .hud_b_hp(5'd0), .color(color));
     reg [3:0]  tmap [0:4095];
     reg [11:0] tset [0:49151];

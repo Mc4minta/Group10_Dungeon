@@ -16,6 +16,7 @@
 module top #(
     parameter DEBOUNCE = 1_000_000,         // 10 ms ที่ 100 MHz
     parameter CE_DIV   = 4,                 // บอร์ดจริง = 4 (25 MHz) / simulator บนจอคอม = 1 (เร็วขึ้น 4 เท่า)
+    parameter PROLOGUE = 1,                 // 1 = TITLE -> PROLOGUE (4 pages, black screen) -> PLAY; 0 = straight to PLAY (old testbenches)
     parameter DEBUG    = 1,                 // 1 = สวิตช์ debug SW0/SW1/SW2/SW3/SW4 ใช้ได้, 0 = build ส่งงาน
     parameter [15:0] SEED = 16'd0           // 0 = ปริศนาสุ่มต่างกันทุกเกม, อื่น ๆ = คงที่ (ทดสอบ)
 ) (
@@ -60,6 +61,8 @@ module top #(
     debounce #(DEBOUNCE) d_s3(.clk(clk), .in(SW[3]),  .level(), .rise(sw3_r));
     debounce #(DEBOUNCE) d_s4(.clk(clk), .in(SW[4]),  .level(), .rise(sw4_r));
     debounce #(DEBOUNCE) d_s13(.clk(clk), .in(SW[13]), .level(), .rise(sw13_rise));
+    wire sw11_rise;                    // SW11 = ตบมือสำรอง (ถ้าไมค์ใช้ไม่ได้): ยก = pulse stun บอส 1
+    debounce #(DEBOUNCE) d_s11(.clk(clk), .in(SW[11]), .level(), .rise(sw11_rise));
     // debug: ใช้ได้เฉพาะ DEBUG = 1
     wire dbg = (DEBUG != 0);
     wire sw1_rise = dbg & sw1_r, sw2_rise = dbg & sw2_r, sw3_rise = dbg & sw3_r, sw4_rise = dbg & sw4_r;
@@ -77,6 +80,7 @@ module top #(
                   .hsync(hsync), .vsync(vsync), .active(active), .frame_tick(frame_tick));
     // ---------- PAUSE (SW15): ตัด frame_tick ของทุกอย่างในเกม (ตำแหน่ง มอน กระสุน อมตะ มึน Simon timer) -> ต่อจากจุดเดิมเมื่อปล่อย ----------
     // vga_sync ใช้ frame_tick จริง (จอยังวาดต่อ); ใช้ได้เฉพาะ PLAY / ESCAPE (TITLE, EVOLVE, FLOOR_CLEAR, WIN, GAME_OVER ไม่สน SW15)
+    wire [1:0] pro_page;                     // หน้า prologue จาก game_fsm
     wire [2:0] state;                        // จาก game_fsm (ประกาศไว้ตรงนี้เพราะ ft ใช้ก่อน)
     wire paused = sw15 && (state == 3'd1 || state == 3'd4);   // S_PLAY / S_ESCAPE
     wire ft     = frame_tick & ~paused;
@@ -145,7 +149,7 @@ module top #(
     wire [3:0] e_s_t, e_s_o, e_f_t, e_f_o;
     wire       esc_banner;
     // บอส
-    wire        b_act, b_flash, b_stunned, b_fire, b_died, b_anim, b_busy, b_dmg;
+    wire        b_act, b_flash, b_stunned, b_fire, b_died, b_anim, b_busy, b_dmg, b_dmg_big, b_summon, b_kill, b_shield, b_tele;
     wire [9:0]  b_x, b_y;
     wire [1:0]  b_kind;
     wire [2:0]  b_dmg_amt;
@@ -160,23 +164,24 @@ module top #(
                .floor(floor), .room(room), .grid(grid),
                .load(load), .load_x(load_x), .load_y(load_y), .exit_evt(exit_evt));
 
-    game_fsm fsm (.clk(clk), .rst(rst), .frame_tick(ft), .btnc_rise(bc_rise),
+    game_fsm #(.PROLOGUE(PROLOGUE)) fsm (.clk(clk), .rst(rst), .frame_tick(ft), .btnc_rise(bc_rise),
                   .got_item(sw3_rise | pz_got), .take_hit(sw4_rise | obj_hit | pz_hit),
                   .floor_done(sw1_rise | (b_died && b_kind != 2'd2)),          // บอส 1, 2 ตาย -> FLOOR_CLEAR
                   .exit_evt(exit_evt), .escape_start(b_died && b_kind == 2'd2),  // บอส 3 ตาย -> ESCAPE
-                  .exit_direct(dbg), .sprint(sw14),
-                  .state(state), .restart(restart), .next_floor(next_floor),
+                  .exit_direct(dbg), .sprint(sw14), .kill(b_kill),
+                  .state(state), .page(pro_page), .restart(restart), .next_floor(next_floor),
                   .form(form), .hp(hp), .hp_max(hp_max), .speed(speed), .damage(damage),
                   .rgb(rgb), .freeze(freeze), .hide_player(fsm_hide),
                   .m_t(m_t), .m_o(m_o), .s_t(s_t), .s_o(s_o),
                   .e_s_t(e_s_t), .e_s_o(e_s_o), .e_f_t(e_f_t), .e_f_o(e_f_o), .esc_banner(esc_banner));
 
-    localparam [2:0] S_TITLE = 3'd0, S_PLAY = 3'd1, S_CLEAR = 3'd3, S_ESCAPE = 3'd4, S_WIN = 3'd5, S_GAME_OVER = 3'd6;
+    localparam [2:0] S_TITLE = 3'd0, S_PLAY = 3'd1, S_CLEAR = 3'd3, S_ESCAPE = 3'd4, S_WIN = 3'd5, S_GAME_OVER = 3'd6, S_PROLOGUE = 3'd7, S_EVOLVE = 3'd2;
     localparam [2:0] R_BOSS = 3'd4;
     wire is_esc   = (state == S_ESCAPE);
     wire run      = (state == S_PLAY) || is_esc;   // objects / puzzles / boss ทำงาน
     wire is_title = (state == S_TITLE);
     wire is_win   = (state == S_WIN);
+    wire is_pro   = (state == S_PROLOGUE);
 
     player pl (.clk(clk), .rst(rst), .frame_tick(ft),
                .up(bu), .down(bd), .left(bl), .right(br), .hold_facing(bc | face_lock | sw12),
@@ -195,7 +200,7 @@ module top #(
                  .atk_press(bc_rise_g), .atk_hold(bc & ~paused), .dbg_clear(sw2_rise),
                  .blk0(blk0), .blk1(blk1), .blk2(blk2), .blk_en(blk_en),
                  .boss_act(b_act), .boss_x(b_x), .boss_y(b_y), .boss_fire(b_fire),
-                 .boss_dmg(b_dmg), .boss_dmg_amt(b_dmg_amt),
+                 .boss_dmg(b_dmg), .boss_dmg_amt(b_dmg_amt), .boss_dmg_big(b_dmg_big), .summon(b_summon),
                  .doors_open(doors_open), .alive(alive), .hit(obj_hit), .kb_start(kb_start), .kb_dir(kb_dir),
                  .invuln(invuln), .player_blink(obj_blink), .busy(),
                  .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
@@ -207,9 +212,9 @@ module top #(
     // ---------- บอส + ไมค์ ----------
     boss bs (.clk(clk), .rst(rst), .frame_tick(ft), .run(run), .restart(restart), .room_load(load),
              .floor(floor), .room(room), .grid(grid), .px(px), .py(py),
-             .dmg(b_dmg), .dmg_amt(b_dmg_amt), .clap(clap & ~paused),
+             .dmg(b_dmg), .dmg_amt(b_dmg_amt), .dmg_big(b_dmg_big), .minions(alive), .clap((clap | sw11_rise) & ~paused),
              .act(b_act), .bx(b_x), .by(b_y), .kind(b_kind), .flash(b_flash), .stunned(b_stunned),
-             .fire(b_fire), .died(b_died), .dead(b_dead), .hp(b_hp), .hp_bar(b_hpbar), .anim(b_anim), .busy(b_busy));
+             .fire(b_fire), .summon(b_summon), .kill(b_kill), .shield(b_shield), .tele(b_tele), .died(b_died), .dead(b_dead), .hp(b_hp), .hp_bar(b_hpbar), .anim(b_anim), .busy(b_busy));
     pdm_mic #(.CLK_DIV(MIC_CLK_DIV), .WINDOW(MIC_WINDOW), .TH(MIC_TH), .HOLDOFF(MIC_HOLDOFF)) mic (
              .clk(clk), .rst(rst), .m_clk(M_CLK), .m_data(M_DATA), .m_lrsel(M_LRSEL),
              .clap_pulse(clap), .amplitude(mic_amp),
@@ -283,9 +288,10 @@ module top #(
     end
     wire led_blink_on = (blk_cnt < (LED_BLINK + 1) / 2);
     // ข้อความ: 1 TITLE 2 FLOOR CLEAR 3 ESCAPE! 4 WIN 5 GAME OVER 6 PAUSED
-    wire [2:0] txt_scr = paused ? 3'd6 : is_title ? 3'd1 : (state == S_CLEAR) ? 3'd2 : esc_banner ? 3'd3 :
-                         is_win ? 3'd4 : (state == S_GAME_OVER) ? 3'd5 : 3'd0;
-    wire [2:0] b_frame = {b_kind, 1'b0} + ((b_kind == 2'd1) ? b_stunned : b_anim);
+    wire [3:0] txt_scr = paused ? 4'd6 : is_title ? 4'd1 : is_pro ? (4'd7 + {2'b00, pro_page}) :
+                         (state == S_EVOLVE) ? (4'd11 + {2'b00, form}) : (state == S_CLEAR) ? 4'd2 : esc_banner ? 4'd3 :
+                         is_win ? 4'd4 : (state == S_GAME_OVER) ? 4'd5 : 4'd0;
+    wire [2:0] b_frame = {b_kind, 1'b0} + ((b_kind == 2'd0) ? b_stunned : b_anim);   // บอส 1 เฟรม 1 = ภาพมึน (W10)
 
     // ---------- render ----------
     // TITLE: sprite ร่าง 1 idle หันลง กลางจอ
@@ -295,11 +301,11 @@ module top #(
     player_frame pfr (.clk(clk), .rst(rst), .frame_tick(ft), .form(form), .facing(facing), .melee_dir(melee_dir),
                       .moving(p_moving), .melee_on(melee_on), .invuln(invuln), .dead(state == S_GAME_OVER), .active(!is_title),
                       .anim_sel(p_anim), .aframe(p_aframe));
-    wire [1:0]  screen = is_title ? 2'd1 : (state == S_GAME_OVER) ? 2'd2 : is_win ? 2'd3 : 2'd0;
+    wire [2:0]  screen = is_title ? 3'd1 : (state == S_GAME_OVER) ? 3'd2 : is_win ? 3'd3 : is_pro ? 3'd4 : 3'd0;
     wire [11:0] color;
     renderer rnd (.hud_hp(hp), .hud_hp_max(hp_max), .hud_b_hp(b_hp), .clk(clk), .ce(ce), .hcount(hcount), .vcount(vcount), .grid(grid), .floor(floor),
                   .form(form), .doors_open(doors_open), .open_L(open_L),
-                  .screen(screen), .hide_player(fsm_hide | (obj_blink && !is_title)),
+                  .screen(screen), .hide_player(fsm_hide | is_pro | (obj_blink && !is_title)),
                   .px(rpx), .py(rpy), .pframe(pframe), .p_anim(p_anim), .p_aframe(p_aframe),
                   .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
                   .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .pb_kind(pb_kind),
@@ -308,7 +314,7 @@ module top #(
                   .pz_act(pz_act), .pz_x(pz_x), .pz_y(pz_y), .pz_frame(pz_frame),
                   .pbox0(pbox0), .pbox1(pbox1), .pbox_en(pbox_en),
                   .simon_lit_on(simon_lit_on), .simon_lit(simon_lit), .simon_wrong(simon_wrong),
-                  .boss_act(b_act), .boss_x(b_x), .boss_y(b_y), .boss_frame(b_frame), .boss_flash(b_flash),
+                  .boss_act(b_act), .boss_x(b_x), .boss_y(b_y), .boss_frame(b_frame), .boss_flash(b_flash | (b_shield & fc[3]) | (b_tele & fc[2])),
                   .sh_dx(sh_dx), .sh_dy(sh_dy), .txt_scr(txt_scr), .txt_blink(fc[5]),
                   .t_floor({2'b00, floor} + 4'd1), .t_m1(m_t), .t_m0(m_o), .t_s1(s_t), .t_s0(s_o),
                   .color(color));
@@ -330,10 +336,10 @@ module top #(
     // [ชั้น] - [HP] - m m . s s   (d7 ซ้ายสุด; DP ที่ d2 = หลังหลักนาทีหน่วย) TITLE = ทุกหลัก '-'
     wire [6:0] seg;
     // ESCAPE: 4 หลักขวาเป็นเวลานับถอยหลัง ss.ff (วินาที . เฟรม) แทนเวลาเล่น (เวลาเล่นยังเดินอยู่เบื้องหลัง)
-    wire [31:0] digits = is_title ? 32'hEEEEEEEE :
+    wire [31:0] digits = (is_title || is_pro) ? 32'hEEEEEEEE :
                          is_esc   ? {1'b0, {1'b0, floor} + 3'd1, 4'hE, 1'b0, hp, 4'hE, e_s_t, e_s_o, e_f_t, e_f_o} :
                                     {1'b0, {1'b0, floor} + 3'd1, 4'hE, 1'b0, hp, 4'hE, m_t, m_o, s_t, s_o};
-    seg7 s7 (.clk(clk), .digits(digits), .dots(is_title ? 8'h00 : (paused && pause_blink) ? 8'h00 : 8'b0000_0100),
+    seg7 s7 (.clk(clk), .digits(digits), .dots((is_title || is_pro) ? 8'h00 : (paused && pause_blink) ? 8'h00 : 8'b0000_0100),
              .seg(seg), .an(AN), .dp(DP));
     assign {CG, CF, CE, CD, CC, CB, CA} = seg;
 
@@ -373,6 +379,6 @@ module top #(
     wire [7:0] aud_sample;
     audio #(.TSHIFT(AUD_TSHIFT)) aud (.clk(clk), .rst(rst), .frame_tick(frame_tick), .ev(aud_ev), .shoot_k(ev_shoot_k),
               .simon_note_on(simon_note_on), .simon_note(simon_note), .pause(paused),
-              .bgm_en(!is_title), .bgm_track(bgm_track),
+              .bgm_en(!is_title && !is_pro), .bgm_track(bgm_track),
               .pwm(AUD_PWM), .sd(AUD_SD), .sample(aud_sample));
 endmodule
