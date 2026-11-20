@@ -10,13 +10,13 @@ module tb_audio;
     reg rst = 1;
     reg [12:1] ev = 0; reg [1:0] shoot_k = 0;
     reg simon_on = 0; reg [1:0] simon_n = 0;
-    reg bgm_en = 0; reg [2:0] track = 0;
+    reg bgm_en = 0; reg [2:0] track = 0; reg pause = 0;
     integer fc = 0; reg tick = 0;
     always @(posedge clk) begin fc <= (fc == FR - 1) ? 0 : fc + 1; tick <= (fc == FR - 1); end
 
     wire pwm, sd; wire [7:0] sample;
     audio #(.TSHIFT(TS)) dut (.clk(clk), .rst(rst), .frame_tick(tick), .ev(ev), .shoot_k(shoot_k),
-        .simon_note_on(simon_on), .simon_note(simon_n), .bgm_en(bgm_en), .bgm_track(track),
+        .simon_note_on(simon_on), .simon_note(simon_n), .pause(pause), .bgm_en(bgm_en), .bgm_track(track),
         .pwm(pwm), .sd(sd), .sample(sample));
 
     integer errors = 0, checks = 0;
@@ -175,6 +175,20 @@ module tb_audio;
         k = 0; while (!dut.b_done && k < 300) begin @(posedge tick); @(posedge clk); @(posedge clk); k = k + 1; end
         $display("      WIN jingle finished after %0d frames", k);
         check(dut.b_done && dut.b_hp == 0 && k > 100 && k < 250, "WIN jingle plays once and stops");
+        // W15 pause: BGM ค้างที่โน้ตเดิม + เงียบ แล้วต่อจากเดิมเมื่อปล่อย
+        track = 0; bgm_en = 0; repeat (4) @(posedge clk); bgm_en = 1; repeat (4) @(posedge clk);
+        repeat (3) begin @(posedge tick); @(posedge clk); @(posedge clk); end
+        begin : pause_t
+            integer pos_a, dur_a; integer nz; integer q;
+            pause = 1; repeat (4) @(posedge clk);
+            pos_a = dut.pos; dur_a = dut.dur_cnt;
+            nz = 0;
+            for (q = 0; q < FR * 6; q = q + 1) begin @(posedge clk); if (sample != 8'd128) nz = nz + 1; end
+            check(dut.pos == pos_a && dut.dur_cnt == dur_a, "pause: BGM position holds for 6 frames");
+            check(nz == 0, "pause: audio output is silent (sample = 128)");
+            pause = 0; repeat (2) begin @(posedge tick); @(posedge clk); @(posedge clk); end
+            check(dut.pos != pos_a || dut.dur_cnt != dur_a, "pause released: BGM continues");
+        end
         // BGM ดับเมื่อ bgm_en = 0 (TITLE)
         bgm_en = 0; repeat (4) @(posedge clk);
         check(dut.cur_track == 7 && dut.b_hp == 0, "BGM stops when disabled");

@@ -50,7 +50,7 @@ module renderer (
     input  wire [2:0]   boss_frame,
     input  wire         boss_flash,
     input  wire [9:0]   sh_dx, sh_dy,     // จอสั่น (two's complement): เลื่อนพิกัดภาพ ไม่ยุ่ง sync
-    input  wire [2:0]   txt_scr,          // ข้อความ: 0 ไม่มี 1 TITLE 2 FLOOR CLEAR 3 ESCAPE! 4 WIN 5 GAME OVER
+    input  wire [2:0]   txt_scr,          // ข้อความ: 0 ไม่มี 1 TITLE 2 FLOOR CLEAR 3 ESCAPE! 4 WIN 5 GAME OVER 6 PAUSED
     input  wire         txt_blink,        // 1 = ซ่อนบรรทัดที่กะพริบ
     input  wire [3:0]   t_floor, t_m1, t_m0, t_s1, t_s0,   // ตัวเลขสดในข้อความ
     input  wire [2:0]   hud_hp, hud_hp_max,                // player hearts (hud.v)
@@ -127,6 +127,8 @@ module renderer (
                             ly1 = T31_Y; lx1 = T31_X; lw1 = T31_W; lh1 = T31_H; ls1 = T31_S; lb1 = T31_B; lk1 = T31_K; end
                 3'd4: begin ly0 = T40_Y; lx0 = T40_X; lw0 = T40_W; lh0 = T40_H; ls0 = T40_S; lb0 = T40_B; lk0 = T40_K;
                             ly1 = T41_Y; lx1 = T41_X; lw1 = T41_W; lh1 = T41_H; ls1 = T41_S; lb1 = T41_B; lk1 = T41_K; end
+                3'd6: begin ly0 = T60_Y; lx0 = T60_X; lw0 = T60_W; lh0 = T60_H; ls0 = T60_S; lb0 = T60_B; lk0 = T60_K;
+                            ly1 = T61_Y; lx1 = T61_X; lw1 = T61_W; lh1 = T61_H; ls1 = T61_S; lb1 = T61_B; lk1 = T61_K; end
                 default: begin ly0 = T50_Y; lx0 = T50_X; lw0 = T50_W; lh0 = T50_H; ls0 = T50_S; lb0 = T50_B; lk0 = T50_K;
                             ly1 = T51_Y; lx1 = T51_X; lw1 = T51_W; lh1 = T51_H; ls1 = T51_S; lb1 = T51_B; lk1 = T51_K; end
             endcase

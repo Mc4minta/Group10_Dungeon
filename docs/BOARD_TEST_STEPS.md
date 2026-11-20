@@ -9,7 +9,7 @@ Before building, `scripts/check_all.sh --fast` should print `CHECK_ALL: PASS` (i
 |---|---|
 | Art | Human and Orc 2x bigger, gold form 4, new tiles / decoration, skeleton + vampire enemies and bosses, torch bulbs, new lever, keys and shield items |
 | Difficulty (easier) | start HP 4 (forms 1-2), invulnerable 90 frames after a hit (was 60), the chasing monster moves at **half speed** |
-| Controls | tap BTNC to attack and the facing stays locked for 0.4 s (step back while swinging); **SW14 up** = facing locked all the time (flip down to turn) |
+| Controls | tap BTNC to attack and the facing stays locked for 0.4 s (step back while swinging); **SW12 up** = facing locked all the time (flip down to turn; was SW14) · **SW15 up = PAUSE**, **SW14 = sprint** |
 | Feel | the screen shakes briefly when you are hit |
 | Sound | the music on floors 1-3 is the chiptune version of **Connect** (loops); escape / win / game over music unchanged; two new sounds: room change blip, boss-appears rumble |
 | Not visible | the Human idle / attack / hurt / death animations exist but are switched OFF (no extra block RAM) |
@@ -41,7 +41,7 @@ If the Tcl `source` fails because the old project is still open, close it first.
 1. Title screen is silent. Press BTNC: floor 1 starts, the Connect melody plays and loops.
 2. Walk around: the hero is bigger. Tap BTNC next to a skeleton while pressing the opposite direction: you hit it and step back without turning.
 3. The skeleton walks slower than before. Get hit: short screen shake, HP LEDs 8-11 drop one, you cannot be hit again for about 1.5 s.
-4. SW3 up (three times) evolves through forms 2, 3, 4 (gold). SW2 clears the room's monsters, SW1 skips a floor, SW0 opens the boss door, SW15 sprints. SW14 up = locked facing.
+4. SW3 up (three times) evolves through forms 2, 3, 4 (gold). SW2 clears the room's monsters, SW1 skips a floor, SW0 opens the boss door, SW14 sprints. SW12 up = locked facing. SW15 up = pause (game frozen, PAUSED text, silence; flip down to continue).
 5. Walk through a door: short blip. Reach a boss: low rumble.
 6. Lightbulb room: torches and the new switch. Sokoban: crate and spikes gate. Simon (floor 3): red / blue / gold / key plates.
 

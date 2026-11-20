@@ -89,10 +89,25 @@ module tb_top;
         dchk(dps[2] === 1'b1 && dps[7] === 1'b0 && dps[3] === 1'b0 && dps[1] === 1'b0 && dps[0] === 1'b0, "decimal point only on digit 2 (mm.ss)");
         dchk(LED[8] === (HP1 >= 1) && LED[9] === (HP1 >= 2) && LED[10] === (HP1 >= 3) && LED[11] === (HP1 >= 4), "HP LEDs 8-11 show HP1");
         dchk(!LED[14], "LED14 (sprint) off");
-        SW[15] = 1; repeat (200) @(posedge clk);
-        dchk(LED[14], "SW15 on -> LED14 on (sprint)");
-        SW[15] = 0; repeat (200) @(posedge clk);
-        dchk(!LED[14], "SW15 off -> LED14 off");
+        SW[14] = 1; repeat (200) @(posedge clk);
+        dchk(LED[14], "SW14 on -> LED14 on (sprint)");
+        SW[14] = 0; repeat (200) @(posedge clk);
+        dchk(!LED[14], "SW14 off -> LED14 off");
+        // W15 pause: SW15 ยก -> timer / ตำแหน่ง / HP ไม่เปลี่ยน, ข้อความ PAUSED, ปล่อยแล้วเดินต่อ
+        begin : pause_case
+            reg [7:0] s0, s1; reg [9:0] px0; integer fsm_t;
+            repeat (1_200_000) @(posedge clk);
+            SW[15] = 1; repeat (200) @(posedge clk);
+            dchk(dut.paused, "SW15 on in PLAY -> paused");
+            dchk(dut.txt_scr == 3'd6, "paused: text screen 6 (PAUSED)");
+            s0 = {dut.fsm.m_t, dut.fsm.m_o}; fsm_t = dut.fsm.tick60; px0 = dut.px;
+            BTNR = 1; repeat (3_000_000) @(posedge clk); BTNR = 0;       // ~ 3 เฟรม+ ระหว่างหยุด: เดินไม่ได้, timer ไม่เดิน
+            dchk(dut.px == px0 && dut.fsm.tick60 == fsm_t, "paused: player does not move and the timer does not advance");
+            SW[15] = 0; repeat (200) @(posedge clk);
+            dchk(!dut.paused && dut.txt_scr == 3'd0, "SW15 off -> running again, no text");
+            BTNR = 1; repeat (3_000_000) @(posedge clk); BTNR = 0;
+            dchk(dut.px != px0, "after pause the player moves again");
+        end
         SW[4] = 1; repeat (1_200_000) @(posedge clk);              // debug take_hit
         dchk(shown[5] == HP1_CH && LED[8] === (HP1 - 1 >= 1) && LED[9] === (HP1 - 1 >= 2) && LED[10] === (HP1 - 1 >= 3) && LED[11] === (HP1 - 1 >= 4), "after SW4 hit: HP digit HP1-1, HP LEDs follow");
         SW[4] = 0;
