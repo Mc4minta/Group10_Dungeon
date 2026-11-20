@@ -33,6 +33,10 @@ module renderer (
     input  wire [5:0]   pb_act,
     input  wire [59:0]  pb_x, pb_y,
     input  wire [11:0]  pb_kind,
+    input  wire         dlg_on,           // W16: dialogue box (txt_scr = 14): black band + 2 lines from dlg_b0.. (text ROM)
+    input  wire [11:0]  dlg_b0, dlg_b1,
+    input  wire [4:0]   dlg_n0, dlg_n1,
+    input  wire [11:0]  dlg_col,
     input  wire         p_hurt,           // W14: red flash of the player sprite (just hit)
     input  wire         p_tint,           // ผู้เล่นสว่าง (ร่าง 4 ชาร์จเต็ม)
     input  wire [15:0]  eb_act,
@@ -109,13 +113,13 @@ module renderer (
     reg [15:0] r1_aaddr = 0;
     reg [2:0]  r1_asel = 0;
     reg        r1_p = 0, r1_lit = 0, r1_red = 0, r1_out = 0, r1_tint = 0;
-    reg        r1_hurt = 0, r2_hurt = 0;
+    reg        r1_hurt = 0, r2_hurt = 0, r1_band = 0, r2_band = 0;
     reg [2:0]  r1_scr = 0;
     reg [1:0]  r1_ovs = 0, r2_ovs = 0;         // overlay picture: 0 none, 1 breakable block, 2 spike trap, 3 solid decoration
     reg [11:0] r1_oaddr = 0;
     reg [2:0]  r1_vb = 0, r2_vb = 0;            // W6: แถบแนวนอน 8 แถบ (vcount[8:6]) ทำพื้นหน้า TITLE เป็นไล่สี
     // ----- ข้อความ: ไม่เกิน 2 บรรทัดต่อหน้าจอ, ฟอนต์ 8x8 ขยาย 2x / 4x (คิดเฉพาะตอนมีข้อความบนจอ) -----
-    reg [5:0]  txtmem [0:511];
+    reg [5:0]  txtmem [0:4095];
     reg [7:0]  fontmem [0:511];
     initial $readmemh("text.mem", txtmem);
     initial $readmemh("font.mem", fontmem);
@@ -124,15 +128,17 @@ module renderer (
     reg        r1_txt = 0;
     reg [9:0]  ly0, lx0, lw0, lh0, ly1, lx1, lw1, lh1, rx, ry, rx0, ry0, rx1, ry1;
     reg        ls0, ls1, lk0, lk1, in0, in1, s4, kk;
-    reg [8:0]  lb0, lb1, bb, ta_;
+    reg [11:0] lb0, lb1, bb, ta_;
     reg [5:0]  code;
     reg [4:0]  colc;
     // stage A: ตำแหน่งในบรรทัดข้อความ (ลบ + เทียบขอบ + เลือกบรรทัด) -> register; stage B: อ่านตัวอักษรจาก text ROM + เลขสด
-    reg [9:0]  a_rx = 0, a_ry = 0; reg a_in = 0, a_s4 = 0, a_kk = 0, a_on = 0; reg [8:0] a_bb = 0;
+    reg [9:0]  a_rx = 0, a_ry = 0; reg a_in = 0, a_s4 = 0, a_kk = 0, a_on = 0; reg [11:0] a_bb = 0;
     always @(posedge clk) begin
         a_on <= (txt_scr != 0);
         if (txt_scr != 0) begin
             case (txt_scr)
+                4'd14: begin ly0 = 10'd392; lx0 = 10'd320 - {1'b0, dlg_n0, 4'b0} / 2; lw0 = {1'b0, dlg_n0, 4'b0}; lh0 = 10'd16; ls0 = 1'b0; lb0 = dlg_b0; lk0 = 1'b0;
+                             ly1 = 10'd416; lx1 = 10'd320 - {1'b0, dlg_n1, 4'b0} / 2; lw1 = {1'b0, dlg_n1, 4'b0}; lh1 = 10'd16; ls1 = 1'b0; lb1 = dlg_b1; lk1 = 1'b0; end
                 `include "text_select.vh"
             endcase
             rx0 = hcount - lx0; ry0 = vcount - ly0; in0 = (rx0 < lw0) && (ry0 < lh0);
@@ -175,6 +181,7 @@ module renderer (
         r1_p     <= in_spr && !hide_player;
         r1_tint  <= p_tint;
         r1_hurt  <= p_hurt;
+        r1_band  <= dlg_on && (vs_r >= 10'd384) && (vs_r < 10'd448);
         r1_scr   <= screen;
         r1_ovs   <= maze_on ? 2'd0 : (ovraw[3:0] == 4'd1 && !brk[ovraw[6:4]]) ? 2'd1 : (ovraw[3:0] == 4'd2) ? 2'd2 : (ovraw[3:0] == 4'd3) ? 2'd3 : 2'd0;
         r1_oaddr <= {((ovraw[3:0] == 4'd2) ? 2'd1 : (ovraw[3:0] == 4'd3) ? 2'd2 : 2'd0), vs_r[4:0], hs_r[4:0]};
@@ -221,7 +228,7 @@ module renderer (
     reg [2:0] r2_gx = 0;
     reg [7:0] r2_font = 0;
     always @(posedge clk) begin
-        r2_p <= r1_p; r2_tint <= r1_tint; r2_scr <= r1_scr; r2_vb <= r1_vb; r2_hurt <= r1_hurt; r2_ovs <= r1_ovs; r2_lit <= r1_lit; r2_red <= r1_red; r2_out <= r1_out;
+        r2_p <= r1_p; r2_tint <= r1_tint; r2_scr <= r1_scr; r2_vb <= r1_vb; r2_hurt <= r1_hurt; r2_band <= r1_band; r2_ovs <= r1_ovs; r2_lit <= r1_lit; r2_red <= r1_red; r2_out <= r1_out;
         r2_txt <= r1_txt; r2_gx <= r1_gx;
         r2_font <= fontmem[r1_faddr];
     end
@@ -233,7 +240,8 @@ module renderer (
 
     // ======================= stage 3: เลือกชั้น =======================
     always @(posedge clk) begin
-        if (txt_on)                                  color <= 12'hFFF;    // ข้อความอยู่บนสุด
+        if (txt_on)                                  color <= dlg_on ? dlg_col : 12'hFFF;    // ข้อความอยู่บนสุด (dialogue: สีตามผู้พูด)
+        else if (r2_band)                            color <= 12'h000;    // W16: แถบดำใต้ข้อความ dialogue
         else if (r2_scr == 3'd0 && hud_on)           color <= hud_px;     // hearts / boss bar above the world
         else if (DEATH_ANIM_EN && r2_scr == 3'd2 && r2_p && r2_asel == 3'd4 && spr_fin != C_T) color <= spr_fin;   // death animation over the GAME OVER colour
         else if (r2_scr == 3'd4)                     color <= 12'h000;    // prologue: black screen

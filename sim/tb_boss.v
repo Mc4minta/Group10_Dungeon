@@ -31,14 +31,17 @@ module tb_boss;
     wire [1:0] b_kind; wire [2:0] b_amt; wire [2:0] b_dead; wire [4:0] b_hp; wire [7:0] b_bar;
 
     wire ld = w_load | tb_load;
-    wire esc_t = exit_evt & fsm.has_key;       // W7: door E with the key starts the maze
+    wire esc_t = exit_evt & fsm.has_key;
+    wire key_vis, key_pick; wire [9:0] key_x, key_y;
+    keyitem kit (.clk(clk), .rst(rst), .restart(restart), .died3(b_died && b_kind == 2), .bx(b_x), .by(b_y), .px(px), .py(py),
+                 .floor(floor), .room(room), .play(state == 3'd1), .vis(key_vis), .kx(key_x), .ky(key_y), .pick(key_pick));       // W7: door E with the key starts the maze
     wire run = (state == 3'd1) || (state == 3'd4);
 
     world wld (.clk(clk), .rst(rst), .restart(restart), .next_floor(next_floor), .door_evt(door_evt), .door_dir(door_dir),
                .floor(floor), .room(room), .grid(grid), .load(w_load), .load_x(w_lx), .load_y(w_ly), .exit_evt(exit_evt));
     game_fsm #(.PROLOGUE(0)) fsm (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(fsm_btnc), .got_item(1'b0),
                   .take_hit(obj_hit), .floor_done(b_died && b_kind != 2), .exit_evt(exit_evt),
-                  .exit_direct(1'b0), .sprint(1'b0), .key_get(b_died && b_kind == 2), .goal(goal_t), .escape_start(esc_t), .has_key(), .kill(b_kill),
+                  .exit_direct(1'b0), .sprint(1'b0), .key_get(key_pick), .goal(goal_t), .escape_start(esc_t), .has_key(), .kill(b_kill),
                   .state(state), .restart(restart), .next_floor(next_floor), .form(form), .hp(hp),
                   .hp_max(hp_max), .speed(speed), .damage(damage), .rgb(rgb), .freeze(freeze),
                   .hide_player(fsm_hide), .m_t(m_t), .m_o(m_o), .s_t(s_t), .s_o(s_o),
@@ -232,7 +235,12 @@ module tb_boss;
         check(b_act && b_hp == 1, "two charged hits: HP 1");
         poke(3'd4, 1'b1);
         frames(2);
-        check(!b_act && b_dead[2] && state == 3'd1 && fsm.has_key, "boss 3 dead (3 charged hits) -> key, game goes on (no ESCAPE yet)");
+        check(!b_act && b_dead[2] && state == 3'd1 && !fsm.has_key && key_vis, "boss 3 dead (3 charged hits) -> the key lies on the floor, game goes on (no ESCAPE yet)");
+        check(key_x == b_x + 16 && key_y == b_y + 16, "the key lies where the boss stood");
+        frames(3);
+        check(!fsm.has_key, "standing away from the key does not pick it up");
+        pl.px = key_x; pl.py = key_y; frames(2);
+        check(fsm.has_key && !key_vis, "walking over the key picks it up: has_key, the key is gone"); 
         go_room(2, 0, 100, 240);
         safe; left = 1; frames(60); left = 0; frames(2);
         check(state == 3'd4 && freeze, "walk into door E with the key -> the maze starts (ESCAPE, hero frozen)");
@@ -247,7 +255,9 @@ module tb_boss;
         bs.hp = 5'd1; fsm.form = 2'd1;
         poke(3'd4, 1'b1);
         frames(2);
-        check(state == 3'd1 && fsm.has_key, "key again");
+        check(state == 3'd1 && key_vis, "key dropped again");
+        pl.px = key_x; pl.py = key_y; frames(2);
+        check(fsm.has_key, "key picked up again");
         go_room(2, 0, 100, 240);
         safe; left = 1; frames(60); left = 0; frames(2);
         check(state == 3'd4, "maze again");

@@ -1,6 +1,6 @@
 # Design implementation plan (from the "Group 10 - Design Notes", 19/11/2026)
 
-**Status: implementation in progress.** Done: W7 key + maze + accelerometer (sim only), W5 overlay (breakable / trap / decoration), W8 hearts, W2 plates, W3 charged shot stops on hit, W15 pause + switch map, W1 spike doors, W9a prologue, W10-W13 boss rework and AOE. Everything else below is still plan.
+**Status: implementation in progress.** Done: W16 dialogue boxes + `docs/STORY.md` as the story source, visible key item (W7), W14 Orc / Angel attack animations (option C), W7 key + maze + accelerometer (sim only), W5 overlay (breakable / trap / decoration), W8 hearts, W2 plates, W3 charged shot stops on hit, W15 pause + switch map, W1 spike doors, W9a prologue, W10-W13 boss rework and AOE. Everything else below is still plan.
 Source: the owner's design notes of 19/11/2026 (the master design for the Progress 20/11). Where they disagree with the code or with
 `Group10_Dungeon_DEVELOPER_GUIDE.md`, the design notes win (section 3 lists every conflict, checked against the code on branch `sprite-zip`).
 How to use this file: read section 1 (what is feasible when), pick items, answer the open questions in section 6, then I implement item by item
@@ -255,8 +255,25 @@ Rule (owner): **the boss is NOT damageable while any minion is alive (shielded);
 * Tests: `tb_objects.v` (split on monster hit, no recursive split, slot exhaustion does not crash).
 * Risk medium, effort ~1 day.
 
-### W16 Dialogue overlay (story Tier B)  (Phase E, NOT started - waiting for approval)
+### W16 Dialogue overlay (story Tier B)  (Phase E) - DONE 20/11 on dev (approved by the owner with the whole story). **`docs/STORY.md` is the source of truth** of every on-screen sentence: `scripts/build_story.py` (-> `scripts/story.py` + `make_font.py`) turns its tables into `mem/text.mem`, `mem/dlg.mem`, `rtl/text_layout.vh`, `rtl/text_select.vh`, `rtl/dlg_cfg.vh`; `rtl/dialog.v` shows the boxes (black band at the bottom, colour by speaker, timed 2.5 s or blocking until BTNC); `rtl/top.v` drives the 36 events; `tests/test_story.py`, `tb_dialog`, `tb_text`. Game name = THE CHOSEN ONE (TITLE-01). Original proposal text follows.
 `docs/STORY.md` lists ~70 in-game lines (Voice / Player / System) that need a dialogue box on top of the running game: safe-room talk (F1-01..12), room hints (SPIKES ROSE! / DEFEAT ALL ENEMIES!), boss tips, endgame (END-01..05). The renderer can already draw 2 lines of text over the game (the PAUSED / NEW FORM mechanism), so a box is feasible: a small trigger table (room entry, doors closed, boss state change, item taken) selects a text screen, shown for ~2-3 s without freezing the game (or frozen for safe-room dialogue, BTNC = next line). Cost: text ROM grows (about +1 BRAM per ~70 lines at 20 chars), one trigger module (about 1 day), more for dialogue that waits on BTNC. Decide: all lines, or only the hints that teach mechanics (boss tips, F1-13, END-03..05); the rest is told in the video / report.
+
+### W17 Boss 2 can always be hit, even while minions are alive  (Phase B change, requested 20/11, NOT started - waiting for approval)
+Owner request: the second boss takes damage at all times, also while its minions live (this REVERSES the W11 rule "hurt only when all minions are dead").
+* What changes: `boss.v` `acc` for kind 1 becomes always true (the IDLE / SUMMON / MINIONS_ALIVE / VULNERABLE states can stay as the summon rhythm: summon, wait, summon again; `shield` blink and `vuln` event are dropped or repurposed), `docs/STORY.md` rows F2-11 / F2-12 and the boss-2 line in the mechanics table, `tb_boss.v` (the "damage rejected" checks become "damage accepted"), FEATURES.
+* Open decisions: (a) keep the summon timer (a new round every N s while the boss lives) or summon only once per HP step (e.g. at 75 / 50 / 25 % HP, which gives the fight a shape)? (b) the AOE split shot (W13) was designed to clear minions: still useful, nothing to change. (c) boss HP 16 may now be too low if the player just ignores the minions: tune after a playtest.
+* Risk low, effort ~1-2 h.
+
+### W18 Auto-lock attack like Soul Knight  (feasibility study, requested 20/11, NOT started)
+Idea: when the player attacks, the game aims at the nearest enemy automatically instead of firing only in the 4 facing directions.
+Findings from the code (what exists today): bullets have 8 directions (`p_dirv` 3 bit: 4 straight + 4 diagonals, already used by the form-3 spread), the hero sprite has 4 facings, `objects.v` already scans all 6 monster slots every frame (`S_NEAR` finds enemies in the melee box), the boss position is an input, no multiplier is needed for a coarse aim.
+| Level | What | Cost | Verdict |
+|---|---|---|---|
+| 1. 8-direction lock | at `S_ATK` find the nearest active monster / boss within `LOCK_RANGE` px (Manhattan distance, 6 + 1 candidates, one extra FSM state `S_LOCK` of ~10 clocks), turn dx / dy into one of 8 directions with two comparisons (2*\|dy\| < \|dx\| -> horizontal, 2*\|dx\| < \|dy\| -> vertical, else diagonal), set `facing` (4-way) from the dominant axis and fire in that direction; melee form 1 turns the swing box the same way | no BRAM, ~100 LUT, objects.v + player facing input, tests in tb_objects | **feasible, recommended first step (about 1 day)** |
+| 2. Free angle | bullets with a fixed-point velocity (vx, vy per bullet: +2 x 10 bit x 6 slots), direction from a small lookup / CORDIC-free table (dx, dy -> unit vector by comparing against 16 sectors) | ~+60 flops, bullet move/collision code changes in S_PB, wall tests | feasible, ~2-3 days; looks much better, not needed for the demo |
+| 3. Sticky target + indicator | keep the lock until the target dies / leaves range, draw a small marker on the target (objline: one more sprite) | a few flops + one sprite slot | optional polish |
+Design questions for the owner: (1) always on, or a switch (default SW9: lock on / off), or only while BTNC is held? (2) does the hero turn toward the target even when walking away (facing lock SW12 conflict)? Default: attacking turns the hero, walking turns it back. (3) range: whole screen or about 6 tiles (default 200 px)? (4) forms 3 / 4: the 3-way spread centres on the target; the charged ball flies at the boss; boss 3 armour is unchanged. (5) does the 8-direction auto-lock make the game too easy? Boss fights (stun / shield / armour / charge timing) stay the skill part.
+Recommendation: build level 1 behind a switch after the board test of everything else, because it changes how every fight feels.
 
 ---
 
@@ -299,7 +316,7 @@ Reply with changes only; otherwise the defaults are used.
 | 3 | Boss 1 stun / clap cooldown | 3 s / 4 s |
 | 4 | Boss 2 minions / vulnerable window | 3 minions / boss vulnerable 2 s after the last minion dies, then it summons again (2 s may be too short for boss HP 16, tune in playtest) |
 | 5 | Boss 3 charge time / charged hits to kill / big attack | 2 s / 3 hits / room-wide lethal hit |
-| 6 | Charged shot destroys enemy bullets when it stops? | no |
+| 6 | Charged shot destroys enemy bullets when it stops? | **yes (decided 20/11: keep it)** |
 | 7 | Trap kinds first | spike (static, 1 damage) only; timed spikes later |
 | 8 | Breakable block hits | 1 hit (any bullet or melee) |
 | 9 | Accelerometer fallback | direction buttons when no sensor data or when a switch is up |

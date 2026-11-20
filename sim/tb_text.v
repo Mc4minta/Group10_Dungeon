@@ -5,8 +5,11 @@ module tb_text;
     reg clk = 0; always #5 clk = ~clk;
     reg [9:0] hc = 0, vc = 0;
     reg [2:0] scr = 3'd4; reg [3:0] ts = 4'd7;
+    reg dlg_on_r = 0; reg [11:0] dlg_b0_r = 0, dlg_b1_r = 0, dlg_col_r = 12'hFF0; reg [4:0] dlg_n0_r = 0, dlg_n1_r = 0;
+    reg [39:0] dlgrom [0:127];
+    initial $readmemh("dlg.mem", dlgrom);
     wire [11:0] color;
-    renderer dut (.p_hurt(1'b0), .open_E(1'b0), .brk(8'd0), .clk(clk), .ce(1'b1), .hcount(hc), .vcount(vc), .grid(4'd0), .floor(2'd0), .form(2'd0),
+    renderer dut (.dlg_on(dlg_on_r), .dlg_b0(dlg_b0_r), .dlg_b1(dlg_b1_r), .dlg_n0(dlg_n0_r), .dlg_n1(dlg_n1_r), .dlg_col(dlg_col_r), .p_hurt(1'b0), .open_E(1'b0), .brk(8'd0), .clk(clk), .ce(1'b1), .hcount(hc), .vcount(vc), .grid(4'd0), .floor(2'd0), .form(2'd0),
         .doors_open(1'b0), .open_L(1'b0), .screen(scr), .hide_player(1'b1), .px(10'd0), .py(10'd0), .pframe(6'd0),
         .p_anim(3'd0), .p_aframe(6'd0), .mon_act(6'd0), .mon_type(6'd0), .mon_flash(6'd0), .mon_x(60'd0), .mon_y(60'd0), .mon_anim(1'b0),
         .pb_act(6'd0), .pb_x(60'd0), .pb_y(60'd0), .pb_kind(12'd0), .p_tint(1'b0), .eb_act(16'd0), .eb_x(160'd0), .eb_y(160'd0),
@@ -35,6 +38,22 @@ module tb_text;
         for (k = 7; k <= 10; k = k + 1) scan(k, 160, 192, 220, 252);          // prologue: scale 4 rows at y 160 and 220
         // NEW FORM banners (drawn over the game in the real top; here on the black screen so only text is white)
         scan(11, 140, 172, 190, 206); scan(12, 140, 172, 190, 206); scan(13, 140, 172, 190, 206);
+        // ---- W16 dialogue box over the running game (screen 0): black band y 384..447, 2 yellow lines at y 392 and 416, nothing else in the band ----
+        scr = 3'd0; dlg_on_r = 1; ts = 4'd14;
+        dlg_b0_r = dlgrom[0][11:0]; dlg_n0_r = dlgrom[0][16:12]; dlg_b1_r = dlgrom[0][28:17]; dlg_n1_r = dlgrom[0][33:29];
+        begin : dlgt
+            integer yy, xx, t0, t1, stray, nonblack;
+            t0 = 0; t1 = 0; stray = 0; nonblack = 0;
+            for (yy = 384; yy < 448; yy = yy + 2)
+                for (xx = 0; xx < 640; xx = xx + 2) begin
+                    hc = xx; vc = yy; repeat (6) @(posedge clk); #1;
+                    if (color == 12'hFF0) begin
+                        if (yy >= 392 && yy < 408) t0 = t0 + 1; else if (yy >= 416 && yy < 432) t1 = t1 + 1; else stray = stray + 1;
+                    end else if (color != 12'h000) nonblack = nonblack + 1;
+                end
+            if (t0 < 60 || t1 < 60 || stray != 0 || nonblack != 0) begin errors = errors + 1; $display("FAIL dialogue box: line1 %0d line2 %0d stray %0d non-black %0d", t0, t1, stray, nonblack); end
+            else $display("PASS  dialogue box: line 1 %0d px, line 2 %0d px, band black everywhere else", t0, t1);
+        end
         if (errors == 0) $display("ALL PASS");
         $finish;
     end

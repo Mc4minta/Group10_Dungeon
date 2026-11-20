@@ -89,6 +89,7 @@ localparam BOSS3_CHARGE     = 120;          // W12: ชาร์จโจมต�
 // ---------- ฉากหนี (P5) ----------
 localparam ESCAPE_SECONDS  = 60;           // W7: ESCAPE state = Ball in a Maze: นับถอยหลัง 60 วิ (หมดเวลา = GAME OVER)
 localparam ESCAPE_BANNER   = 120;          // ข้อความตอนเริ่มเขาวงกต กี่เฟรม
+localparam DLG_FRAMES      = 150;         // W16: ข้อความ dialogue แบบไม่หยุดเกมอยู่กี่เฟรม (2.5 วิ)
 localparam MAZE_DEADZONE   = 3;            // W7: เอียงน้อยกว่านี้ (นับ ADXL ~64 ต่อ 1 g) ถือว่าราบ
 localparam MAZE_TILT_SHIFT = 2;            // ความเร่ง = tilt >> นี้ (1/16 px ต่อเฟรม^2)
 localparam MAZE_BTN_ACC    = 8;            // ความเร่งตอนใช้ปุ่มแทนเซนเซอร์

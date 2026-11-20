@@ -58,6 +58,8 @@ module boss (
     output reg         died = 1'b0,      // pulse: บอสตาย (kind บอกว่าตัวไหน)
     output reg         summon = 1'b0,    // pulse: บอส 2 เรียกลูกน้อง (objects.v spawn)
     output reg         kill = 1'b0,      // pulse: โจมตีใหญ่ของบอส 3 ถูกผู้เล่น (HP -> 0)
+    output wire        vuln,             // W16: บอส 2 อยู่ในช่วงตีได้ (VULNERABLE)
+    output reg         intr = 1'b0,      // W16: pulse: ชาร์จบอส 3 ถูกขัด
     output wire        shield,           // บอส 2 ยังตีไม่ได้ (วาดกะพริบ)
     output wire        tele,             // บอส 3 กำลังชาร์จโจมตีใหญ่ (วาดกะพริบ)
     output reg  [2:0]  dead = 3'b000,    // [floor] บอสชั้นนั้นตายแล้ว
@@ -105,6 +107,7 @@ module boss (
     reg        b3 = 1'b0;
     reg [8:0]  phase_t = 0;
     assign shield = act && kind == 2'd1 && bs2 != 2'd2;
+    assign vuln   = act && kind == 2'd1 && bs2 == 2'd2;
     assign tele   = act && kind == 2'd2 && b3;
     wire       acc = (kind == 2'd0) || (kind == 2'd1 && bs2 == 2'd2) || (kind == 2'd2 && dmg_big);
     wire [2:0] amt = (kind == 2'd2) ? 3'd1 : dmg_amt;
@@ -131,6 +134,7 @@ module boss (
         died <= 1'b0;
         summon <= 1'b0;
         kill <= 1'b0;
+        intr <= 1'b0;
         if (room_load) spawn_req <= 1'b1;
         if (clap) clap_req <= 1'b1;
 
@@ -248,7 +252,7 @@ module boss (
             // ---------- โดนตี (มาได้ทุก clock จาก objects.v) ----------
             if (dmg && act && acc) begin
                 fl <= BOSS_FLASH;
-                if (kind == 2'd2 && b3) begin b3 <= 1'b0; phase_t <= BOSS3_CHASE; end   // ชาร์จขัด: เริ่มรอบใหม่
+                if (kind == 2'd2 && b3) begin b3 <= 1'b0; phase_t <= BOSS3_CHASE; intr <= 1'b1; end   // ชาร์จขัด: เริ่มรอบใหม่
                 if (hp <= amt) begin
                     hp <= 0; act <= 1'b0; dead[kind] <= 1'b1; died <= 1'b1; hp_bar <= 0;
                 end else hp <= hp - amt;

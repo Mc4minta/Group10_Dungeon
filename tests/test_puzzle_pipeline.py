@@ -105,7 +105,7 @@ class RealProject(unittest.TestCase):
         self.assertEqual(self.mem, self.b.out, "mem/puzzle.mem is stale: run python scripts/build_puzzle_mem.py")
 
     def test_spare_frames_unchanged(self):
-        self.assertEqual(self.mem[11 * N:], self.v1[11 * N:])        # frame 10 = the maze ball (W7)
+        self.assertEqual(self.mem[15 * N:], self.v1[15 * N:])        # frames 10-13 = maze ball, 14 = key (W7)
 
     def test_fallback_identical_to_v1(self):
         for r in self.b.result:
@@ -137,7 +137,7 @@ class RealProject(unittest.TestCase):
 class Fallbacks(unittest.TestCase):
     def setUp(self):
         self.t = tempfile.mkdtemp(prefix="puz_test_")
-        for d in ("mem", "sprites", "my_asset/props"):
+        for d in ("mem", "sprites", "my_asset/props", "my_asset/ball"):
             os.makedirs(os.path.join(self.t, d))
         shutil.copy(os.path.join(ROOT, "mem", "puzzle_v1.mem"), os.path.join(self.t, "mem"))
         self.c = jload(os.path.join(ROOT, "sprites", "puzzle.json"))
