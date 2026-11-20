@@ -65,8 +65,8 @@ Not used by the game at all: `Jump.png`, `ChargedAttack.png`.
 |---|---|---|
 | Monster A (chaser) 2 frames | skeleton1 movement cols 1, 4 (`sprites/monsters.json`) | FINAL (2 frames only, no facing) |
 | Monster B (turret) 2 frames | vampire idle cols 0, 3 | FINAL |
-| Boss 1 (floors 1) | skeleton2 idle, 2x | FINAL but smaller than the old 64x64 blob |
-| Boss 2 (floor 2) normal / stunned | skeleton1 idle / skeleton1 damage frame, 2x | FINAL, the stunned picture is subtle |
+| Boss 1 (floor 1) normal / stunned | skeleton2 idle col 0 / skeleton2 damage col 2, 2x (W10: frame 1 = stunned picture) | FINAL, the stunned picture is subtle |
+| Boss 2 (floor 2) 2 idle frames | skeleton1 idle cols 0, 3, 2x (blinks white while shielded = no art needed) | FINAL |
 | Boss 3 (floor 3) | vampire attack frames 4, 7, 2x | FINAL |
 
 Unused enemy art in `my_asset/enemies/`: attack, death and damage strips for all three enemies (needs Verilog).

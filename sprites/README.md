@@ -150,8 +150,8 @@ and `sprites/tileset.json`. **Generated:** `mem/tileset.mem`. **Old art, never t
     python scripts/build_boss_mem.py              # rebuild   (--check / --preview as before)
 
 * Each source cell is 32x32 and is scaled **exactly 2x** (every pixel becomes a 2x2 block, no smoothing) to 64x64.
-* Chosen: boss 1 = skeleton2 idle (cols 0, 3); boss 2 = skeleton1 idle col 0, **stunned** picture = skeleton1 take_damage col 2;
-  boss 3 = vampire attack (cols 4, 7). Boss 2 frame 1 is the "stunned" picture the game shows when the boss is stunned.
+* Chosen: boss 1 = skeleton2 idle col 0 + **stunned** picture = skeleton2 take_damage col 2 (frame 1 is shown while the clap stun lasts, W10); boss 2 = skeleton1 idle (cols 0, 3);
+  boss 3 = vampire attack (cols 4, 7).
 * The table prints colour counts per frame (8-bit -> RGB444): no colours merge, so no banding.
 * The new bosses are drawn smaller inside the 64x64 box than the old placeholder blobs (about 40x40 px of art). Nothing else changes (hitbox/HP/timing untouched).
 * Edit frames/`enabled`/`skip` in `bosses.json` exactly like for monsters. Roll back: `cp mem/boss_v1.mem mem/boss.mem`.

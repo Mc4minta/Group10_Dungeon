@@ -40,8 +40,10 @@ module objects (
     input  wire         boss_act,
     input  wire [9:0]   boss_x, boss_y,   // มุมซ้ายบน sprite 64x64, hitbox 48x48 ที่ +8
     input  wire         boss_fire,        // pulse: ยิง 4 ทิศจากจุดกลางบอส
+    input  wire         summon,           // pulse (W11): บอส 2 เรียกลูกน้อง -> spawn มอน A ที่ SUMMON*_T* ใน slot ว่าง
     output reg          boss_dmg = 1'b0,  // pulse: บอสโดนกระสุน / ฟัน
     output reg  [2:0]   boss_dmg_amt = 3'd0,
+    output reg          boss_dmg_big = 1'b0,  // มาพร้อม boss_dmg: กระสุนชาร์จ (บอส 3 รับเฉพาะอันนี้)
     output wire         doors_open,     // ประตู D เปิด (0 = ห้อง Combat ล็อก)
     output wire [2:0]   alive,          // มอนที่เหลือในห้อง
     output reg          hit = 1'b0,     // pulse: ผู้เล่นโดนตี -> game_fsm.take_hit
@@ -88,6 +90,8 @@ module objects (
     reg [NP*10-1:0] p_yv = 0;
     reg [NP*3-1:0] p_dirv = 0;               // 0 ลง 1 ขึ้น 2 ซ้าย 3 ขวา 4 ลงซ้าย 5 ลงขวา 6 ขึ้นซ้าย 7 ขึ้นขวา
     reg [NP*2-1:0] p_kindv = 0;
+    reg [NP-1:0]   p_child = 0;              // W13: ลูกที่แตกจากกระสุนร่าง 3 (ไม่แตกซ้ำ, มีอายุ)
+    reg [NP*5-1:0] p_lifev = 0;
     reg [6:0]  chg = 0;                      // ร่าง 4: เฟรมที่กดค้าง
     reg        chg_ok = 1'b0;                // กดครั้งนี้ยิงนัดเร็ว (ไม่ใช่ฟัน) -> ชาร์จได้
     reg [15:0] e_act = 0;
@@ -109,6 +113,7 @@ module objects (
     reg        atk_req = 1'b0;
     reg [7:0]  fcnt = 0;
     reg        spawn_req = 1'b0;
+    reg        summon_req = 1'b0;
 
     integer k;
 
@@ -157,7 +162,7 @@ module objects (
     localparam [4:0] S_IDLE = 5'd0, S_SPAWN = 5'd1, S_ATK = 5'd2, S_PB = 5'd3, S_EB = 5'd4,
                      S_MON = 5'd5, S_FIRE = 5'd6, S_CPB = 5'd7, S_CMEL = 5'd8, S_CPM = 5'd9,
                      S_CPE = 5'd10, S_END = 5'd11, S_BFIRE = 5'd12, S_BPB = 5'd13, S_BMEL = 5'd14, S_BPM = 5'd15,
-                     S_CLASH = 5'd16, S_NEAR = 5'd17;
+                     S_CLASH = 5'd16, S_NEAR = 5'd17, S_SUMMON = 5'd18;
     reg [4:0] st = S_IDLE;
     // มอน A เดินเฉพาะเฟรมที่ mv_div == 0 (MON_A_MOVE_EVERY = 1 -> ทุกเฟรม)
     reg [3:0] mv_div = 4'd0;
@@ -241,8 +246,9 @@ module objects (
         if (atk_press && run) atk_req <= 1'b1;
         if (!run) atk_req <= 1'b0;
         if (room_load) spawn_req <= 1'b1;
-        boss_dmg <= 1'b0;
+        boss_dmg <= 1'b0; boss_dmg_big <= 1'b0;
         if (boss_fire) bfire_req <= 1'b1;
+        if (summon) summon_req <= 1'b1;
         if (dbg_clear && st == S_IDLE && !spawn_req) m_act <= 0;   // ห้องเคลียร์ที่ S_END ของเฟรมถัดไป
 
         if (rst || restart) begin
@@ -255,16 +261,32 @@ module objects (
         // ------------------------------------------------------------------
         S_IDLE:
             if (spawn_req) begin
-                spawn_req <= 1'b0;
+                spawn_req <= 1'b0; summon_req <= 1'b0;
                 m_act <= 0; p_act <= 0; e_act <= 0; melee_cnt <= 0; bfire_req <= 1'b0;
                 cur_idx <= idx_now;
                 cur_combat <= (room == R_C1) || (room == R_C2);
                 si <= 0; slot <= 0; nb <= 0;
                 st <= S_SPAWN;
+            end else if (summon_req) begin
+                summon_req <= 1'b0;
+                st <= S_SUMMON;
             end else if (frame_tick && run) begin
                 fcnt <= fcnt + 1'b1;
                 st <= S_NEAR;
             end
+        // ------------------------------------------------------------------
+        S_SUMMON: begin                      // W11: ลูกน้องบอส 2 = มอน A BOSS2_MINIONS ตัว ลง slot ว่าง (ตำแหน่ง SUMMON0..2)
+            nsp = 0;
+            for (q = 0; q < NM; q = q + 1)
+                if (!m_act[q] && nsp < BOSS2_MINIONS) begin
+                    m_act[q] <= 1'b1; m_typ[q] <= 1'b0;
+                    m_xv[q*10 +: 10] <= {(nsp == 0) ? SUMMON0_TX : (nsp == 1) ? SUMMON1_TX : SUMMON2_TX, 5'd0};
+                    m_yv[q*10 +: 10] <= {1'b0, (nsp == 0) ? SUMMON0_TY : (nsp == 1) ? SUMMON1_TY : SUMMON2_TY, 5'd0};
+                    m_hpv[q*3 +: 3] <= MON_A_HP; m_flv[q*4 +: 4] <= 0; m_tmrv[q*9 +: 9] <= 0;
+                    nsp = nsp + 1;
+                end
+            st <= S_IDLE;
+        end
         // ------------------------------------------------------------------
         S_NEAR: begin                        // มีศัตรูในกล่องฟันหน้าตัวไหม (ผลเก็บใน near_r ให้ S_ATK ใช้; แยก state เพื่อไม่ให้ 7 overlap ต่อกับ logic ยิงใน clock เดียว)
             fbx = (facing == 2'd2) ? {1'b0, px} + OFS - 11'd12 :
@@ -317,7 +339,7 @@ module objects (
                         if (p_act[q] && p_kindv[q*2 +: 2] == 2'd3) sp_done = 1'b1;   // มีลูกใหญ่อยู่แล้ว
                     for (q = 0; q < NP; q = q + 1)
                         if (!sp_done && !p_act[q]) begin
-                            p_act[q] <= 1'b1; p_kindv[q*2 +: 2] <= 2'd3; p_dirv[q*3 +: 3] <= {1'b0, facing};
+                            p_act[q] <= 1'b1; p_kindv[q*2 +: 2] <= 2'd3; p_dirv[q*3 +: 3] <= {1'b0, facing}; p_child[q] <= 1'b0;
                             p_xv[q*10 +: 10] <= px + 10'd8; p_yv[q*10 +: 10] <= py + 10'd8;
                             sp_done = 1'b1; ev_shoot <= 1'b1; ev_shoot_k <= 2'd3;
                         end
@@ -340,7 +362,8 @@ module objects (
                 sdir[2] = (facing == 2'd0) ? 3'd5 : (facing == 2'd1) ? 3'd7 : (facing == 2'd2) ? 3'd4 : 3'd5;
                 nsp = 0;
                 for (q = 0; q < NP; q = q + 1)
-                    if (freev[q] && nsp < ((form == 2'd2) ? 3 : 1)) begin
+                    if (freev[q] && nsp < ((form == 2'd2) ? AOE_PARENTS : 1)) begin
+                        p_child[q] <= 1'b0;
                         p_act[q] <= 1'b1; p_kindv[q*2 +: 2] <= pk_k; p_dirv[q*3 +: 3] <= sdir[nsp];
                         p_xv[q*10 +: 10] <= px + 10'd12; p_yv[q*10 +: 10] <= py + 10'd12;
                         nsp = nsp + 1;
@@ -374,6 +397,10 @@ module objects (
         end else begin                       // ph 1: ตัดสินจาก tile (กำแพง / ประตูปิด / กล่อง = หยุด, H F ผ่าน)
             if (bpass(tda) && !blocked(ta) && bpass(tdb) && !blocked(tb)) begin
                 p_xv[i[2:0]*10 +: 10] <= nx; p_yv[i[2:0]*10 +: 10] <= ny;
+                if (p_child[i[2:0]]) begin                           // ลูกที่แตก: หมดอายุ SPLIT_LIFE เฟรม
+                    if (p_lifev[i[2:0]*5 +: 5] == 0) p_act[i[2:0]] <= 1'b0;
+                    else p_lifev[i[2:0]*5 +: 5] <= p_lifev[i[2:0]*5 +: 5] - 1'b1;
+                end
             end else p_act[i[2:0]] <= 1'b0;
             ph <= 0;
             if (i == NP - 1) begin j <= 0; st <= S_EB; end
@@ -485,7 +512,19 @@ module objects (
             if (p_act[j[2:0]] && m_act[i] &&
                 ovl({1'b0, p_xv[j[2:0]*10 +: 10]} + OFS, {1'b0, p_yv[j[2:0]*10 +: 10]} + OFS, {2'b00, psz}, {2'b00, psz},
                     {1'b0, m_xv[(i)*10 +: 10]} + OFS + 11'd4, {1'b0, m_yv[(i)*10 +: 10]} + OFS + 11'd4, 7'd24, 7'd24)) begin
-                p_act[j[2:0]] <= 1'b0;               // W3: ลูกใหญ่หยุดเมื่อโดน (ไม่ทะลุแล้ว)
+                if (pk_k == 2'd1 && !p_child[j[2:0]]) begin       // W13: กระสุนร่าง 3 โดนมอน -> แตก 4 ทิศ (ลง ขึ้น ซ้าย ขวา) จากกลางมอน
+                    p_dirv[j[2:0]*3 +: 3] <= 3'd0; p_child[j[2:0]] <= 1'b1; p_lifev[j[2:0]*5 +: 5] <= SPLIT_LIFE;
+                    p_xv[j[2:0]*10 +: 10] <= m_xv[(i)*10 +: 10] + 10'd12; p_yv[j[2:0]*10 +: 10] <= m_yv[(i)*10 +: 10] + 10'd28;
+                    nsp = 1;
+                    for (q = 0; q < NP; q = q + 1)
+                        if (!p_act[q] && nsp < 4) begin
+                            p_act[q] <= 1'b1; p_kindv[q*2 +: 2] <= 2'd1; p_child[q] <= 1'b1; p_lifev[q*5 +: 5] <= SPLIT_LIFE;
+                            p_dirv[q*3 +: 3] <= nsp[2:0];
+                            p_xv[q*10 +: 10] <= m_xv[(i)*10 +: 10] + ((nsp == 2) ? 10'd12 - 10'd16 : (nsp == 3) ? 10'd12 + 10'd16 : 10'd12);
+                            p_yv[q*10 +: 10] <= m_yv[(i)*10 +: 10] + ((nsp == 1) ? 10'd12 - 10'd16 : 10'd12);
+                            nsp = nsp + 1;
+                        end
+                end else p_act[j[2:0]] <= 1'b0;               // W3: ลูกใหญ่หยุดเมื่อโดน (ไม่ทะลุแล้ว)
                 m_flv[(i)*4 +: 4] <= MON_FLASH; ev_mdmg <= 1'b1;
                 if (m_hpv[(i)*3 +: 3] <= bdmg(pk_k)) begin m_hpv[(i)*3 +: 3] <= 0; m_act[i] <= 1'b0; ev_mdie <= 1'b1; end
                 else m_hpv[(i)*3 +: 3] <= m_hpv[(i)*3 +: 3] - bdmg(pk_k);
@@ -571,7 +610,7 @@ module objects (
                 ovl({1'b0, p_xv[j[2:0]*10 +: 10]} + OFS, {1'b0, p_yv[j[2:0]*10 +: 10]} + OFS, {2'b00, psz}, {2'b00, psz},
                     {1'b0, boss_x} + OFS + 11'd8, {1'b0, boss_y} + OFS + 11'd8, 7'd48, 7'd48)) begin
                 p_act[j[2:0]] <= 1'b0;               // W3: ลูกใหญ่หยุดเมื่อโดนบอส
-                boss_dmg <= 1'b1; boss_dmg_amt <= bdmg(pk_k);
+                boss_dmg <= 1'b1; boss_dmg_amt <= bdmg(pk_k); boss_dmg_big <= (pk_k == 2'd3);
             end
             if (j == NP - 1) st <= S_BMEL;
             j <= j + 1'b1;

@@ -19,7 +19,9 @@
 //   rgb         {R,G,B} สี LED16 (ขาวตอน EVOLVE)
 //   freeze      player ไม่เดิน/ไม่ animate  ·  hide_player  จังหวะกะพริบตอน EVOLVE
 //   m_t m_o s_t s_o  เวลาเล่น mm.ss เป็น BCD
-module game_fsm (
+module game_fsm #(
+    parameter PROLOGUE = 1                   // 1 = TITLE -> PROLOGUE (4 หน้า) -> PLAY; 0 = TITLE -> PLAY ตรง (testbench เก่า)
+) (
     input  wire       clk,
     input  wire       rst,
     input  wire       frame_tick,
@@ -31,7 +33,9 @@ module game_fsm (
     input  wire       escape_start,          // pulse: บอส 3 ตาย -> ESCAPE
     input  wire       exit_direct,           // 1 = exit_evt ตอน PLAY ไป WIN ตรง ๆ (DEBUG, สคริปต์เก่า)
     input  wire       sprint,
+    input  wire       kill,                  // pulse: โจมตีใหญ่ของบอส 3 -> HP 0 -> GAME_OVER (PLAY / ESCAPE)
     output reg  [2:0] state = 3'd0,
+    output reg  [1:0] page = 2'd0,           // หน้า prologue 0..3 (ใช้ตอน state = S_PROLOGUE)
     output reg        restart = 1'b0,
     output reg        next_floor = 1'b0,
     output reg  [1:0] form = 2'd0,
@@ -51,7 +55,7 @@ module game_fsm (
     localparam [2:0] BLINK_BIT = 3'd2;        // กะพริบ: เห็น 4 เฟรม / ซ่อน 4 เฟรม (บิต 2 ของตัวนับ)
 
     localparam [2:0] S_TITLE = 3'd0, S_PLAY = 3'd1, S_EVOLVE = 3'd2, S_FLOOR_CLEAR = 3'd3,
-                     S_ESCAPE = 3'd4, S_WIN = 3'd5, S_GAME_OVER = 3'd6;
+                     S_ESCAPE = 3'd4, S_WIN = 3'd5, S_GAME_OVER = 3'd6, S_PROLOGUE = 3'd7;
 
     function [2:0] f_spd(input [1:0] f);
         case (f) 2'd0: f_spd = SPD1; 2'd1: f_spd = SPD2; 2'd2: f_spd = SPD3; default: f_spd = SPD4; endcase
@@ -70,9 +74,10 @@ module game_fsm (
     assign speed  = f_spd(form) + (sprint ? SPRINT_BONUS : 3'd0);
     assign damage = f_dmg(form);
     assign rgb    = (state == S_EVOLVE) ? 3'b111 : f_rgb(form);
-    assign freeze = (state == S_TITLE) || (state == S_EVOLVE) || (state == S_FLOOR_CLEAR) ||
+    assign freeze = (state == S_TITLE) || (state == S_PROLOGUE) || (state == S_EVOLVE) || (state == S_FLOOR_CLEAR) ||
                     (state == S_WIN)   || (state == S_GAME_OVER);
 
+    reg [8:0] pcnt = 9'd0;                   // นับเฟรมในหน้า prologue
     reg [7:0] cnt = 8'd0;                    // นับเฟรมใน EVOLVE / FLOOR_CLEAR
     assign hide_player = (state == S_EVOLVE) && cnt[BLINK_BIT];
 
@@ -95,14 +100,23 @@ module game_fsm (
         end else begin
             case (state)
             S_TITLE: if (btnc_rise) begin
-                state <= S_PLAY; restart <= 1'b1;
-                form <= 2'd0; hp <= HP1; cnt <= 0;
+                form <= 2'd0; hp <= HP1; cnt <= 0; page <= 2'd0; pcnt <= 0;
                 timer_clr = 1'b1;
+                if (PROLOGUE != 0) state <= S_PROLOGUE;
+                else begin state <= S_PLAY; restart <= 1'b1; end
+            end
+
+            S_PROLOGUE: begin                           // W9a: จอดำ + ข้อความทีละหน้า; BTNC หรือครบเวลา = หน้าถัดไป
+                if (btnc_rise || (frame_tick && pcnt == PROLOGUE_FRAMES - 1)) begin
+                    pcnt <= 0;
+                    if (page == PROLOGUE_PAGES - 1) begin state <= S_PLAY; restart <= 1'b1; page <= 2'd0; timer_clr = 1'b1; end
+                    else page <= page + 1'b1;
+                end else if (frame_tick) pcnt <= pcnt + 1'b1;
             end
 
             S_PLAY: begin
                 if (take_hit && hp != 3'd0) hp <= hp - 1'b1;
-                if (take_hit && hp <= 3'd1) begin       // HP หมด
+                if (kill || (take_hit && hp <= 3'd1)) begin       // HP หมด / โดนโจมตีใหญ่
                     hp <= 3'd0; state <= S_GAME_OVER;
                 end else if (got_item && form != 2'd3) begin
                     state <= S_EVOLVE; cnt <= 0;
@@ -133,7 +147,7 @@ module game_fsm (
 
             S_ESCAPE: begin                             // วิ่งหนีไปประตู E ก่อนเวลาหมด
                 if (take_hit && hp != 3'd0) hp <= hp - 1'b1;
-                if (take_hit && hp <= 3'd1) begin
+                if (kill || (take_hit && hp <= 3'd1)) begin
                     hp <= 3'd0; state <= S_GAME_OVER;
                 end else if (exit_evt) begin
                     state <= S_WIN;

@@ -23,6 +23,8 @@ localparam [2:0] RGB4 = 3'b110;            // ทอง
 localparam [2:0] SPRINT_BONUS = 3'd1;      // SW15: +px/เฟรม
 localparam [6:0] EVOLVE_FRAMES = 7'd60;    // EVOLVE 1 วิ
 localparam [7:0] CLEAR_FRAMES  = 8'd120;   // FLOOR_CLEAR 2 วิ
+localparam [8:0] PROLOGUE_FRAMES = 9'd360;  // W9a: แต่ละหน้า prologue อยู่นานสุด 6 วิ (หรือกด BTNC ข้ามไปหน้าถัดไป)
+localparam [2:0] PROLOGUE_PAGES  = 3'd4;    // จำนวนหน้า prologue (PRO-01..04)
 
 // ---------- การโจมตีของผู้เล่น ----------
 localparam MELEE_FRAMES   = 8;             // ร่าง 1: hit box อยู่กี่เฟรม (24x16 หน้าตัว)
@@ -66,16 +68,23 @@ localparam PUZZLE_DELAY   = 256;           // puzzles.v เริ่มงาน
 // ---------- บอส (P5) ----------
 localparam BOSS1_HP        = 10;           // บอส 1 (ชั้น 1)
 localparam BOSS2_HP        = 16;           // บอส 2 (ชั้น 2)
-localparam BOSS3_HP        = 24;           // บอส 3 (ชั้น 3)
-localparam BOSS1_SPEED     = 1;            // px ต่อก้าว
-localparam BOSS1_EVERY     = 2;            // บอส 1 ก้าวทุกกี่เฟรม (1 px ทุก 2 เฟรม)
-localparam BOSS2_SPEED     = 2;            // เด้งทแยง px/เฟรม
+localparam BOSS3_HP        = 3;            // W12: 3 ปล่อยชาร์จที่โดน = ตาย (แถบ HP 3 ช่อง)           // บอส 3 (ชั้น 3)
+localparam BOSS1_SPEED     = 2;            // W10: px ต่อก้าว (เร็วมาก)
+localparam BOSS1_EVERY     = 1;            // บอส 1 ก้าวทุกกี่เฟรม (ทุกเฟรม)
+localparam BOSS2_SPEED     = 0;            // W11: บอส 2 อยู่กับที่ (เรียกลูกน้อง)
 localparam BOSS3_SPEED     = 2;            // ไล่ px/เฟรม
-localparam BOSS2_FIRE      = 120;          // ยิง 4 ทิศทุกกี่เฟรม
+localparam BOSS2_FIRE      = 0;            // บอส 2 ไม่ยิงแล้ว (0 = ไม่ยิง)
 localparam BOSS3_FIRE      = 60;
 localparam BOSS_FLASH      = 8;            // โดนตีกะพริบ
-localparam STUN_FRAMES     = 120;          // ตบมือ -> บอส 2 มึน
-localparam STUN_COOLDOWN   = 300;          // หลังมึนจบ รอกี่เฟรมถึงตบมือได้อีก
+localparam STUN_FRAMES     = 180;          // W10: ตบมือ -> บอส 1 มึน 3 วิ
+localparam STUN_COOLDOWN   = 240;          // W10: 4 วิ
+localparam BOSS2_FIRST      = 60;           // W11: บอส 2 รอกี่เฟรมก่อน summon ครั้งแรก
+localparam BOSS2_VULN_FRAMES = 120;         // W11: ช่วงที่ตีบอส 2 ได้หลังลูกน้องตายหมด (2 วิ) แล้ว summon รอบใหม่
+localparam BOSS2_MINIONS    = 3;            // W11: ลูกน้องต่อรอบ (ตำแหน่ง SUMMON*_T* ด้านล่าง)
+localparam [4:0] SUMMON0_TX = 5'd6,  SUMMON1_TX = 5'd13, SUMMON2_TX = 5'd9;   // tile (x, y) ในวงรั้วห้องบอสชั้น 2 (ต้องเป็นพื้น)
+localparam [3:0] SUMMON0_TY = 4'd5,  SUMMON1_TY = 4'd5,  SUMMON2_TY = 4'd10;
+localparam BOSS3_CHASE      = 180;          // W12: บอส 3 ไล่ (เกราะ) กี่เฟรมก่อนชาร์จโจมตีใหญ่
+localparam BOSS3_CHARGE     = 120;          // W12: ชาร์จโจมตีใหญ่ 2 วิ (ตอนนี้ยิงชาร์จขัดได้) ครบ = ผู้เล่นตายทั้งห้อง          // หลังมึนจบ รอกี่เฟรมถึงตบมือได้อีก
 
 // ---------- ฉากหนี (P5) ----------
 localparam ESCAPE_SECONDS  = 30;           // นับถอยหลัง (1800 เฟรม)
@@ -93,6 +102,8 @@ localparam MIC_HOLDOFF     = 20000000;     // หลังตบมือ ไม
 localparam BOSS_DELAY      = 300;          // boss.v เริ่มงานต่อเฟรมหลัง frame_tick กี่ clock (หลัง objects.v)
 
 // ---------- อาวุธต่อร่าง (P6) ----------
+localparam AOE_PARENTS    = 3;            // W13: ร่าง 3 ยิงกี่นัดพร้อมกัน (3 ทาง; นัดที่โดนมอนจะแตก 4 ทิศ ต้องมี slot ว่าง 3 ช่อง)
+localparam SPLIT_LIFE      = 24;           // W13: ลูกที่แตกบินกี่เฟรม (24 x 4 px = 96 px = 3 tile) แล้วหาย
 localparam SPREAD_SPEED    = 4;            // ร่าง 3 กระสุนกระจาย: ทางตรง px/เฟรม
 localparam SPREAD_DIAG     = 3;            // ร่าง 3: ทแยง 45 องศา px/เฟรม ต่อแกน
 localparam SPREAD_COOLDOWN = 20;           // ร่าง 3: เฟรมระหว่างชุด (3 นัด)
