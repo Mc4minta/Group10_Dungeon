@@ -36,7 +36,7 @@ def sha(p):
         return hashlib.sha256(f.read()).hexdigest()
 
 
-def indep_tile(png, row, col, recolor="rgb", cs=16, scale=2, base=None, gain=1.0):
+def indep_tile(png, row, col, recolor="rgb", cs=16, scale=2, base=None, gain=1.0, cut=()):
     """independent conversion (does not use build code); None if the cell is empty"""
     im = Image.open(png).convert("RGBA")
     out = list(base) if base else [None] * N
@@ -45,7 +45,7 @@ def indep_tile(png, row, col, recolor="rgb", cs=16, scale=2, base=None, gain=1.0
     for y in range(cs):
         for x in range(cs):
             r, g, b, a = im.getpixel((col * cs + x, row * cs + y))
-            if a < 128:
+            if a < 128 or (r, g, b) in cut:
                 continue
             opq += 1
             ch = tuple(min(255, int(q * gain + 0.5)) for q in (r, g, b))
@@ -103,15 +103,45 @@ class RealProject(unittest.TestCase):
             self.assertEqual(self.mem[i * N:(i + 1) * N], exp, (n, t))
 
     def test_base_tiles_composite(self):
-        """a tile with a base shows the base tile wherever its cell is see-through"""
+        """a tile with a base shows the base tile wherever its cell is see-through (door 2 = spikes up, cut colour = see-through)"""
         n, t = 3, 2                                            # floor 3: closed door over the floor tile
         spec = self.cfg["tiles"][t]
-        png = os.path.join(ROOT, self.cfg["floors"][n]["sheet"])
+        png = os.path.join(ROOT, spec["file"])
         bi = T.tidx(n, spec["base"])
         base = self.mem[bi * N:(bi + 1) * N]
-        exp = indep_tile(png, spec["cell"][0], spec["cell"][1], spec.get("recolor", self.cfg["floors"][n]["recolor"]), base=base, gain=spec.get("gain", self.cfg["floors"][n]["gain"]))
+        exp = indep_tile(png, spec["cell"][0], spec["cell"][1], spec.get("recolor", self.cfg["floors"][n]["recolor"]),
+                         cs=spec["cell_size"], scale=32 // spec["cell_size"], base=base, gain=spec.get("gain", self.cfg["floors"][n]["gain"]), cut=spec["cut"])
         i = T.tidx(n, t)
         self.assertEqual(self.mem[i * N:(i + 1) * N], exp)
+
+    def test_doors_are_spike_traps_and_maze_door_is_a_wall(self):
+        """W1: D / L doors (tiles 2, 3 closed = spikes up; 8, 9 open = spikes down) show the floor through the cut colour;
+        the exit E (4) is the wall picture and vanishes when open (10 = the plain floor)"""
+        for floor in (1, 2, 3):
+            tile = lambda t: self.mem[T.tidx(floor, t) * N:(T.tidx(floor, t) + 1) * N]
+            floor_t, wall_t = tile(1), tile(0)
+            self.assertEqual(tile(4), wall_t, f"floor {floor}: closed exit looks like the wall")
+            self.assertEqual(tile(10), floor_t, f"floor {floor}: open exit is plain floor")
+            self.assertEqual(tile(2), tile(3), f"floor {floor}: D and L closed share the spike art")
+            self.assertEqual(tile(8), tile(9), f"floor {floor}: D and L open share the spike art")
+            self.assertNotEqual(tile(2), tile(8), f"floor {floor}: spikes up differ from spikes down")
+            for t in (2, 3, 8, 9):
+                same = sum(1 for x, y in zip(tile(t), floor_t) if x == y)
+                self.assertGreater(same, 500, f"floor {floor} tile {t}: the floor shows through the cut colour")
+                self.assertLess(same, N, f"floor {floor} tile {t}: spikes are drawn")
+
+    def test_bad_cut_is_config_error(self):
+        c = json.loads(json.dumps(load_json(os.path.join(ROOT, "sprites", "tileset.json"))))
+        c["tiles"]["2"]["cut"] = [[1, 2]]
+        t = tempfile.mkdtemp()
+        try:
+            p = os.path.join(t, "tileset.json")
+            with open(p, "w", encoding="utf-8") as f:
+                json.dump(c, f)
+            with self.assertRaises(T.ConfigError):
+                T.load_config(p, ROOT)
+        finally:
+            shutil.rmtree(t)
 
     def test_plate_tiles_from_own_picture(self):
         """tiles 7 / 11 (Sokoban plate raised / pressed) and 12-15 (Simon plates, tinted) come from my_asset/props/plate.png at 1:1"""
@@ -157,7 +187,8 @@ class Fallbacks(unittest.TestCase):
             os.makedirs(os.path.join(self.t, d))
         shutil.copy(os.path.join(ROOT, "mem", "tileset_v1.mem"), os.path.join(self.t, "mem"))
         os.makedirs(os.path.join(self.t, "my_asset", "props"))
-        shutil.copy(os.path.join(ROOT, "my_asset", "props", "plate.png"), os.path.join(self.t, "my_asset", "props"))
+        for pf in ("plate.png", "peaks_1.png", "peaks_3.png"):
+            shutil.copy(os.path.join(ROOT, "my_asset", "props", pf), os.path.join(self.t, "my_asset", "props"))
         shutil.copy(os.path.join(ROOT, "my_asset", "tileset", "Dungeon_Tileset.png"),
                     os.path.join(self.t, "my_asset", "sheet.png"))
         self.cfgp = os.path.join(self.t, "sprites", "tileset.json")

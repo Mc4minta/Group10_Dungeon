@@ -19,7 +19,7 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 | Feature | Details | Code |
 |---|---|---|
 | Movement | **8-direction walk** (two buttons = diagonal; x and y are moved separately, so you slide along walls), the sprite faces 4 directions; tile collision with a 24x24 box, sprint, knockback | `rtl/player.v` |
-| Face lock | BTNC tap keeps the facing for 0.4 s (step back while swinging); SW14 = facing locked all the time | `rtl/face_lock.v`, `top.v` |
+| Face lock | BTNC tap keeps the facing for 0.4 s (step back while swinging); SW12 = facing locked all the time | `rtl/face_lock.v`, `top.v` |
 | Hurt box | only a centred 16x16 area can be hit (the drawn body is small) | `params.vh` `HURT_BOX` |
 | Hit feedback | screen shake 12 frames, sprite blink, red RGB LED | `top.v`, `objects.v` |
 | Sprites | 48 frames (4 forms x 4 directions x 3 poses), your art for forms 1-3 (Human, Orc, Angel all 2x), form 4 = gold Human | `mem/player.mem` |
@@ -61,7 +61,7 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 | Feature | Details | Code |
 |---|---|---|
 | Room graph | doors between rooms, spawn points, per-floor start/boss rooms | `rtl/world.v` |
-| Door types | D combat door (closes while monsters live), L boss door (needs item), E exit (form 4 / ESCAPE) | `player.v`, `renderer.v` |
+| Door types | D combat door (closes while monsters live) and L boss door (needs item) are **spike traps** (spikes up = closed, flat = open); E exit (form 4 / ESCAPE, later the maze door) is a solid wall that vanishes when it opens | `player.v`, `renderer.v` |
 | Tiles | 16 ids: wall, floor, 3 doors + 3 open versions, hole, fence, plate (+ with box), Simon plates 12-15 (decoration on floors 1-2) | `scripts/build_maps.py`, `mem/tilemap.mem` |
 | Holes `H` | only form 3+ crosses | `player.v` |
 | Decoration | bones, skull, cracks, rubble in 7 rooms (look only; ids behave as floor) | `maps/*.txt` |
@@ -104,13 +104,14 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 |---|---|
 | BTNU / D / L / R | walk (two together = diagonal) |
 | BTNC | start (TITLE) / attack (PLAY) / back to TITLE (WIN, GAME OVER) |
-| SW15 | sprint (+1 px/frame) |
-| SW14 | facing lock |
+| SW15 | **PAUSE** (game frozen, PAUSED text, music + sfx muted; PLAY / ESCAPE only) |
+| SW14 | sprint (+1 px/frame) |
+| SW12 | facing lock |
 | SW13 | Sokoban box reset |
 | SW0-SW4 | debug (only `DEBUG = 1`) |
 | Microphone (PDM) | clap = stun boss 2 (only tested in simulation) |
 | 7-segment | floor - HP - mm.ss |
-| LEDs | LED0-3 buttons / lamps / Simon round, LED4-7 monsters left (boss room: boss HP), LED8-11 HP, LED12 door locked, LED13 item, LED14 sprint, LED15 WIN; RGB16 = form colour, RGB17 red = hit |
+| LEDs | LED0-3 buttons / lamps / Simon round, LED4-7 monsters left (boss room: boss HP), LED8-11 HP, LED12 door locked, LED13 item, LED14 sprint (SW14), LED15 WIN; RGB16 = form colour, RGB17 red = hit |
 
 ## 12. Built but switched OFF
 | Feature | How to switch on | Cost |

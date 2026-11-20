@@ -95,6 +95,12 @@ def _spec(v, what):
         if not (isinstance(t, list) and len(t) == 3 and all(isinstance(x, int) and not isinstance(x, bool) and 0 <= x <= 255 for x in t)):
             raise ConfigError(f"{what}: tint must be [r, g, b] with 0..255")
         spec["tint"] = tuple(t)
+    if "cut" in v:                                    # exact [r,g,b] background colours that become see-through (floor shows through, needs "base")
+        cu = v["cut"]
+        if not (isinstance(cu, list) and cu and all(isinstance(c, list) and len(c) == 3 and
+                all(isinstance(x, int) and not isinstance(x, bool) and 0 <= x <= 255 for x in c) for c in cu)):
+            raise ConfigError(f"{what}: cut must be a list of [r, g, b] colours (0..255)")
+        spec["cut"] = tuple(tuple(c) for c in cu)
     return spec
 
 
@@ -205,7 +211,7 @@ class SheetFile:
         return self.im.crop((x, y, x + cs, y + cs)), None
 
 
-def cell_words(cell, scale, recolor, alpha, base_words, gain=1.0, tint=None):
+def cell_words(cell, scale, recolor, alpha, base_words, gain=1.0, tint=None, cut=()):
     """RGBA cell -> 1024 RGB444 words (exact integer upscale). Transparent pixels show base_words.
     -> (words | None if fully transparent, opaque pixel count)"""
     cs = cell.width
@@ -217,7 +223,7 @@ def cell_words(cell, scale, recolor, alpha, base_words, gain=1.0, tint=None):
     for y in range(cs):
         for x in range(cs):
             r, g, b, a = px[x, y]
-            if a < alpha:
+            if a < alpha or (r, g, b) in cut:
                 continue
             opaque += 1
             if tint is not None:
@@ -291,7 +297,7 @@ def build(cfg, root):
                     if cell is None:
                         info["fallback"] = why
                     else:
-                        w, opq = cell_words(cell, TILE_PX // csz, spec.get("recolor", fc["recolor"]), cfg["alpha"], base, spec.get("gain", fc["gain"]), spec.get("tint"))
+                        w, opq = cell_words(cell, TILE_PX // csz, spec.get("recolor", fc["recolor"]), cfg["alpha"], base, spec.get("gain", fc["gain"]), spec.get("tint"), spec.get("cut", ()))
                         if w is None:
                             info["fallback"] = f"{sh.label} row{spec['cell'][0]} col{spec['cell'][1]} fully transparent"
                         elif any(v is None for v in w):
