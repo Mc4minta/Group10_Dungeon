@@ -34,6 +34,9 @@ $PY scripts/build_hud_mem.py --preview | grep -E "^(WARNING|ERROR)|Summary|Chang
 echo; echo "== 2f/4 build mem/ovtile.mem + preview (breakable block / trap / decoration)"
 $PY scripts/build_overlay_mem.py --preview | grep -E "^(WARNING|ERROR)|Wrote"
 
+echo; echo "== 2g/4 story text (docs/STORY.md -> text ROM, dialogue ROM)"
+$PY scripts/build_story.py | grep -E "^(WARNING|ERROR)|font:"
+
 echo; echo "== 3/4 iverilog sprite test (player_rom reads mem/player.mem)"
 if command -v iverilog >/dev/null 2>&1; then
   if ./scripts/run_sim.sh sprites > /tmp/update_sprites_tb.log 2>&1 && ./scripts/run_sim.sh tileset >> /tmp/update_sprites_tb.log 2>&1 && ./scripts/run_sim.sh monster >> /tmp/update_sprites_tb.log 2>&1 && ./scripts/run_sim.sh bosssprites >> /tmp/update_sprites_tb.log 2>&1 && ./scripts/run_sim.sh puzzleart >> /tmp/update_sprites_tb.log 2>&1; then tail -3 /tmp/update_sprites_tb.log

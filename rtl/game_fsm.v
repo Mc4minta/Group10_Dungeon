@@ -37,6 +37,7 @@ module game_fsm #(
     input  wire       goal,                  // pulse: ลูกบอลถึงเส้นชัยในเขาวงกต (ESCAPE state = maze) -> WIN
     input  wire       kill,                  // pulse: โจมตีใหญ่ของบอส 3 -> HP 0 -> GAME_OVER (PLAY / ESCAPE)
     output reg  [2:0] state = 3'd0,
+    output reg        timeout = 1'b0,        // W16: GAME_OVER มาจากหมดเวลาเขาวงกต (หน้าจอข้อความต่างจากตายธรรมดา)
     output reg        has_key = 1'b0,        // W7: มีกุญแจแล้ว -> ประตู E (START ชั้น 3) เปิด; เดินเข้า = เริ่มเขาวงกต
     output reg  [1:0] page = 2'd0,           // หน้า prologue 0..3 (ใช้ตอน state = S_PROLOGUE)
     output reg        restart = 1'b0,
@@ -98,13 +99,13 @@ module game_fsm #(
         timer_clr = 1'b0;
 
         if (rst) begin
-            state <= S_TITLE; form <= 2'd0; hp <= HP1; cnt <= 0; has_key <= 1'b0;
+            state <= S_TITLE; form <= 2'd0; hp <= HP1; cnt <= 0; has_key <= 1'b0; timeout <= 1'b0;
             timer_clr = 1'b1;
         end else begin
             if (key_get) has_key <= 1'b1;
             case (state)
             S_TITLE: if (btnc_rise) begin
-                form <= 2'd0; hp <= HP1; cnt <= 0; page <= 2'd0; pcnt <= 0; has_key <= 1'b0;
+                form <= 2'd0; hp <= HP1; cnt <= 0; page <= 2'd0; pcnt <= 0; has_key <= 1'b0; timeout <= 1'b0;
                 timer_clr = 1'b1;
                 if (PROLOGUE != 0) state <= S_PROLOGUE;
                 else begin state <= S_PLAY; restart <= 1'b1; end
@@ -159,7 +160,7 @@ module game_fsm #(
                     if (esc_el != 8'hFF) esc_el <= esc_el + 1'b1;
                     // นับถอยหลัง ss.ff (ff = 59..0)
                     if (e_s_t == 0 && e_s_o == 0 && e_f_t == 0 && e_f_o == 1) begin
-                        e_f_o <= 0; state <= S_GAME_OVER;       // หมดเวลา
+                        e_f_o <= 0; state <= S_GAME_OVER; timeout <= 1'b1;       // หมดเวลา
                     end else if (e_f_t == 0 && e_f_o == 0) begin
                         e_f_t <= 4'd5; e_f_o <= 4'd9;
                         if (e_s_o == 0) begin e_s_o <= 4'd9; e_s_t <= e_s_t - 1'b1; end

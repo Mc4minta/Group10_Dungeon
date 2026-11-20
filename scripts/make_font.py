@@ -7,13 +7,13 @@ rtl/text_layout.vh : ตำแหน่ง/ขนาด/ที่อยู่ข
 
 รหัสตัวอักษร: 0-9 ตัวเลข, 10-35 A-Z, 36 ช่องว่าง, 37 '-', 38 ':', 39 '!', 40 '.'
              59-63 = ตัวเลขสด: 59 ชั้น (1-3), 60-63 = เวลา m m s s
-ชื่อเกม: แก้ GAME_NAME ด้านล่างที่เดียว แล้วรันสคริปต์ใหม่
+ข้อความทั้งหมดอยู่ใน docs/STORY.md (ชื่อเกม = TITLE-01) — แก้ที่นั่น แล้วรัน python scripts/build_story.py
 
 รัน: python3 scripts/make_font.py
 """
 import os
+import sys
 
-GAME_NAME = 'DUNGEON'          # ชื่อเกม (ชั่วคราว) — เปลี่ยนที่นี่ที่เดียว (A-Z 0-9 ช่องว่าง, ไม่เกิน 18 ตัว)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -83,49 +83,64 @@ def encode(s):
     return out
 
 
-# ---------- ข้อความต่อหน้าจอ: (หน้าจอ, บรรทัด, ข้อความ, scale, y, กะพริบ) ----------
-# หน้าจอข้อความ: 1 TITLE, 2 FLOOR CLEAR, 3 ESCAPE banner, 4 WIN, 5 GAME OVER, 6 PAUSED (บรรทัดละไม่เกิน 2)
-assert len(GAME_NAME) <= 18 and all(c in CODE for c in GAME_NAME)
-LINES = [
-    (1, 0, GAME_NAME,        4,  96, 0),
-    (1, 1, 'PRESS BTNC',     2, 360, 1),
-    (2, 0, 'FLOOR {F} CLEAR', 4, 176, 0),
-    (3, 0, 'TILT THE BOARD TO', 2, 40, 0),     # W7: banner at the start of the maze (END-04)
-    (3, 1, 'ROLL THE BALL OUT!', 2, 64, 0),
-    (4, 0, 'YOU WIN',        4, 160, 0),
-    (4, 1, '{M1}{M0}:{S1}{S0}', 4, 260, 0),
-    (5, 0, 'GAME OVER',      4, 160, 0),
-    (5, 1, 'PRESS BTNC',     2, 300, 1),
-    (6, 0, 'PAUSED',         4, 208, 0),
-    # 7-10: prologue pages 1-4 (PRO-01..04, black screen) | 11-13: NEW FORM banners in EVOLVE (form 2, 3, 4)
-    (7, 0, 'ROME WASNT BUILT',   4, 160, 0), (7, 1, 'IN A DAY.',          4, 220, 0),
-    (8, 0, 'BUT WE HAVE ONLY',   4, 160, 0), (8, 1, '4 HOURS LEFT.',      4, 220, 0),
-    (9, 0, 'I NEED COFFEE...',   4, 160, 0), (9, 1, 'DONT FALL ASLEEP!',  4, 220, 0),
-    (10, 0, 'I CANT STAY AWAKE...', 4, 160, 0), (10, 1, 'ALL WENT QUIET.', 4, 220, 0),
-    (11, 0, 'NEW FORM: ORC!',    4, 140, 0), (11, 1, 'RANGED SHOT!',      2, 190, 0),
-    (12, 0, 'NEW FORM: ANGEL!',  4, 140, 0), (12, 1, 'SHOTS SPLIT ON HIT!', 2, 190, 0),
-    (13, 0, 'NEW FORM: FORM 4!', 4, 140, 0), (13, 1, 'HOLD ATTACK: CHARGE!', 2, 190, 0),
+# ---------- ข้อความต่อหน้าจอ: มาจาก docs/STORY.md (source of truth, scripts/story.py) ----------
+# หน้าจอ: 1 TITLE, 2 FLOOR CLEAR, 3 ป้ายเขาวงกต, 4 WIN, 5 GAME OVER, 6 PAUSED, 7-10 prologue, 11-13 NEW FORM, 14 = กล่อง dialogue (renderer วาดเอง), 15 หมดเวลา
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import story as story_mod
+STORY = story_mod.load()
+for w_ in STORY.warnings:
+    print('WARNING:', w_)
+S = STORY.screens
+# (หน้าจอ, ชื่อใน STORY.md, [(scale, y, กะพริบ) ต่อบรรทัด])
+SCREEN_SPECS = [
+    (1, 'title', [(4, 96, 0), (2, 360, 1)]),
+    (2, 'floorclear', [(4, 176, 0)]),
+    (3, 'maze', [(2, 40, 0), (2, 64, 0)]),
+    (4, 'win', [(4, 160, 0), (4, 260, 0)]),
+    (5, 'gameover', [(4, 160, 0), (2, 300, 1)]),
+    (7, 'prologue1', [(4, 160, 0), (4, 220, 0)]), (8, 'prologue2', [(4, 160, 0), (4, 220, 0)]),
+    (9, 'prologue3', [(4, 160, 0), (4, 220, 0)]), (10, 'prologue4', [(4, 160, 0), (4, 220, 0)]),
+    (11, 'evolve2', [(4, 140, 0), (2, 190, 0)]), (12, 'evolve3', [(4, 140, 0), (2, 190, 0)]), (13, 'evolve4', [(4, 140, 0), (2, 190, 0)]),
+    (15, 'timeout', [(4, 160, 0), (4, 260, 0)]),
 ]
-NSCR = 13
+LINES = [(6, 0, 'PAUSED', 4, 208, 0)]
+for scr_, name_, specs_ in SCREEN_SPECS:
+    for ln_, (sc_, y_, bl_) in enumerate(specs_):
+        t_ = S[name_][ln_] if ln_ < len(S[name_]) else ''
+        if t_:
+            LINES.append((scr_, ln_, t_, sc_, y_, bl_))
+for scr_, ln_, t_, sc_, y_, bl_ in LINES:
+    assert all(c in CODE or c in '{}FMS01' for c in t_), (scr_, t_)
+SCR_LIST = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15]
 text = []
 desc = {}
-for scr, ln, s, sc, y, bl in LINES:
-    codes = encode(s)
+for scr, ln, s_, sc, y, bl in LINES:
+    codes = encode(s_)
     w = len(codes) * 8 * sc
+    assert w <= 640, f'screen {scr} line {ln}: {s_!r} is {w}px wide at scale {sc}'
     x = (640 - w) // 2
     desc[(scr, ln)] = (y, x, w, 8 * sc, 1 if sc == 4 else 0, len(text), bl)
     text += codes
-assert len(text) <= 512
+# ---------- dialogue messages (rtl/dialog.v): text appended after the screens, entry = {block, speaker, n1, b1, n0, b0} ----------
+dlg_words = []
+for e in STORY.dialogs:
+    c0, c1 = encode(e.l1), encode(e.l2) if e.l2 else []
+    b0 = len(text); text += c0
+    b1 = len(text); text += c1
+    spk = story_mod.SPEAKERS.get(e.speaker.upper(), 2)
+    dlg_words.append((int(e.block) << 36) | (spk << 34) | (len(c1) << 29) | (b1 << 17) | (len(c0) << 12) | b0)
+TEXT_SIZE = 4096
+assert len(text) <= TEXT_SIZE, f'text ROM overflow: {len(text)} > {TEXT_SIZE}'
 
 with open(os.path.join(ROOT, 'mem', 'font.mem'), 'w') as f:
     f.write('\n'.join(f'{v:02x}' for g in font for v in g) + '\n')
 with open(os.path.join(ROOT, 'mem', 'text.mem'), 'w') as f:
-    f.write('\n'.join(f'{v:02x}' for v in text + [36] * (512 - len(text))) + '\n')
+    f.write('\n'.join(f'{v:02x}' for v in text + [36] * (TEXT_SIZE - len(text))) + '\n')
 
-vh = ['// สร้างโดย scripts/make_font.py — อย่าแก้มือ (ชื่อเกมแก้ที่ GAME_NAME ในสคริปต์)',
-      '// บรรทัดข้อความ: หน้าจอ s (1..13) บรรทัด l (0..1): Y, X, W(px), H(px), S (0 = 2x, 1 = 4x), B (ที่อยู่ใน text.mem), K (กะพริบ)']
+vh = ['// สร้างโดย scripts/make_font.py — อย่าแก้มือ (แก้ข้อความที่ docs/STORY.md)',
+      '// บรรทัดข้อความ: หน้าจอ s (1..13, 15) บรรทัด l (0..1): Y, X, W(px), H(px), S (0 = 2x, 1 = 4x), B (ที่อยู่ใน text.mem), K (กะพริบ)']
 sel = ['// generated by scripts/make_font.py - do not edit. Body of the text-screen case in renderer.v (included inside `case (txt_scr)`)']
-for scr in range(1, NSCR + 1):
+for scr in SCR_LIST:
     for ln in range(2):
         y, x, w, h, s4, b, bl = desc.get((scr, ln), (0, 0, 0, 0, 0, 0, 0))
         vh.append(f"localparam [9:0] T{scr}_{ln}_Y = 10'd{y}, T{scr}_{ln}_X = 10'd{x}, T{scr}_{ln}_W = 10'd{w}, "
@@ -137,6 +152,25 @@ with open(os.path.join(ROOT, 'rtl', 'text_select.vh'), 'w', encoding='utf-8') as
     f.write('\n'.join(sel) + '\n')
 with open(os.path.join(ROOT, 'rtl', 'text_layout.vh'), 'w', encoding='utf-8') as f:
     f.write('\n'.join(vh) + '\n')
+
+# ---------- dialogue ROM + trigger table ----------
+with open(os.path.join(ROOT, 'mem', 'dlg.mem'), 'w') as f:
+    f.write(chr(10).join(f'{v:010x}' for v in dlg_words + [0] * (128 - len(dlg_words))) + chr(10))
+tl = ['// generated by scripts/make_font.py from docs/STORY.md - do not edit by hand',
+      f'localparam NDLG = {len(STORY.dialogs)};', f'localparam NEV = {len(story_mod.EVENTS)};'] + \
+     [f'localparam EV_{n.upper()} = {i};' for i, n in enumerate(story_mod.EVENTS)] + [
+
+      '// trigger of each dialogue message: a game event (ev) or the end of another message (fin)',
+      'function [127:0] dlg_trigs(input [63:0] ev, input [127:0] fin);', '    begin', "        dlg_trigs = 128'd0;"]
+for e in STORY.dialogs:
+    if e.event is not None:
+        tl.append(f'        dlg_trigs[{e.index}] = ev[{e.event}];   // {e.id} {story_mod.EVENTS[e.event]}')
+    else:
+        j = [d for d in STORY.dialogs if d.id == e.after][0].index
+        tl.append(f'        dlg_trigs[{e.index}] = fin[{j}];   // {e.id} after {e.after}')
+tl += ['    end', 'endfunction', '']
+with open(os.path.join(ROOT, 'rtl', 'dlg_cfg.vh'), 'w', encoding='utf-8') as f:
+    f.write(chr(10).join(tl))
 
 # preview
 try:
@@ -152,4 +186,4 @@ try:
     im.save(os.path.join(ROOT, 'docs', 'font_preview.png'))
 except ImportError:
     pass
-print(f'font: {len(G)} glyphs, text: {len(text)} chars in {len(LINES)} lines')
+print(f'font: {len(G)} glyphs, text ROM: {len(text)} of {TEXT_SIZE} chars, {len(LINES)} screen lines, {len(STORY.dialogs)} dialogue messages')

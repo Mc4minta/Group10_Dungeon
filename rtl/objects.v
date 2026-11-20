@@ -43,6 +43,9 @@ module objects (
     input  wire [7:0]   brk,                // W5: บล็อกพังได้ของห้องนี้ที่พังแล้ว (overlay.v)
     output reg          brk_set = 1'b0,     // pulse: กระสุน / ฟันโดนบล็อกพังได้ -> overlay.v ตั้งบิต brk_idx
     output reg  [2:0]   brk_idx = 3'd0,
+    input  wire         auto_lock,        // W18 (SW9): auto-lock - attacks aim at the nearest enemy (8 directions) instead of the facing
+    output reg          lock_use = 1'b0,  // a target is locked this frame
+    output reg  [1:0]   lock_face = 2'd0,// 4-way direction of the target (the hero turns that way while attacking)
     input  wire         summon,           // pulse (W11): บอส 2 เรียกลูกน้อง -> spawn มอน A ที่ SUMMON*_T* ใน slot ว่าง
     output reg          boss_dmg = 1'b0,  // pulse: บอสโดนกระสุน / ฟัน
     output reg  [2:0]   boss_dmg_amt = 3'd0,
@@ -173,7 +176,7 @@ module objects (
     localparam [4:0] S_IDLE = 5'd0, S_SPAWN = 5'd1, S_ATK = 5'd2, S_PB = 5'd3, S_EB = 5'd4,
                      S_MON = 5'd5, S_FIRE = 5'd6, S_CPB = 5'd7, S_CMEL = 5'd8, S_CPM = 5'd9,
                      S_CPE = 5'd10, S_END = 5'd11, S_BFIRE = 5'd12, S_BPB = 5'd13, S_BMEL = 5'd14, S_BPM = 5'd15,
-                     S_CLASH = 5'd16, S_NEAR = 5'd17, S_SUMMON = 5'd18;
+                     S_CLASH = 5'd16, S_NEAR = 5'd17, S_SUMMON = 5'd18, S_LOCK = 5'd19, S_LOCK2 = 5'd20;
     reg [4:0] st = S_IDLE;
     // มอน A เดินเฉพาะเฟรมที่ mv_div == 0 (MON_A_MOVE_EVERY = 1 -> ทุกเฟรม)
     reg [3:0] mv_div = 4'd0;
@@ -217,6 +220,19 @@ module objects (
     reg [4:0]  psz;
     reg        pout;
     reg [10:0] fbx, fby; reg [6:0] fbw, fbh;
+    // W18 auto-lock: nearest enemy (6 monsters + boss), 8-direction aim
+    reg [11:0] best_d = 12'hFFF, dstm; reg signed [11:0] bdx = 0, bdy = 0, tdx, tdy, lax, lay; reg found = 1'b0, cand_act;
+    reg [11:0] ccx, ccy; reg [2:0] aim_dir = 3'd0;
+    wire [1:0] fe   = lock_use ? lock_face : facing;               // facing used by the melee box
+    wire [2:0] aim8 = lock_use ? aim_dir : {1'b0, facing};         // direction of shots
+    function [2:0] ring_p(input [2:0] d);                          // next direction clockwise (right, down-right, down, down-left, left, up-left, up, up-right)
+        case (d) 3'd3: ring_p = 3'd5; 3'd5: ring_p = 3'd0; 3'd0: ring_p = 3'd4; 3'd4: ring_p = 3'd2;
+                 3'd2: ring_p = 3'd6; 3'd6: ring_p = 3'd1; 3'd1: ring_p = 3'd7; default: ring_p = 3'd3; endcase
+    endfunction
+    function [2:0] ring_m(input [2:0] d);                          // previous direction
+        case (d) 3'd3: ring_m = 3'd7; 3'd5: ring_m = 3'd3; 3'd0: ring_m = 3'd5; 3'd4: ring_m = 3'd0;
+                 3'd2: ring_m = 3'd4; 3'd6: ring_m = 3'd2; 3'd1: ring_m = 3'd6; default: ring_m = 3'd1; endcase
+    endfunction
     reg        near, sp_done;
     reg        near_r = 1'b0;
     reg [5:0]  freev;
@@ -283,7 +299,8 @@ module objects (
                 st <= S_SUMMON;
             end else if (frame_tick && run) begin
                 fcnt <= fcnt + 1'b1;
-                st <= S_NEAR;
+                if (auto_lock) begin i <= 0; best_d <= 12'hFFF; found <= 1'b0; st <= S_LOCK; end
+                else begin lock_use <= 1'b0; st <= S_NEAR; end
             end
         // ------------------------------------------------------------------
         S_SUMMON: begin                      // W11: ลูกน้องบอส 2 = มอน A BOSS2_MINIONS ตัว ลง slot ว่าง (ตำแหน่ง SUMMON0..2)
@@ -299,13 +316,31 @@ module objects (
             st <= S_IDLE;
         end
         // ------------------------------------------------------------------
+        S_LOCK: begin                        // W18: one candidate per clock (monsters 0..5, boss = 6)
+            if (i < NM) begin cand_act = m_act[i]; ccx = {2'b00, m_xv[i*10 +: 10]} + 12'd16; ccy = {2'b00, m_yv[i*10 +: 10]} + 12'd16; end
+            else        begin cand_act = boss_act; ccx = {2'b00, boss_x} + 12'd32; ccy = {2'b00, boss_y} + 12'd32; end
+            tdx = ccx - ({2'b00, px} + 12'd16); tdy = ccy - ({2'b00, py} + 12'd16);
+            dstm = (tdx[11] ? -tdx : tdx) + (tdy[11] ? -tdy : tdy);
+            if (cand_act && dstm < LOCK_RANGE && dstm < best_d) begin best_d <= dstm; bdx <= tdx; bdy <= tdy; found <= 1'b1; end
+            if (i == NM) st <= S_LOCK2; else i <= i + 1'b1;
+        end
+        S_LOCK2: begin                       // W18: target vector -> 8 directions (|dx| >= 2|dy| horizontal, |dy| >= 2|dx| vertical, else diagonal)
+            lax = bdx[11] ? -bdx : bdx; lay = bdy[11] ? -bdy : bdy;
+            lock_use <= found;
+            if (lax >= 2 * lay)       aim_dir <= bdx[11] ? 3'd2 : 3'd3;
+            else if (lay >= 2 * lax)  aim_dir <= bdy[11] ? 3'd1 : 3'd0;
+            else aim_dir <= bdx[11] ? (bdy[11] ? 3'd6 : 3'd4) : (bdy[11] ? 3'd7 : 3'd5);
+            lock_face <= (lax >= lay) ? (bdx[11] ? 2'd2 : 2'd3) : (bdy[11] ? 2'd1 : 2'd0);
+            st <= S_NEAR;
+        end
+        // ------------------------------------------------------------------
         S_NEAR: begin                        // มีศัตรูในกล่องฟันหน้าตัวไหม (ผลเก็บใน near_r ให้ S_ATK ใช้; แยก state เพื่อไม่ให้ 7 overlap ต่อกับ logic ยิงใน clock เดียว)
-            fbx = (facing == 2'd2) ? {1'b0, px} + OFS - 11'd12 :
-                  (facing == 2'd3) ? {1'b0, px} + OFS + 11'd28 : {1'b0, px} + OFS + 11'd4;
-            fby = (facing == 2'd0) ? {1'b0, py} + OFS + 11'd28 :
-                  (facing == 2'd1) ? {1'b0, py} + OFS - 11'd12 : {1'b0, py} + OFS + 11'd4;
-            fbw = facing[1] ? 7'd16 : 7'd24;
-            fbh = facing[1] ? 7'd24 : 7'd16;
+            fbx = (fe == 2'd2) ? {1'b0, px} + OFS - 11'd12 :
+                  (fe == 2'd3) ? {1'b0, px} + OFS + 11'd28 : {1'b0, px} + OFS + 11'd4;
+            fby = (fe == 2'd0) ? {1'b0, py} + OFS + 11'd28 :
+                  (fe == 2'd1) ? {1'b0, py} + OFS - 11'd12 : {1'b0, py} + OFS + 11'd4;
+            fbw = fe[1] ? 7'd16 : 7'd24;
+            fbh = fe[1] ? 7'd24 : 7'd16;
             near = boss_act && ovl(fbx, fby, fbw, fbh, {1'b0, boss_x} + OFS + 11'd8, {1'b0, boss_y} + OFS + 11'd8, 7'd48, 7'd48);
             for (q = 0; q < NM; q = q + 1)
                 if (m_act[q] && ovl(fbx, fby, fbw, fbh, {1'b0, m_xv[q*10 +: 10]} + OFS + 11'd4,
@@ -350,7 +385,7 @@ module objects (
                         if (p_act[q] && p_kindv[q*2 +: 2] == 2'd3) sp_done = 1'b1;   // มีลูกใหญ่อยู่แล้ว
                     for (q = 0; q < NP; q = q + 1)
                         if (!sp_done && !p_act[q]) begin
-                            p_act[q] <= 1'b1; p_kindv[q*2 +: 2] <= 2'd3; p_dirv[q*3 +: 3] <= {1'b0, facing}; p_child[q] <= 1'b0;
+                            p_act[q] <= 1'b1; p_kindv[q*2 +: 2] <= 2'd3; p_dirv[q*3 +: 3] <= aim8; p_child[q] <= 1'b0;
                             p_xv[q*10 +: 10] <= px + 10'd8; p_yv[q*10 +: 10] <= py + 10'd8;
                             sp_done = 1'b1; ev_shoot <= 1'b1; ev_shoot_k <= 2'd3;
                         end
@@ -360,7 +395,7 @@ module objects (
             if (cool != 0) cool <= cool - 1'b1;
             else if (atk_req && (form == 2'd0 || near_r)) begin      // ฟันประชิด (ร่าง 1 เสมอ, ร่าง 2-4 เมื่อศัตรูอยู่ในกล่อง)
                 melee_cnt <= MELEE_FRAMES; ev_melee <= 1'b1;
-                mel_dir   <= facing;
+                mel_dir   <= fe;
                 mel_mask  <= 0;
                 mel_boss  <= 1'b0;
                 cool      <= MELEE_COOLDOWN - 1;
@@ -368,9 +403,9 @@ module objects (
                 // ยิง: ร่าง 2 นัดเดียว, ร่าง 3 กระจาย 3 ทาง, ร่าง 4 นัดเร็ว (+ เริ่มชาร์จ) — ค้างยิงซ้ำเฉพาะร่าง 2-3
                 freev = ~p_act;
                 pk_k = (form == 2'd1) ? 2'd0 : (form == 2'd2) ? 2'd1 : 2'd2;
-                sdir[0] = {1'b0, facing};
-                sdir[1] = (facing == 2'd0) ? 3'd4 : (facing == 2'd1) ? 3'd6 : (facing == 2'd2) ? 3'd6 : 3'd7;
-                sdir[2] = (facing == 2'd0) ? 3'd5 : (facing == 2'd1) ? 3'd7 : (facing == 2'd2) ? 3'd4 : 3'd5;
+                sdir[0] = aim8;
+                sdir[1] = lock_use ? ring_m(aim8) : (facing == 2'd0) ? 3'd4 : (facing == 2'd1) ? 3'd6 : (facing == 2'd2) ? 3'd6 : 3'd7;
+                sdir[2] = lock_use ? ring_p(aim8) : (facing == 2'd0) ? 3'd5 : (facing == 2'd1) ? 3'd7 : (facing == 2'd2) ? 3'd4 : 3'd5;
                 nsp = 0;
                 for (q = 0; q < NP; q = q + 1)
                     if (freev[q] && nsp < ((form == 2'd2) ? AOE_PARENTS : 1)) begin

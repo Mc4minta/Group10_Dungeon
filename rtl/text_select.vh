@@ -25,4 +25,6 @@
             ly1 = T12_1_Y; lx1 = T12_1_X; lw1 = T12_1_W; lh1 = T12_1_H; ls1 = T12_1_S; lb1 = T12_1_B; lk1 = T12_1_K; end
 4'd13: begin ly0 = T13_0_Y; lx0 = T13_0_X; lw0 = T13_0_W; lh0 = T13_0_H; ls0 = T13_0_S; lb0 = T13_0_B; lk0 = T13_0_K;
             ly1 = T13_1_Y; lx1 = T13_1_X; lw1 = T13_1_W; lh1 = T13_1_H; ls1 = T13_1_S; lb1 = T13_1_B; lk1 = T13_1_K; end
+4'd15: begin ly0 = T15_0_Y; lx0 = T15_0_X; lw0 = T15_0_W; lh0 = T15_0_H; ls0 = T15_0_S; lb0 = T15_0_B; lk0 = T15_0_K;
+            ly1 = T15_1_Y; lx1 = T15_1_X; lw1 = T15_1_W; lh1 = T15_1_H; ls1 = T15_1_S; lb1 = T15_1_B; lk1 = T15_1_K; end
 default: begin ly0 = 0; lx0 = 0; lw0 = 0; lh0 = 0; ls0 = 0; lb0 = 0; lk0 = 0; ly1 = 0; lx1 = 0; lw1 = 0; lh1 = 0; ls1 = 0; lb1 = 0; lk1 = 0; end

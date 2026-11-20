@@ -7,7 +7,7 @@ module tb_ovrender;
     reg [7:0] brk_r = 8'h00; reg [2:0] scr_r = 3'd0; reg [1:0] floor_r = 2'd0; reg [3:0] grid_r = 4'd4;
 
     wire [11:0] color;
-    renderer dut (.open_E(1'b0), .brk(brk_r), .clk(clk), .ce(1'b1), .hcount(hc), .vcount(vc), .grid(grid_r), .floor(floor_r), .form(2'd0),
+    renderer dut (.dlg_on(1'b0), .dlg_b0(12'd0), .dlg_b1(12'd0), .dlg_n0(5'd0), .dlg_n1(5'd0), .dlg_col(12'hFFF), .p_hurt(1'b0), .open_E(1'b0), .brk(brk_r), .clk(clk), .ce(1'b1), .hcount(hc), .vcount(vc), .grid(grid_r), .floor(floor_r), .form(2'd0),
         .doors_open(1'b0), .open_L(1'b0), .screen(scr_r), .hide_player(1'b1), .px(10'd0), .py(10'd0), .pframe(6'd0),
         .p_anim(3'd0), .p_aframe(6'd0), .mon_act(6'd0), .mon_type(6'd0), .mon_flash(6'd0), .mon_x(60'd0), .mon_y(60'd0), .mon_anim(1'b0),
         .pb_act(6'd0), .pb_x(60'd0), .pb_y(60'd0), .pb_kind(12'd0), .p_tint(1'b0), .eb_act(16'd0), .eb_x(160'd0), .eb_y(160'd0),

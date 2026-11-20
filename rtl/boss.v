@@ -1,7 +1,7 @@
 // P5: บอส 3 ตัว (module เดียว + ROM พารามิเตอร์ boss_rom) — ใช้ slot บอสที่สำรองไว้ใน objects.v
 //
 //   บอส 1 (ชั้น 1): HP 10, ไล่เร็ว 2 px/เฟรม, ไม่ยิง, รับดาเมจตลอด, ตบมือ (หรือ SW11) = มึน 180 เฟรม แล้ว cooldown 240 (W10)
-//   บอส 2 (ชั้น 2): HP 16, อยู่กับที่, เรียกลูกน้อง 3 ตัวต่อรอบ; ตีไม่ได้ (shield) ขณะมีลูกน้อง ตีได้เฉพาะตอนลูกน้องตายหมด (VULNERABLE 120 เฟรม) แล้ว summon ใหม่ (W11)
+//   บอส 2 (ชั้น 2): HP 16, อยู่กับที่, เรียกลูกน้อง 3 ตัวต่อรอบ; ตีได้ตลอด (W17; เดิม W11 ตีได้เฉพาะตอนลูกน้องตายหมด) ลูกน้องตายหมด -> รอ 120 เฟรม -> summon รอบใหม่
 //   บอส 3 (ชั้น 3): HP 3, เกราะ: รับเฉพาะกระสุนชาร์จ (ทีละ 1); ไล่ 180 เฟรม -> ชาร์จโจมตีใหญ่ 120 เฟรม (หยุดนิ่ง กะพริบ) -> ผู้เล่นตาย (kill) / ถูกชาร์จขัดแล้ววนใหม่ (W12)
 //   (ค่าทั้งหมดอยู่ใน params.vh)
 //
@@ -58,6 +58,8 @@ module boss (
     output reg         died = 1'b0,      // pulse: บอสตาย (kind บอกว่าตัวไหน)
     output reg         summon = 1'b0,    // pulse: บอส 2 เรียกลูกน้อง (objects.v spawn)
     output reg         kill = 1'b0,      // pulse: โจมตีใหญ่ของบอส 3 ถูกผู้เล่น (HP -> 0)
+    output wire        vuln,             // W16: บอส 2 อยู่ในช่วงตีได้ (VULNERABLE)
+    output reg         intr = 1'b0,      // W16: pulse: ชาร์จบอส 3 ถูกขัด
     output wire        shield,           // บอส 2 ยังตีไม่ได้ (วาดกะพริบ)
     output wire        tele,             // บอส 3 กำลังชาร์จโจมตีใหญ่ (วาดกะพริบ)
     output reg  [2:0]  dead = 3'b000,    // [floor] บอสชั้นนั้นตายแล้ว
@@ -104,9 +106,10 @@ module boss (
     reg [1:0]  bs2 = 0;
     reg        b3 = 1'b0;
     reg [8:0]  phase_t = 0;
-    assign shield = act && kind == 2'd1 && bs2 != 2'd2;
+    assign shield = 1'b0;                                   // W17: boss 2 no longer has a shield (it can always be hit)
+    assign vuln   = act && kind == 2'd1 && bs2 == 2'd2;
     assign tele   = act && kind == 2'd2 && b3;
-    wire       acc = (kind == 2'd0) || (kind == 2'd1 && bs2 == 2'd2) || (kind == 2'd2 && dmg_big);
+    wire       acc = (kind == 2'd0) || (kind == 2'd1) || (kind == 2'd2 && dmg_big);   // W17: boss 2 takes damage in every state
     wire [2:0] amt = (kind == 2'd2) ? 3'd1 : dmg_amt;
 
     localparam [3:0] B_IDLE = 4'd0, B_DLY = 4'd1, B_X0 = 4'd2, B_X1 = 4'd3, B_X2 = 4'd4,
@@ -131,6 +134,7 @@ module boss (
         died <= 1'b0;
         summon <= 1'b0;
         kill <= 1'b0;
+        intr <= 1'b0;
         if (room_load) spawn_req <= 1'b1;
         if (clap) clap_req <= 1'b1;
 
@@ -248,7 +252,7 @@ module boss (
             // ---------- โดนตี (มาได้ทุก clock จาก objects.v) ----------
             if (dmg && act && acc) begin
                 fl <= BOSS_FLASH;
-                if (kind == 2'd2 && b3) begin b3 <= 1'b0; phase_t <= BOSS3_CHASE; end   // ชาร์จขัด: เริ่มรอบใหม่
+                if (kind == 2'd2 && b3) begin b3 <= 1'b0; phase_t <= BOSS3_CHASE; intr <= 1'b1; end   // ชาร์จขัด: เริ่มรอบใหม่
                 if (hp <= amt) begin
                     hp <= 0; act <= 1'b0; dead[kind] <= 1'b1; died <= 1'b1; hp_bar <= 0;
                 end else hp <= hp - amt;

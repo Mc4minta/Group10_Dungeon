@@ -31,7 +31,7 @@ How to change any sprite: see `sprites/README.md`. One command for everything: `
 Art available but NOT used by the game yet (needs Verilog, see NEXT_STEPS B): Human `Attack.png`, `Dmg.png`, `Jump.png`, `ChargedAttack.png`, `SoulDie.png`, `SpinDie.png`, the 16-frame idle loop.
 Row 4 of every walk sheet (back facing Left) is unused: the game has only 4 directions.
 
-## 2b. Human animations (built, switched OFF)
+## 2b. Player animations (Human built but OFF; Orc / Angel attack + red hurt flash ON since 20/11, W14 option C)
 
 The Human (form 1) has extra pictures that the game does not show yet unless you switch them on (`sprites/sprites.json` -> `animations`, then rebuild and synthesise; each costs Block RAM):
 
@@ -42,7 +42,9 @@ The Human (form 1) has extra pictures that the game does not show yet unless you
 | hurt (4 x 4) | `Human/Dmg.png` | `hurt_anim` | about 6 | built, tested, OFF |
 | death (12 pictures, last held; the last one is empty on purpose) | `Human/SoulDie.png` or `SpinDie.png` (`death_sheet`) | `death_anim` | about 6 | built, tested, OFF |
 
-Forms 2-4 have no such pictures (they keep the walking pictures). Nothing here is a placeholder: it is finished art waiting for a Block RAM check (`docs/NEXT_STEPS.md` P3.1).
+**W14 (option C):** the **attack ROM now holds 3 forms** (Human, Orc, Angel: 48 pictures, about 16 RAMB36 in total). Orc (`ORc/form2_Attack.png`) and Angel (`Angel/Angel_Attack.png`) show their 4 attack pictures (3 frames each) whenever they fire a shot or swing melee (flags `attack_anim_form2` / `attack_anim_form3`, ON). The **hurt** reaction of every form is a **red flash** of the sprite for 12 frames (`hurt_flash`, ON, no ROM). The Orc / Angel damage sheets (`form2_Dmg.png`, `Angel_Dmg.png`) are in `my_asset` and built into the config but unused (a hurt ROM for them would be option A). Angel wing tips are cut at the 32 px frame edge. If the Vivado build runs out of Block RAM: set `attack_anim_form2` / `attack_anim_form3` to false and rebuild (no attack ROM = about -16 RAMB36). Form 4 has no attack pictures yet.
+
+Forms 2-4 otherwise keep the walking pictures. Nothing here is a placeholder: it is finished art waiting for a Block RAM check (`docs/NEXT_STEPS.md` P3.1).
 Not used by the game at all: `Jump.png`, `ChargedAttack.png`.
 
 ## 3. Map tiles (mem/tileset.mem, `scripts/build_tileset_mem.py`, `sprites/tileset.json`)
@@ -56,7 +58,8 @@ Not used by the game at all: `Jump.png`, `ChargedAttack.png`.
 | plate with box | crate over the plate | FINAL |
 | floor decoration (crack, bones, skull, rubble) on floors 1-2 | pack cells | FINAL |
 | Simon plates (floor 3) | red potion, blue potion, coin, key | FINAL |
-| maze ball | `my_asset/props/coin_1.png`, 2x (puzzle frame 10; `sprites/puzzle.json`) | PLACEHOLDER-ish (a coin; swap the PNG) |
+| maze ball | AXIALE orb (`my_asset/ball/orb_rotate.png`, derived 16x16 `ball_0..3.png` by `scripts/make_ball_art.py`, 2x = 20x20 = the collision box; puzzle frames 10-13, picture follows the position = rolling) | FINAL |
+| boss-3 key item | `my_asset/props/keys_1_1.png`, 2x (puzzle frame 14, lies where boss 3 died) | FINAL |
 | overlay: breakable block `Z` / spike trap `X` (red plate + spikes) / solid decoration `Y` | `my_asset/props/box_1_1.png`, `peaks_1.png`, `candlestick_1_1.png`, 2x (`sprites/overlay.json` -> `mem/ovtile.mem`, +2 RAMB36) | FINAL art slots; swap the PNG in `overlay.json` to change |
 | floor colours | floor 1 purple, 2 teal, 3 olive (recolor + gain 1.7) | FINAL (adjust in `tileset.json`) |
 | wall variety (corners, tops, torches) | none: one wall id only | NOT POSSIBLE without Verilog (NEXT_STEPS C1) |

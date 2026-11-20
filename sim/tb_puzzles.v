@@ -53,7 +53,7 @@ module tb_puzzles;
                 .px(px), .py(py), .facing(facing), .form(form), .damage(damage),
                 .atk_press(atk_press), .atk_hold(atk_hold), .dbg_clear(1'b0),
                 .blk0(blk0), .blk1(blk1), .blk2(blk2), .blk_en(blk_en),
-                .boss_act(1'b0), .boss_x(10'd0), .boss_y(10'd0), .boss_fire(1'b0), .summon(1'b0), .boss_dmg(), .boss_dmg_amt(), .boss_dmg_big(),
+                .boss_act(1'b0), .boss_x(10'd0), .boss_y(10'd0), .boss_fire(1'b0), .auto_lock(1'b0), .lock_use(), .lock_face(), .summon(1'b0), .boss_dmg(), .boss_dmg_amt(), .boss_dmg_big(),
                 .doors_open(doors_open), .alive(alive), .hit(obj_hit), .kb_start(kb_start), .kb_dir(kb_dir),
                 .invuln(invuln), .player_blink(blink), .busy(obj_busy),
                 .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),

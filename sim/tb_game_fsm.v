@@ -223,8 +223,11 @@ module tb_game_fsm;
         n_ticks = 0;
         while (state == ESCAPE && n_ticks < 4000) begin wait_ticks(1); n_ticks = n_ticks + 1; end
         check(state == OVER && n_ticks >= 3598 && n_ticks <= 3601, "maze timeout after 3600 frames (60 s) -> GAME_OVER");
+        check(dut.timeout, "the maze timeout is remembered (W16: its own GAME OVER text)");
         $display("      ESCAPE lasted %0d frames", n_ticks);
         check(tm(0) != t_snap, "play timer kept running during ESCAPE");
+        pulse_btnc; pulse_btnc;
+        check(state == PLAY && !dut.timeout, "new game clears the timeout flag");
 
         $display("checks = %0d  errors = %0d", checks, errors);
         if (errors == 0) $display("ALL PASS");

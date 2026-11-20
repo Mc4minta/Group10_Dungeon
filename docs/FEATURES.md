@@ -44,7 +44,7 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 | Boss | Behaviour | Code |
 |---|---|---|
 | 1 (floor 1) | HP 10, very fast (2 px every frame), no shot, always takes damage; **a clap (or SW11) stuns it 3 s**, then 4 s cooldown | `rtl/boss.v`, `rtl/pdm_mic.v` |
-| 2 (floor 2) | HP 16, stationary, no shot; summons 3 minions per round; **shielded (blinks) while any minion lives, hurt only when all minions are dead (VULNERABLE 2 s)**, then summons again | `boss.v`, `objects.v` (summon) |
+| 2 (floor 2) | HP 16, stationary, no shot; summons waves of 3 minions; **can be hit at all times, also while its minions live (W17)**; when a wave is dead it waits 2 s and summons the next | `boss.v`, `objects.v` (summon) |
 | 3 (floor 3) | HP 3, **armour: only the charged shot (form 4) hurts, 1 per hit**; chases and shoots 3 s, then charges a big attack for 2 s (blinks, stands still): if it completes the player dies (GAME OVER); a charged hit interrupts and restarts the cycle; death starts ESCAPE (key + maze come with W7) | `boss.v`, `game_fsm.v` (`kill`) |
 | Shared | 64x64 sprite, hit flash, boss room locks while alive, boss HP bar on screen (+ LED0-7) | `boss.v`, `hud.v` |
 
@@ -63,7 +63,7 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 | Room graph | doors between rooms, spawn points, per-floor start/boss rooms | `rtl/world.v` |
 | Door types | D combat door (closes while monsters live) and L boss door (needs item) are **spike traps** (spikes up = closed, flat = open); E exit (the maze door: a solid wall until the player carries the boss-3 key, then it vanishes)  | `player.v`, `renderer.v` |
 | Tiles | 16 ids: wall, floor, 3 doors + 3 open versions, hole, fence, plate (+ with box), Simon plates 12-15 (decoration on floors 1-2) | `scripts/build_maps.py`, `mem/tilemap.mem` |
-| **Key + Ball in a Maze (W7)** | boss 3 dies -> `has_key` (shown by the opened door E); walking into door E starts the maze: a 20x15 maze (`maps/maze/maze.txt` -> `mem/maze.mem`) drawn with the floor-3 wall tiles, a ball (coin art, puzzle frame 10) controlled by the **board tilt** (ADXL362 over SPI, offset calibrated on the first 32 samples, dead zone) or the buttons; 60 s countdown on the 7-seg, goal = WIN, timeout = GAME OVER. Tilt directions / gain must be checked on the board (`MAZE_SIGN_X/Y`, `MAZE_TILT_SHIFT` in `params.vh`) | `rtl/maze.v`, `rtl/adxl362.v`, `game_fsm.v`, `top.v`, `renderer.v` (screen 5) |
+| **Key + Ball in a Maze (W7)** | boss 3 dies -> `has_key` (shown by the opened door E); the key lies on the floor where boss 3 died (gold key sprite) and is picked up by **walking over it**; walking into door E starts the maze: a 20x15 maze (`maps/maze/maze.txt` -> `mem/maze.mem`) drawn with the floor-3 wall tiles, a ball (AXIALE orb art, 4 rotation pictures that follow the position: puzzle frames 10-13) controlled by the **board tilt** (ADXL362 over SPI, offset calibrated on the first 32 samples, dead zone) or the buttons; 60 s countdown on the 7-seg, goal = WIN, timeout = GAME OVER. Tilt directions / gain must be checked on the board (`MAZE_SIGN_X/Y`, `MAZE_TILT_SHIFT` in `params.vh`) | `rtl/maze.v`, `rtl/adxl362.v`, `game_fsm.v`, `top.v`, `renderer.v` (screen 5) |
 | Holes `H` | only form 3+ crosses | `player.v` |
 | Decoration | bones, skull, cracks, rubble in 7 rooms (look only; ids behave as floor) | `maps/*.txt` |
 | **Overlay layer (W5)** | a second 4-bit map (`mem/overlay.mem`, drawn over the floor from `mem/ovtile.mem`): `Z` **breakable block** (acts as a wall, any bullet or melee swing breaks it in 1 hit, stays broken when you leave and come back, all back on a new game; up to 8 per room), `X` **spike trap** (stand on it = HP -1 + knockback, normal invulnerability so no chain hits; form 3 flies over), `Y` **solid decoration** (candlestick: wall for player, monsters, bullets). Used in start room 1 and the 6 combat rooms (`OVL_ROOMS`) | `rtl/roms.v` (`tilemap_rom` folds the overlay into the collision view), `rtl/overlay.v` (break state), `objects.v`, `renderer.v`, `scripts/build_maps.py`, `scripts/build_overlay_mem.py`, `sprites/overlay.json` |
@@ -88,6 +88,7 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 | VGA 640x480 | 4-stage pixel pipeline, 20x15 tiles of 32 px, layers: tile < objects < player < HUD < text | `rtl/renderer.v`, `objline.v`, `vga_sync.v` |
 | Player hearts | one heart per max HP (full = HP left), top left, 2x | `rtl/hud.v`, `mem/hud.mem` |
 | Boss health bar | top right, boss room only, fill = hp / max hp | `hud.v` |
+| **Story text (W16)** | **`docs/STORY.md` is the source of truth** for every sentence (game name THE CHOSEN ONE, prologue, NEW FORM banners, FLOOR CLEAR, maze banner, WIN / timeout / GAME OVER, and 49 dialogue boxes); `python scripts/build_story.py` regenerates the ROMs. Dialogue boxes: black band at the bottom, colour = speaker (Player white, Voice yellow, System cyan), timed 2.5 s or blocking (game frozen) until BTNC; 36 game events trigger them, each shown once per game | `scripts/story.py`, `make_font.py`, `rtl/dialog.v`, `rtl/top.v`, `renderer.v` |
 | Text | 8x8 font; screens: TITLE, FLOOR CLEAR, maze banner (TILT THE BOARD TO / ROLL THE BALL OUT!), WIN, GAME OVER, PAUSED, 4 prologue pages, 3 NEW FORM banners (2 lines max, A-Z 0-9 `- : ! .`); wording in `docs/STORY.md` | `renderer.v`, `scripts/make_font.py` -> `text_layout.vh`, `text_select.vh`, `mem/text.mem` |
 | Screens | title (navy-to-blue gradient + hero), prologue (black), game over (dark red + death), win (gold) | `renderer.v` |
 | Screen shake | on hit, UI does not shake | `top.v` |
@@ -106,6 +107,7 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 |---|---|
 | BTNU / D / L / R | walk (two together = diagonal) |
 | BTNC | start (TITLE) / attack (PLAY) / back to TITLE (WIN, GAME OVER) |
+| SW9 | **auto-lock (W18)**: up = attacks aim at the nearest enemy within 240 px (8 directions, the hero turns that way for a moment); form 3's spread is centred on it, melee swings turn toward it; down = old behaviour (aim = facing) |
 | SW10 | maze: use the 4 direction buttons instead of the accelerometer (also automatic when the sensor does not answer) |
 | SW15 | **PAUSE** (game frozen, PAUSED text, music + sfx muted; PLAY / ESCAPE only) |
 | SW14 | sprint (+1 px/frame) |
@@ -120,7 +122,7 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 ## 12. Built but switched OFF
 | Feature | How to switch on | Cost |
 |---|---|---|
-| Human idle / attack / hurt / death animations | flags in `sprites/sprites.json` -> `animations`, rebuild, re-synthesise | ~22 / 6 / 6 / 6 RAMB36 |
+| Human idle / attack / hurt / death animations; Orc + Angel attack pictures (ON, W14); red hurt flash (ON, no ROM) | flags in `sprites/sprites.json` -> `animations`, rebuild, re-synthesise | ~22 / 6 / 6 / 6 RAMB36; the 3-form attack ROM about 16 RAMB36 |
 | Wall variants (room border pictures) | not merged: branch `wip/wall-variants` | ~+6 RAMB36 |
 
 ## 13. Tooling and verification

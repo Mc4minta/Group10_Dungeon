@@ -1,12 +1,42 @@
-# Game Story + In-Game Text — Group 10 Dungeon
+# Game Story + In-Game Text — THE CHOSEN ONE
 
-Nov 19, 2026 · @min
+Nov 20, 2026 · @min · อนุมัติเรื่องและบทพูดทุกบรรทัดแล้ว
 
-เอกสารนี้สรุปเนื้อเรื่องและข้อความทั้งหมดที่แสดงบนจอเกม ตัวเลขทั้งหมดอิง DESIGN\_PLAN.md (บอส 2: ตีได้เมื่อลูกน้องตายหมดเท่านั้น)
+> **ไฟล์นี้คือ source of truth ของเรื่องและข้อความบนจอทั้งหมด** — แก้ข้อความ (คอลัมน์ บรรทัด 1 / บรรทัด 2 / ผู้พูด / Trigger) ในตารางด้านล่าง แล้วรัน
+> `python scripts/build_story.py` (หรือ `scripts/update_sprites.sh` / `scripts/check_all.sh`) ระบบจะสร้าง `mem/text.mem`, `mem/dlg.mem`, `rtl/text_layout.vh`,
+> `rtl/text_select.vh`, `rtl/dlg_cfg.vh` ใหม่ทั้งหมดจากไฟล์นี้ ห้ามแก้ไฟล์ที่ generate ด้วยมือ. สคริปต์ตรวจให้: อักขระที่ใช้ได้ ความยาวบรรทัด ID ซ้ำ trigger ที่ไม่รู้จัก.
+> เสร็จแล้ว build โปรเจกต์ Vivado ใหม่ (`docs/BOARD_TEST_STEPS.md`).
+
+## กติกาการแก้ข้อความ
+
+* อักขระที่ใช้ได้: `A-Z 0-9` เว้นวรรค และ `- : ! .` เท่านั้น (ฟอนต์ 8x8 ไม่มีตัวพิมพ์เล็ก ไม่มี `,` `?` `'` ภาษาไทย)
+* ไม่เกิน **20 ตัวอักษรต่อบรรทัด**, ไม่เกิน 2 บรรทัดต่อข้อความ (บรรทัด 2 เว้นว่างได้)
+* ID ต้องไม่ซ้ำ. เพิ่มแถวใหม่ได้ (ใส่ Trigger ให้ครบ) · ลบแถว = ข้อความนั้นไม่แสดง
+* จำนวนข้อความ dialogue สูงสุด 128 ข้อความ, ตัวอักษรรวมสูงสุด 3,500 ตัว (สคริปต์เตือนถ้าเกิน)
+* ชื่อผู้พูด: `Player` (ขาว) · `Voice` (เหลือง) · `System` (ฟ้า) — กำหนดสีตัวอักษรของกล่อง dialogue
+
+### รหัส Trigger (คอลัมน์ Trigger)
+
+| รูปแบบ | ความหมาย |
+| --- | --- |
+| `screen:<ชื่อ>` | หน้าจอเต็ม (ไม่ใช่กล่อง dialogue): `title`, `prologue1`-`prologue4`, `evolve2`, `evolve3`, `evolve4`, `floorclear`, `maze`, `win`, `timeout`, `gameover` |
+| `<event>` | แสดงเป็นกล่อง dialogue ที่ด้านล่างจอ ~2.5 วิ แล้วหายเอง (เกมเดินต่อ) · แสดงครั้งเดียวต่อเกมใหม่ |
+| `<event>!` | เหมือนกัน แต่ **หยุดเกม** จนกด BTNC (ใช้กับบทสนทนา) |
+| `after:<ID>` / `after:<ID>!` | แสดงต่อจากข้อความ `<ID>` ที่แสดงจบแล้ว |
+| `none` | ยังไม่ผูกกับเหตุการณ์ (ไม่แสดง) |
+
+เหตุการณ์ (event) ที่มีในเกม:
+`start` เริ่มเกม · `first_attack` กดโจมตีครั้งแรก · `lock_f1c1` `lock_f1c2` `lock_f2c1` `lock_f2c2` `lock_f3c1` `lock_f3c2` เข้าห้องต่อสู้ (ประตูล็อก, มอนยังอยู่) ·
+`clear_f1c1` `clear_f1c2` `clear_f2c2` `clear_f3c2` ห้องต่อสู้เคลียร์ · `enter_f2c1` เข้าห้องต่อสู้ 1 ชั้น 2 ทุกครั้งแรก ·
+`enter_f1puz` `enter_f2puz` `enter_f3puz` เข้าห้อง puzzle · `item_f1` `item_f2` `item_f3` puzzle แก้ได้ ไอเทมปรากฏ · `got_f1` เก็บไอเทมชั้น 1 ·
+`evolved_f1` `evolved_f2` `evolved_f3` แปลงร่างเสร็จ (กลับมาเล่น) · `enter_f1boss` `enter_f2boss` `enter_f3boss` เข้าห้องบอส ·
+`vuln_f2` บอส 2 เข้าช่วงตีได้ · `charge_f3` บอส 3 เริ่มชาร์จโจมตีใหญ่ (ครั้งแรก) · `interrupt_f3` ชาร์จบอส 3 ถูกขัด ·
+`bossdead_f1` `bossdead_f2` บอส 1 / 2 ตาย · `key_drop` บอส 3 ตาย กุญแจตก · `enter_f2start` `enter_f3start` เข้าห้อง START ชั้น 2 / 3 ·
+`enter_f3start_key` กลับถึง START ชั้น 3 พร้อมกุญแจ · `maze_banner_end` ป้ายเริ่มเขาวงกตจบ
 
 ## เรื่องย่อเกม
 
-ผู้เล่นคือนักศึกษาที่เผลอหลับตอนปั่นงานก่อน deadline แล้วตื่นขึ้นมาในดันเจี้ยนปริศนา เสียงลึกลับบอกว่าจะส่งกลับบ้านได้ ถ้าผ่านครบ 3 ชั้น แต่ละชั้นมีห้องต่อสู้ 2 ห้อง ห้อง puzzle และบอส เมื่อแก้ puzzle ได้ ดันเจี้ยนจะมอบพลังให้แปลงร่างใหม่ และแต่ละร่างคือกุญแจในการสยบบอส: บอส 1 วิ่งเร็ว ต้องปรบมือให้ติด stun, บอส 2 เรียกลูกน้องมาป้องกันตัว ต้องกำจัดลูกน้องให้หมดก่อนจึงตีบอสได้, บอส 3 สวมเกราะ ต้องยิงชาร์จเท่านั้น บอสสุดท้ายดรอปกุญแจ ผู้เล่นต้องกลับไปไขประตูที่จุดเริ่มต้น และผ่านเขาวงกตที่ควบคุมด้วยการเอียงบอร์ดให้ทันเวลา ผ่านก็ได้กลับบ้าน หมดเวลาก็ติดอยู่ที่นี่ตลอดไป
+ผู้เล่นคือนักศึกษาที่เผลอหลับตอนปั่นงานก่อน deadline แล้วตื่นขึ้นมาในดันเจี้ยนปริศนา เสียงลึกลับบอกว่าจะส่งกลับบ้านได้ ถ้าผ่านครบ 3 ชั้น แต่ละชั้นมีห้องต่อสู้ 2 ห้อง ห้อง puzzle และบอส เมื่อแก้ puzzle ได้ ดันเจี้ยนจะมอบพลังให้แปลงร่างใหม่ และแต่ละร่างคือกุญแจในการสยบบอส: บอส 1 วิ่งเร็ว ต้องปรบมือให้ติด stun, บอส 2 เรียกลูกน้องมาเป็นระลอก ตีบอสได้ตลอด (W17) แต่ลูกน้องคอยขวาง จึงควรกำจัดด้วยกระสุน AOE, บอส 3 สวมเกราะ ต้องยิงชาร์จเท่านั้น บอสสุดท้ายดรอปกุญแจ ผู้เล่นต้องเดินไปเก็บกุญแจ กลับไปไขประตูที่จุดเริ่มต้น และผ่านเขาวงกตที่ควบคุมด้วยการเอียงบอร์ดให้ทันเวลา ผ่านก็ได้กลับบ้าน หมดเวลาก็ติดอยู่ที่นี่ตลอดไป
 
 ## โครงเกมและกลไก
 
@@ -15,130 +45,119 @@ Nov 19, 2026 · @min
 | ชั้น | Puzzle | ร่างที่ได้ | บอส | กลไกบอส / วิธีชนะ |
 | --- | --- | --- | --- | --- |
 | 1 | Light Bulb | Form 2: Orc (ยิงธรรมดา) | Boss 1 (HP 10) | วิ่งเร็วมาก รับดาเมจตลอด ปรบมือ (ไมค์ หรือ SW11 สำรอง) ให้ stun 3 วิ (cooldown 4 วิ) แล้วตามตี |
-| 2 | Sokoban (pressure plate) | Form 3: Angel (ยิง AOE กระสุนแตก 4 ทิศเมื่อโดนมอน) | Boss 2 (HP 16) | เรียกลูกน้อง 3 ตัวต่อรอบ บอสไม่รับดาเมจตอนลูกน้องยังอยู่ ตีได้เมื่อลูกน้องตายหมด (ช่วง 2 วิ) แล้ว summon รอบใหม่ |
+| 2 | Sokoban (pressure plate) | Form 3: Angel (ยิง AOE กระสุนแตก 4 ทิศเมื่อโดนมอน) | Boss 2 (HP 16) | เรียกลูกน้อง 3 ตัวต่อรอบ **บอสตีได้ตลอด (W17)**; ลูกน้องตายหมดแล้วรอ 2 วิ ก็ summon รอบใหม่ |
 | 3 | Simon Says | Form 4: ชาร์จยิงกระสุนใหญ่ (หยุดเมื่อโดน) | Boss 3 (HP 3 charged hit) | เกราะ รับดาเมจเฉพาะ charged shot ชาร์จโจมตีใหญ่ 2 วิ ถ้าชาร์จครบ lethal ทั้งห้อง ต้องยิงชาร์จขัดก่อน |
-| จบเกม | Ball in a Maze |  |  | บอส 3 ดรอปกุญแจ → ไขประตู START ชั้น 3 → เอียงบอร์ดกลิ้งลูกบอลใน 60 วิ → WIN (หมดเวลา = GAME OVER) |
+| จบเกม | Ball in a Maze |  |  | บอส 3 ดรอปกุญแจ (เห็นบนพื้น เดินไปเก็บ) → ไขประตู START ชั้น 3 → เอียงบอร์ดกลิ้งลูกบอลใน 60 วิ → WIN (หมดเวลา = GAME OVER) |
 
 ตัวเลขอิง `docs/DESIGN_PLAN.md` (หัวข้อ 6 และ W10–W12) ปรับได้ที่ `rtl/params.vh`
 
 ## ข้อความในเกม
 
-ทุกข้อความใช้ A–Z, 0–9, เว้นวรรค และ `- : ! .` เท่านั้น ไม่เกิน 2 บรรทัดต่อจอ และ **ไม่เกิน 20 ตัวอักษรต่อบรรทัด** (ตาม DESIGN\_PLAN W9a) ตรวจด้วยสคริปต์แล้วทุกบรรทัด ชื่อผู้พูดอยู่คอลัมน์แยก ไม่นับในความยาว
+### Title (หน้าแรก)
 
-**Tier A** = ใช้หน้าจอ/state ที่มีหรือ plan ไว้แล้ว (Prologue W9a, FLOOR CLEAR, แบนเนอร์ NEW FORM ใน state EVOLVE, WIN, GAME OVER) · **Tier B** = ต้องมี dialogue overlay ใหม่ ซึ่งยังไม่มีใน plan ถ้าไม่ทำ ให้เล่าในวิดีโอ/report แทน
+| ID | Tier | Trigger | จังหวะ | ผู้พูด | บรรทัด 1 | บรรทัด 2 |
+| --- | --- | --- | --- | --- | --- | --- |
+| TITLE-01 | A | screen:title | หน้า TITLE (บรรทัด 2 กะพริบ) | System | THE CHOSEN ONE | PRESS BTNC |
 
 ### Prologue
 
-จอดำ ตัวอักษรขาวกลางจอ แสดงทีละจอ จบแล้วเข้า Safe Room (ชั้น 1)
+จอดำ ตัวอักษรขาวกลางจอ แสดงทีละจอ (กด BTNC ข้าม หรือรอ 6 วิ) จบแล้วเข้า Safe Room (ชั้น 1)
 
-| ID | Tier | จังหวะ | บรรทัด 1 | บรรทัด 2 |
-| --- | --- | --- | --- | --- |
-| PRO-01 | A | จอดำ จอแรก | ROME WASNT BUILT | IN A DAY. |
-| PRO-02 | A | จอถัดไป | BUT WE HAVE ONLY | 4 HOURS LEFT. |
-| PRO-03 | A | จอถัดไป | I NEED COFFEE... | DONT FALL ASLEEP! |
-| PRO-04 | A | จอถัดไป → เข้า PLAY | I CANT STAY AWAKE... | ALL WENT QUIET. |
+| ID | Tier | Trigger | จังหวะ | ผู้พูด | บรรทัด 1 | บรรทัด 2 |
+| --- | --- | --- | --- | --- | --- | --- |
+| PRO-01 | A | screen:prologue1 | จอดำ จอแรก | System | ROME WASNT BUILT | IN A DAY. |
+| PRO-02 | A | screen:prologue2 | จอถัดไป | System | BUT WE HAVE ONLY | 4 HOURS LEFT. |
+| PRO-03 | A | screen:prologue3 | จอถัดไป | System | I NEED COFFEE... | DONT FALL ASLEEP! |
+| PRO-04 | A | screen:prologue4 | จอถัดไป → เข้า PLAY | System | I CANT STAY AWAKE... | ALL WENT QUIET. |
 
 ### ชั้น 1
 
-ข้อความสอนเล่น (เดิน/วิ่ง, โจมตี) ไม่มีใน plan จึงไม่ใส่ในตาราง ถ้าต้องการ ให้เป็น Tier B หรืออธิบายในวิดีโอ
+บทสนทนา Safe Room (F1-01 ถึง F1-12) หยุดเกมและกด BTNC เพื่ออ่านต่อ
 
-| ID | Tier | จังหวะ | ผู้พูด | บรรทัด 1 | บรรทัด 2 |
-| --- | --- | --- | --- | --- | --- |
-| F1-01 | B | Safe Room: ตื่น | Player | GASP! WHERE AM I! | WHAT IS THIS PLACE! |
-| F1-02 | B | หลังลองเดิน/โจมตี | Player | I DONT GET IT YET. | BUT THIS IS COOL! |
-| F1-03 | B | Safe Room | Voice | BRAVE HERO! | HEED MY CALL! |
-| F1-04 | B | Safe Room | Player | YOU MEAN... ME! |  |
-| F1-05 | B | Safe Room | Voice | I CAN SEND YOU HOME. | LISTEN CLOSELY. |
-| F1-06 | B | Safe Room | Player | I AM ALL EARS! |  |
-| F1-07 | B | Safe Room | Voice | EACH FLOOR HAS | 2 FIGHTS 1 PUZZLE |
-| F1-08 | B | Safe Room | Voice | THEN A BOSS WAITS. | BEAT IT TO MOVE UP. |
-| F1-09 | B | Safe Room | Voice | BEAT THE LAST BOSS | TO WIN A KEY. |
-| F1-10 | B | Safe Room | Voice | RETURN TO THE START. | THE GATE HOME WAITS. |
-| F1-11 | B | Safe Room | Voice | FAIL AND YOU STAY | HERE FOREVER. |
-| F1-12 | B | Safe Room | Player | FIGHT. SOLVE. WIN. | SIMPLE ENOUGH! |
-| F1-13 | B | Combat 1: เข้าห้อง (ประตูล็อก) | System | SPIKES ROSE! | DEFEAT ALL ENEMIES! |
-| F1-14 | B | Combat 1: เคลียร์ | Player | WHEW. THAT WAS HARD. | SPIKES ARE DOWN! |
-| F1-15 | B | Combat 2: เข้าห้อง | System | DEFEAT ALL ENEMIES! |  |
-| F1-16 | B | Combat 2: เคลียร์ | Player | CLEARED! ONWARD! |  |
-| F1-17 | B | Puzzle: เข้าห้อง | Player | A PUZZLE ROOM. | LIGHT ALL THE BULBS. |
-| F1-18 | B | Puzzle: ไอเทมปรากฏ | Player | WHAT IS THAT THING. | LET ME TAKE A LOOK. |
-| F1-19 | B | เก็บไอเทม | Player | WHOA! WHAT HAPPENED! |  |
-| F1-20 | A | แปลงร่าง → Form 2 (state EVOLVE) | System | NEW FORM: ORC! | RANGED SHOT! |
-| F1-21 | B | หลังแปลงร่าง | Voice | THE DUNGEON REWARDS | THE WORTHY. |
-| F1-22 | B | หลังแปลงร่าง | Player | ONLY THE BOSS LEFT! |  |
-| F1-23 | B | Boss 1: ก่อนสู้ | Voice | THIS BOSS IS FAST. | CLAP TO STUN IT! |
-| F1-24 | B | Boss 1: ตาย | Player | I GOT THE HANG OF IT | SAME ON NEXT FLOOR! |
-| F1-25 | A | FLOOR CLEAR (2 วิ) | System | FLOOR 1 CLEAR! |  |
+| ID | Tier | Trigger | จังหวะ | ผู้พูด | บรรทัด 1 | บรรทัด 2 |
+| --- | --- | --- | --- | --- | --- | --- |
+| F1-01 | B | start! | Safe Room: ตื่น | Player | GASP! WHERE AM I! | WHAT IS THIS PLACE! |
+| F1-02 | B | first_attack | หลังลองโจมตีครั้งแรก | Player | I DONT GET IT YET. | BUT THIS IS COOL! |
+| F1-03 | B | after:F1-02! | Safe Room | Voice | BRAVE HERO! | HEED MY CALL! |
+| F1-04 | B | after:F1-03! | Safe Room | Player | YOU MEAN... ME! |  |
+| F1-05 | B | after:F1-04! | Safe Room | Voice | I CAN SEND YOU HOME. | LISTEN CLOSELY. |
+| F1-06 | B | after:F1-05! | Safe Room | Player | I AM ALL EARS! |  |
+| F1-07 | B | after:F1-06! | Safe Room | Voice | EACH FLOOR HAS | 2 FIGHTS 1 PUZZLE |
+| F1-08 | B | after:F1-07! | Safe Room | Voice | THEN A BOSS WAITS. | BEAT IT TO MOVE UP. |
+| F1-09 | B | after:F1-08! | Safe Room | Voice | BEAT THE LAST BOSS | TO WIN A KEY. |
+| F1-10 | B | after:F1-09! | Safe Room | Voice | RETURN TO THE START. | THE GATE HOME WAITS. |
+| F1-11 | B | after:F1-10! | Safe Room | Voice | FAIL AND YOU STAY | HERE FOREVER. |
+| F1-12 | B | after:F1-11! | Safe Room | Player | FIGHT. SOLVE. WIN. | SIMPLE ENOUGH! |
+| F1-13 | B | lock_f1c1 | Combat 1: เข้าห้อง (ประตูล็อก) | System | SPIKES ROSE! | DEFEAT ALL ENEMIES! |
+| F1-14 | B | clear_f1c1 | Combat 1: เคลียร์ | Player | WHEW. THAT WAS HARD. | SPIKES ARE DOWN! |
+| F1-15 | B | lock_f1c2 | Combat 2: เข้าห้อง | System | DEFEAT ALL ENEMIES! |  |
+| F1-16 | B | clear_f1c2 | Combat 2: เคลียร์ | Player | CLEARED! ONWARD! |  |
+| F1-17 | B | enter_f1puz | Puzzle: เข้าห้อง | Player | A PUZZLE ROOM. | LIGHT ALL THE BULBS. |
+| F1-18 | B | item_f1 | Puzzle: ไอเทมปรากฏ | Player | WHAT IS THAT THING. | LET ME TAKE A LOOK. |
+| F1-19 | B | got_f1 | เก็บไอเทม | Player | WHOA! WHAT HAPPENED! |  |
+| F1-20 | A | screen:evolve2 | แปลงร่าง → Form 2 (state EVOLVE) | System | NEW FORM: ORC! | RANGED SHOT! |
+| F1-21 | B | evolved_f1 | หลังแปลงร่าง | Voice | THE DUNGEON REWARDS | THE WORTHY. |
+| F1-22 | B | after:F1-21 | หลังแปลงร่าง | Player | ONLY THE BOSS LEFT! |  |
+| F1-23 | B | enter_f1boss | Boss 1: ก่อนสู้ | Voice | THIS BOSS IS FAST. | CLAP TO STUN IT! |
+| F1-24 | B | bossdead_f1 | Boss 1: ตาย | Player | I GOT THE HANG OF IT | SAME ON NEXT FLOOR! |
+| F1-25 | A | screen:floorclear | FLOOR CLEAR (2 วิ) — เลขชั้นในข้อความถูกแทนด้วยเลขชั้นจริง | System | FLOOR 1 CLEAR! |  |
 
 ### ชั้น 2
 
-| ID | Tier | จังหวะ | ผู้พูด | บรรทัด 1 | บรรทัด 2 |
-| --- | --- | --- | --- | --- | --- |
-| F2-01 | B | เข้าชั้น 2 | Voice | FLOOR 2. HARDER NOW. | WATCH FOR TRAPS! |
-| F2-02 | B | Combat 1: เข้าห้อง | System | DEFEAT ALL ENEMIES! |  |
-| F2-03 | B | Combat 2: เข้าห้อง | System | SPIKES ROSE! | DEFEAT ALL ENEMIES! |
-| F2-04 | B | Combat 2: เคลียร์ | Player | CLEARED! ONWARD! |  |
-| F2-05 | B | Breakable box ครั้งแรก (ออปชัน) | Player | THIS BOX CAN BREAK. | MAYBE LOOT INSIDE. |
-| F2-06 | B | Puzzle: เข้าห้อง | Player | PUSH THE BOXES | ONTO THE PLATES. |
-| F2-07 | B | Puzzle: ไอเทมปรากฏ | Player | ANOTHER RELIC! |  |
-| F2-08 | A | แปลงร่าง → Form 3 (state EVOLVE) | System | NEW FORM: ANGEL! | SHOTS SPLIT ON HIT! |
-| F2-09 | B | หลังแปลงร่าง | Player | I FEEL STRONGER. |  |
-| F2-10 | B | Boss 2: ก่อนสู้ (1) | Voice | THIS BOSS SUMMONS. | SPLIT SHOTS HIT ALL! |
-| F2-11 | B | Boss 2: ก่อนสู้ (2) | Voice | KILL ALL MINIONS | THEN HIT THE BOSS! |
-| F2-12 | B | Boss 2: ลูกน้องตายหมด เข้า VULNERABLE (ออปชัน) | System | MINIONS ALL DEAD! | HIT THE BOSS NOW! |
-| F2-13 | B | Boss 2: ตาย | Player | ONE FLOOR LEFT! |  |
-| F2-14 | A | FLOOR CLEAR (2 วิ) | System | FLOOR 2 CLEAR! |  |
+| ID | Tier | Trigger | จังหวะ | ผู้พูด | บรรทัด 1 | บรรทัด 2 |
+| --- | --- | --- | --- | --- | --- | --- |
+| F2-01 | B | enter_f2start | เข้าชั้น 2 | Voice | FLOOR 2. HARDER NOW. | WATCH FOR TRAPS! |
+| F2-02 | B | lock_f2c1 | Combat 1: เข้าห้อง | System | DEFEAT ALL ENEMIES! |  |
+| F2-03 | B | lock_f2c2 | Combat 2: เข้าห้อง | System | SPIKES ROSE! | DEFEAT ALL ENEMIES! |
+| F2-04 | B | clear_f2c2 | Combat 2: เคลียร์ | Player | CLEARED! ONWARD! |  |
+| F2-05 | B | after:F2-02 | Breakable box (ห้อง Combat 1 ชั้น 2) | Player | THIS BOX CAN BREAK. | MAYBE LOOT INSIDE. |
+| F2-06 | B | enter_f2puz | Puzzle: เข้าห้อง | Player | PUSH THE BOXES | ONTO THE PLATES. |
+| F2-07 | B | item_f2 | Puzzle: ไอเทมปรากฏ | Player | ANOTHER RELIC! |  |
+| F2-08 | A | screen:evolve3 | แปลงร่าง → Form 3 (state EVOLVE) | System | NEW FORM: ANGEL! | SHOTS SPLIT ON HIT! |
+| F2-09 | B | evolved_f2 | หลังแปลงร่าง | Player | I FEEL STRONGER. |  |
+| F2-10 | B | enter_f2boss | Boss 2: ก่อนสู้ (1) | Voice | THIS BOSS SUMMONS. | SPLIT SHOTS HIT ALL! |
+| F2-11 | B | after:F2-10 | Boss 2: ก่อนสู้ (2) | Voice | HIT THE BOSS ANYTIME | MINIONS KEEP COMING! |
+| F2-12 | B | vuln_f2 | Boss 2: ลูกน้องตายหมด (รอบใหม่กำลังมา) | System | MINIONS ALL DEAD! | A NEW WAVE COMES! |
+| F2-13 | B | bossdead_f2 | Boss 2: ตาย | Player | ONE FLOOR LEFT! |  |
+| F2-14 | A | screen:floorclear | FLOOR CLEAR (2 วิ) (ใช้แบบเดียวกับ F1-25) | System | FLOOR 2 CLEAR! |  |
 
 ### ชั้น 3
 
-| ID | Tier | จังหวะ | ผู้พูด | บรรทัด 1 | บรรทัด 2 |
-| --- | --- | --- | --- | --- | --- |
-| F3-01 | B | เข้าชั้น 3 | Voice | FLOOR 3. LAST FLOOR. | THE GATE IS CLOSE. |
-| F3-02 | B | Combat 1: เข้าห้อง | System | DEFEAT ALL ENEMIES! |  |
-| F3-03 | B | Combat 2: เข้าห้อง | System | SPIKES ROSE! | DEFEAT ALL ENEMIES! |
-| F3-04 | B | Combat 2: เคลียร์ | Player | CLEARED! ONWARD! |  |
-| F3-05 | B | Puzzle: เข้าห้อง | Player | WATCH THE PATTERN. | THEN REPEAT IT! |
-| F3-06 | B | Puzzle: ไอเทมปรากฏ | Player | THE LAST RELIC! |  |
-| F3-07 | A | แปลงร่าง → Form 4 (state EVOLVE) | System | NEW FORM: FORM 4! | HOLD ATTACK: CHARGE! |
-| F3-08 | B | หลังแปลงร่าง | Voice | CHARGE SHOTS BREAK | BOSS ARMOR. |
-| F3-09 | B | Boss 3: ก่อนสู้ | Voice | ARMOR BLOCKS ALL. | ONLY CHARGE HURTS! |
-| F3-10 | B | Boss 3: เข้า CHARGING (ครั้งแรก) | System | IT IS CHARGING! | INTERRUPT IT OR DIE! |
-| F3-11 | B | Boss 3: ถูกขัด | System | INTERRUPTED! |  |
+| ID | Tier | Trigger | จังหวะ | ผู้พูด | บรรทัด 1 | บรรทัด 2 |
+| --- | --- | --- | --- | --- | --- | --- |
+| F3-01 | B | enter_f3start | เข้าชั้น 3 | Voice | FLOOR 3. LAST FLOOR. | THE GATE IS CLOSE. |
+| F3-02 | B | lock_f3c1 | Combat 1: เข้าห้อง | System | DEFEAT ALL ENEMIES! |  |
+| F3-03 | B | lock_f3c2 | Combat 2: เข้าห้อง | System | SPIKES ROSE! | DEFEAT ALL ENEMIES! |
+| F3-04 | B | clear_f3c2 | Combat 2: เคลียร์ | Player | CLEARED! ONWARD! |  |
+| F3-05 | B | enter_f3puz | Puzzle: เข้าห้อง | Player | WATCH THE PATTERN. | THEN REPEAT IT! |
+| F3-06 | B | item_f3 | Puzzle: ไอเทมปรากฏ | Player | THE LAST RELIC! |  |
+| F3-07 | A | screen:evolve4 | แปลงร่าง → Form 4 (state EVOLVE) | System | NEW FORM: FORM 4! | HOLD ATTACK: CHARGE! |
+| F3-08 | B | evolved_f3 | หลังแปลงร่าง | Voice | CHARGE SHOTS BREAK | BOSS ARMOR. |
+| F3-09 | B | enter_f3boss | Boss 3: ก่อนสู้ | Voice | ARMOR BLOCKS ALL. | ONLY CHARGE HURTS! |
+| F3-10 | B | charge_f3 | Boss 3: เข้า CHARGING (ครั้งแรก) | System | IT IS CHARGING! | INTERRUPT IT OR DIE! |
+| F3-11 | B | interrupt_f3 | Boss 3: ถูกขัด | System | INTERRUPTED! |  |
 
 ### Endgame
 
-| ID | Tier | จังหวะ | ผู้พูด | บรรทัด 1 | บรรทัด 2 |
-| --- | --- | --- | --- | --- | --- |
-| END-01 | B | Boss 3 ตาย กุญแจตก | Player | A KEY DROPPED! |  |
-| END-02 | B | หลังเก็บกุญแจ | Voice | GO BACK TO THE START | THE GATE WAITS. |
-| END-03 | B | ถึงประตู START (ประตู E) | System | THE GATE IS LOCKED | BY A MAZE. |
-| END-04 | B | เริ่ม Ball in a Maze | Voice | TILT THE BOARD TO | ROLL THE BALL OUT! |
-| END-05 | B | เริ่มจับเวลา | System | YOU HAVE 60 SECONDS! |  |
-| END-06 | A | ผ่าน Maze → WIN | System | YOU ESCAPED! | YOU WIN! |
-| END-07 | A | หมดเวลา → GAME OVER | System | TIME IS UP! | TRAPPED FOREVER. |
-| END-08 | A | ผู้เล่นตายทุกจุด | System | GAME OVER |  |
+| ID | Tier | Trigger | จังหวะ | ผู้พูด | บรรทัด 1 | บรรทัด 2 |
+| --- | --- | --- | --- | --- | --- | --- |
+| END-01 | B | key_drop | Boss 3 ตาย กุญแจตกบนพื้น | Player | A KEY DROPPED! |  |
+| END-02 | B | after:END-01 | บอกทางไปต่อ | Voice | GO BACK TO THE START | THE GATE WAITS. |
+| END-03 | B | enter_f3start_key | ถึง START ชั้น 3 พร้อมกุญแจ | System | THE GATE IS LOCKED | BY A MAZE. |
+| END-04 | B | screen:maze | เริ่ม Ball in a Maze (ป้ายตอนเริ่ม) | Voice | TILT THE BOARD TO | ROLL THE BALL OUT! |
+| END-05 | B | maze_banner_end | เริ่มจับเวลา | System | YOU HAVE 60 SECONDS! |  |
+| END-06 | A | screen:win | ผ่าน Maze → WIN | System | YOU ESCAPED! | YOU WIN! |
+| END-07 | A | screen:timeout | หมดเวลา → GAME OVER | System | TIME IS UP! | TRAPPED FOREVER. |
+| END-08 | A | screen:gameover | ผู้เล่นตาย → GAME OVER (บรรทัด 2 = PRESS BTNC กะพริบ) | System | GAME OVER | PRESS BTNC |
 
 ## หมายเหตุสำหรับ implement
 
-**ตัวเรียกข้อความ (trigger)**
+**ตัวเรียกข้อความ (trigger)** — ดูตารางรหัส Trigger ด้านบน. Tier A = หน้าจอเต็มของ state ที่มีอยู่ (TITLE, PROLOGUE, EVOLVE, FLOOR CLEAR, ป้ายเขาวงกต, WIN, GAME OVER). Tier B = กล่อง dialogue ด้านล่างจอ (`rtl/dialog.v`) — W16.
 
-- **Tier A** ผูกกับ state ที่มีอยู่/วางแผนไว้: Prologue → `S_PROLOGUE` (W9a), FLOOR n CLEAR → state FLOOR CLEAR (120 เฟรม), NEW FORM → state EVOLVE (60 เฟรม), WIN / GAME OVER → จอเดิม แก้แค่ข้อความ
-- **Tier B** ทั้งหมด (บทพูด Voice, คำใบ้บอส, ข้อความห้อง) ต้องมี dialogue overlay ใหม่ ซึ่งไม่อยู่ใน plan ถ้าไม่ทำ ให้ใช้เอฟเฟกต์ภาพของ plan แทน (tint โล่บอส 2, telegraph บอส 3) และเล่าที่เหลือในวิดีโอ
-- F3-10: โจมตีใหญ่ของบอส 3 ตาม plan W12 คือ lethal ทั้งห้อง ไม่ใช่โดนทีเดียว จึงใช้ `INTERRUPT IT OR DIE!`
-- F2-12 แสดงเมื่อ state บอส 2 เปลี่ยนเป็น VULNERABLE
+* F3-10: โจมตีใหญ่ของบอส 3 ตาม plan W12 คือ lethal ทั้งห้อง จึงใช้ `INTERRUPT IT OR DIE!`
+* F2-12 แสดงเมื่อลูกน้องบอส 2 ตายหมด (event `vuln_f2`; หลัง W17 ไม่ได้หมายถึง "ตีได้แล้ว" อีกต่อไป เป็นแค่สัญญาณก่อนระลอกใหม่)
+* WIN screen ไม่มีเลขเวลาแล้ว (เวลาเล่นยังอยู่ที่ 7-seg)
 
-**State ของ Boss 2 (ปรับใหม่)**
+**ตัวเลขอิง plan** — Boss 1 stun 3 วิ / cooldown 4 วิ, Boss 3 ชาร์จ 2 วิ HP 3 charged hit, Maze 60 วิ หมดเวลา = GAME OVER, กระสุนชาร์จทำลายกระสุนศัตรูที่ขวางทาง (ตัดสินใจแล้ว), `ATTACK` = BTNC.
 
-```
-IDLE ──► SUMMON ──► MINIONS_ALIVE (บอสไม่รับดาเมจ)
-          ──(ลูกน้องตายหมด)──► VULNERABLE (บอสรับดาเมจ, แสดง F2-12) ──(หมดเวลา)──► SUMMON (รอบใหม่)
-   HP = 0 ──► DEAD
-```
-
-**ข้อที่ยังต้องตัดสินใจ / ต้องเทียบของจริง**
-
-- DESIGN\_PLAN และ FEATURES ยังเขียนกฎ Boss 2 ตรงข้าม (ตีได้ตอนลูกน้องยังอยู่) ต้องแก้ตาม prompt ที่ส่งให้ agent Design Notes แก้แล้วในไฟล์ `_fixed`
-- ช่วง VULNERABLE ของ Boss 2: ตั้ง 2 วิ (ตีความจากข้อ 4 ของ plan "summon ใหม่หลัง 2 วิ") ต้องยืนยัน และจูนตอนเล่นจริง เพราะสั้นอาจฆ่าบอส HP 16 ไม่ทัน
-- ตัวเลขอื่นอิง plan: Boss 1 stun 3 วิ / cooldown 4 วิ, Boss 3 ชาร์จ 2 วิ HP 3 charged hit, Maze 60 วิ หมดเวลา = GAME OVER
-- `ATTACK` = BTNC ตาม FEATURES ข้อความ F3-07 จึงตรง
-- "Stage N" ใน design = ห้องต่อสู้ 2 ห้อง (สมมติ) · ชื่อเกมและชื่อ Form 4 ยังไม่ตั้ง
+**ชื่อเกม:** THE CHOSEN ONE (แก้ที่ TITLE-01).

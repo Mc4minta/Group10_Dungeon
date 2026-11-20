@@ -64,6 +64,8 @@ module top #(
     debounce #(DEBOUNCE) d_s3(.clk(clk), .in(SW[3]),  .level(), .rise(sw3_r));
     debounce #(DEBOUNCE) d_s4(.clk(clk), .in(SW[4]),  .level(), .rise(sw4_r));
     debounce #(DEBOUNCE) d_s13(.clk(clk), .in(SW[13]), .level(), .rise(sw13_rise));
+    wire sw9;                          // SW9 = W18 auto-lock: attacks aim at the nearest enemy
+    debounce #(DEBOUNCE) d_s9(.clk(clk), .in(SW[9]), .level(sw9), .rise());
     wire sw10;                         // SW10 = เขาวงกต: ใช้ปุ่มแทนเซนเซอร์เอียง
     debounce #(DEBOUNCE) d_s10(.clk(clk), .in(SW[10]), .level(sw10), .rise());
     wire sw11_rise;                    // SW11 = ตบมือสำรอง (ถ้าไมค์ใช้ไม่ได้): ยก = pulse stun บอส 1
@@ -88,8 +90,9 @@ module top #(
     wire [1:0] pro_page;                     // หน้า prologue จาก game_fsm
     wire [2:0] state;                        // จาก game_fsm (ประกาศไว้ตรงนี้เพราะ ft ใช้ก่อน)
     wire paused = sw15 && (state == 3'd1 || state == 3'd4);   // S_PLAY / S_ESCAPE
-    wire ft     = frame_tick & ~paused;
-    wire bc_rise_g = bc_rise & ~paused;      // ปุ่มโจมตีไม่เข้าคิวระหว่างหยุด
+    wire dlg_show, dlg_block;                // W16: dialogue box (dialog.v); a blocking message freezes the game like pause until BTNC
+    wire ft     = frame_tick & ~paused & ~dlg_block;
+    wire bc_rise_g = bc_rise & ~paused & ~dlg_block;      // ปุ่มโจมตีไม่เข้าคิวระหว่างหยุด / ระหว่างอ่าน dialogue
     reg  pause_blink = 1'b0;                 // จุดทศนิยม 7-seg กะพริบตอนหยุด (ใช้ frame_tick จริง)
     reg [4:0] pb_cnt = 5'd0;
     always @(posedge clk) if (frame_tick) begin
@@ -101,10 +104,14 @@ module top #(
     wire p_moving;                     // จาก player.v (เฉพาะเลือกภาพ animation)
     wire [2:0] p_anim;
     wire [5:0] p_aframe;
+    wire       p_hurt;                 // W14: red flash after a hit
     face_lock #(FACE_LOCK_FRAMES) flk (.clk(clk), .rst(rst), .frame_tick(ft), .press(bc_rise_g), .lock(face_lock));
 
     // ---------- world (ห้อง/ประตู) + game FSM ----------
-    wire       has_key, maze_goal;
+    wire       has_key, maze_goal, tmo, key_pick, key_vis;
+    wire       lock_use; wire [1:0] lock_face;     // W18 auto-lock result from objects.v
+    reg  [4:0] turn_cnt = 5'd0;                    // the hero faces the locked target for a moment after each attack
+    wire [9:0] key_x, key_y;
     wire [1:0] floor;
     wire [2:0] room;
     wire [3:0] grid;
@@ -155,7 +162,7 @@ module top #(
     wire [3:0] e_s_t, e_s_o, e_f_t, e_f_o;
     wire       esc_banner;
     // บอส
-    wire        b_act, b_flash, b_stunned, b_fire, b_died, b_anim, b_busy, b_dmg, b_dmg_big, b_summon, b_kill, b_shield, b_tele;
+    wire        b_act, b_flash, b_stunned, b_fire, b_died, b_anim, b_busy, b_dmg, b_dmg_big, b_summon, b_kill, b_shield, b_tele, b_vuln, b_intr;
     wire [9:0]  b_x, b_y;
     wire [1:0]  b_kind;
     wire [2:0]  b_dmg_amt;
@@ -178,9 +185,9 @@ module top #(
                   .got_item(sw3_rise | pz_got), .take_hit(sw4_rise | obj_hit | pz_hit),
                   .floor_done(sw1_rise | (b_died && b_kind != 2'd2)),          // บอส 1, 2 ตาย -> FLOOR_CLEAR
                   .exit_evt(exit_evt), .escape_start(exit_evt & has_key),     // W7: เดินเข้าประตู E ด้วยกุญแจ -> เขาวงกต (state ESCAPE)
-                  .key_get(b_died && b_kind == 2'd2), .goal(maze_goal), .has_key(has_key),   // บอส 3 ตาย -> ได้กุญแจ
+                  .key_get(key_pick), .goal(maze_goal), .has_key(has_key),   // บอส 3 ตาย -> ได้กุญแจ
                   .exit_direct(dbg), .sprint(sw14), .kill(b_kill),
-                  .state(state), .page(pro_page), .restart(restart), .next_floor(next_floor),
+                  .state(state), .page(pro_page), .timeout(tmo), .restart(restart), .next_floor(next_floor),
                   .form(form), .hp(hp), .hp_max(hp_max), .speed(speed), .damage(damage),
                   .rgb(rgb), .freeze(freeze), .hide_player(fsm_hide),
                   .m_t(m_t), .m_o(m_o), .s_t(s_t), .s_o(s_o),
@@ -206,7 +213,7 @@ module top #(
                .door_evt(door_evt), .door_dir(door_dir), .open_E(open_E), .brk(brk), .moving_o(p_moving));
 
     // ---------- objects: มอน กระสุน ฟัน โดนตี ห้องล็อก ----------
-    objects obj (.clk(clk), .rst(rst), .frame_tick(ft), .run(run), .brk(brk), .brk_set(brk_set), .brk_idx(brk_idx),
+    objects obj (.clk(clk), .rst(rst), .frame_tick(ft), .run(run), .brk(brk), .brk_set(brk_set), .brk_idx(brk_idx), .auto_lock(sw9), .lock_use(lock_use), .lock_face(lock_face),
                  .restart(restart), .room_load(load), .floor(floor), .room(room), .grid(grid),
                  .open_L(open_L), .px(px), .py(py), .facing(facing), .form(form), .damage(damage),
                  .atk_press(bc_rise_g), .atk_hold(bc & ~paused), .dbg_clear(sw2_rise),
@@ -226,7 +233,7 @@ module top #(
              .floor(floor), .room(room), .grid(grid), .px(px), .py(py),
              .dmg(b_dmg), .dmg_amt(b_dmg_amt), .dmg_big(b_dmg_big), .minions(alive), .clap((clap | sw11_rise) & ~paused),
              .act(b_act), .bx(b_x), .by(b_y), .kind(b_kind), .flash(b_flash), .stunned(b_stunned),
-             .fire(b_fire), .summon(b_summon), .kill(b_kill), .shield(b_shield), .tele(b_tele), .died(b_died), .dead(b_dead), .hp(b_hp), .hp_bar(b_hpbar), .anim(b_anim), .busy(b_busy));
+             .fire(b_fire), .summon(b_summon), .kill(b_kill), .shield(b_shield), .tele(b_tele), .vuln(b_vuln), .intr(b_intr), .died(b_died), .dead(b_dead), .hp(b_hp), .hp_bar(b_hpbar), .anim(b_anim), .busy(b_busy));
     pdm_mic #(.CLK_DIV(MIC_CLK_DIV), .WINDOW(MIC_WINDOW), .TH(MIC_TH), .HOLDOFF(MIC_HOLDOFF)) mic (
              .clk(clk), .rst(rst), .m_clk(M_CLK), .m_data(M_DATA), .m_lrsel(M_LRSEL),
              .clap_pulse(clap), .amplitude(mic_amp),
@@ -302,7 +309,7 @@ module top #(
     // ข้อความ: 1 TITLE 2 FLOOR CLEAR 3 ESCAPE! 4 WIN 5 GAME OVER 6 PAUSED
     wire [3:0] txt_scr = paused ? 4'd6 : is_title ? 4'd1 : is_pro ? (4'd7 + {2'b00, pro_page}) :
                          (state == S_EVOLVE) ? (4'd11 + {2'b00, form}) : (state == S_CLEAR) ? 4'd2 : esc_banner ? 4'd3 :
-                         is_win ? 4'd4 : (state == S_GAME_OVER) ? 4'd5 : 4'd0;
+                         is_win ? 4'd4 : (state == S_GAME_OVER) ? (tmo ? 4'd15 : 4'd5) : dlg_show ? 4'd14 : 4'd0;
     wire [2:0] b_frame = {b_kind, 1'b0} + ((b_kind == 2'd0) ? b_stunned : b_anim);   // บอส 1 เฟรม 1 = ภาพมึน (W10)
 
     // ---------- W7: Ball in a Maze (state ESCAPE) ----------
@@ -319,24 +326,102 @@ module top #(
         .ax(adx_ax), .ay(adx_ay), .sample_valid(adx_valid), .use_btn(sw10 | ~adx_ready),
         .bu(bu), .bd(bd), .bl(bl), .br(br), .bx(ball_x), .by(ball_y), .goal(maze_goal));
     // the ball is drawn as puzzle object slot 0 (frame 10 = ball art, 32x32 sprite around the 20x20 ball box)
-    wire [8:0]  pz_act_r   = is_esc ? 9'd1 : pz_act;
-    wire [89:0] pz_x_r     = is_esc ? {80'd0, ball_x - 10'd6} : pz_x;
-    wire [89:0] pz_y_r     = is_esc ? {80'd0, ball_y - 10'd6} : pz_y;
-    wire [35:0] pz_frame_r = is_esc ? {32'd0, 4'd10} : pz_frame;
+    // the key item (keyitem.v) lies in the floor-3 boss room after boss 3 died: puzzle frame 14
+    keyitem kit (.clk(clk), .rst(rst), .restart(restart), .died3(b_died && b_kind == 2'd2), .bx(b_x), .by(b_y), .px(px), .py(py),
+                 .floor(floor), .room(room), .play(state == S_PLAY), .vis(key_vis), .kx(key_x), .ky(key_y), .pick(key_pick));
+    wire [1:0]  ball_ph    = ball_x[3:2] + ball_y[3:2];                         // rolling: the picture follows the position (4 pictures)
+    wire [3:0]  ball_f     = 4'd10 + {2'b00, ball_ph};
+    wire [8:0]  pz_act_r   = (is_esc || key_vis) ? 9'd1 : pz_act;
+    wire [89:0] pz_x_r     = is_esc ? {80'd0, ball_x - 10'd6} : key_vis ? {80'd0, key_x} : pz_x;
+    wire [89:0] pz_y_r     = is_esc ? {80'd0, ball_y - 10'd6} : key_vis ? {80'd0, key_y} : pz_y;
+    wire [35:0] pz_frame_r = is_esc ? {32'd0, ball_f} : key_vis ? {32'd0, 4'd14} : pz_frame;
     wire [9:0]  dbg_ballx /*verilator public*/ = ball_x;
     wire [9:0]  dbg_bally /*verilator public*/ = ball_y;
+
+    // ---------- W16: dialogue events (docs/STORY.md -> rtl/dlg_cfg.vh, EV_* indices) ----------
+    `include "dlg_cfg.vh"
+    localparam [2:0] R_START = 3'd0, R_C1 = 3'd1, R_C2 = 3'd2, R_PUZ = 3'd3, R_BOSS3 = 3'd4;
+    wire [63:0] dlg_ev;
+    reg  [3:0]  ld_dly = 4'd0;                 // world.load happened: judge the room at the next frame tick (monsters are spawned by then)
+    reg         ld_chk = 1'b0;
+    reg [1:0]   st_cnt = 2'd0;
+    reg  [2:0]  state_d = 3'd0;
+    reg         vuln_d = 1'b0;
+    wire        key_drop_ev = b_died && b_kind == 2'd2;
+    reg         doors_dd = 1'b0, lb_d = 1'b0, gt_d = 1'b0, sm_d = 1'b0, tele_d = 1'b0, ban_d = 1'b0, fa_done = 1'b0, start_d1 = 1'b0, start_d2 = 1'b0;
+    reg [5:0]   lock_seen = 6'd0;             // floor*2 + (room - 1): a locked combat room was entered (so a later "clear" is a real clear)
+    always @(posedge clk) begin
+        start_d1 <= restart; start_d2 <= start_d1; vuln_d <= b_vuln;
+        state_d <= state; doors_dd <= doors_open; lb_d <= lb_ok; gt_d <= gate_open; sm_d <= sm_ok; tele_d <= b_tele; ban_d <= esc_banner;
+        if (restart) begin lock_seen <= 6'd0; fa_done <= 1'b0; end
+        if (load) ld_chk <= 1'b1;
+        if (frame_tick) ld_chk <= 1'b0;
+        if (state == S_PLAY && bc_rise_g) fa_done <= 1'b1;
+    end
+    wire ld_now   = ld_chk & frame_tick & (state == S_PLAY);
+    wire in_c     = (room == R_C1) || (room == R_C2);
+    wire locked_n = in_c && !doors_open && (alive != 3'd0);
+    wire clr_now  = in_c && doors_open && !doors_dd;
+    wire f0 = (floor == 2'd0), f1 = (floor == 2'd1), f2 = (floor == 2'd2);
+    wire c1 = (room == R_C1), c2 = (room == R_C2);
+    always @(posedge clk) if (ld_now && locked_n) lock_seen[{floor, c2}] <= 1'b1;
+    wire evolved = (state_d == 3'd2) && (state == S_PLAY);                    // EVOLVE -> PLAY
+    assign dlg_ev[EV_START]            = start_d2;
+    assign dlg_ev[EV_FIRST_ATTACK]     = (state == S_PLAY) && bc_rise_g && !fa_done;
+    assign dlg_ev[EV_LOCK_F1C1]        = ld_now && locked_n && f0 && c1;
+    assign dlg_ev[EV_CLEAR_F1C1]       = clr_now && f0 && c1 && lock_seen[{2'd0, 1'b0}];
+    assign dlg_ev[EV_LOCK_F1C2]        = ld_now && locked_n && f0 && c2;
+    assign dlg_ev[EV_CLEAR_F1C2]       = clr_now && f0 && c2 && lock_seen[{2'd0, 1'b1}];
+    assign dlg_ev[EV_ENTER_F1PUZ]      = ld_now && f0 && room == R_PUZ;
+    assign dlg_ev[EV_ITEM_F1]          = lb_ok & ~lb_d & f0;
+    assign dlg_ev[EV_GOT_F1]           = pz_got & f0;
+    assign dlg_ev[EV_EVOLVED_F1]       = evolved & f0;
+    assign dlg_ev[EV_ENTER_F1BOSS]     = ld_now && f0 && room == R_BOSS3;
+    assign dlg_ev[EV_BOSSDEAD_F1]      = b_died && b_kind == 2'd0;
+    assign dlg_ev[EV_ENTER_F2START]    = ld_now && f1 && room == R_START;
+    assign dlg_ev[EV_LOCK_F2C1]        = ld_now && locked_n && f1 && c1;
+    assign dlg_ev[EV_ENTER_F2C1]       = ld_now && f1 && c1;
+    assign dlg_ev[EV_LOCK_F2C2]        = ld_now && locked_n && f1 && c2;
+    assign dlg_ev[EV_CLEAR_F2C2]       = clr_now && f1 && c2 && lock_seen[{2'd1, 1'b1}];
+    assign dlg_ev[EV_ENTER_F2PUZ]      = ld_now && f1 && room == R_PUZ;
+    assign dlg_ev[EV_ITEM_F2]          = gate_open & ~gt_d & f1;
+    assign dlg_ev[EV_EVOLVED_F2]       = evolved & f1;
+    assign dlg_ev[EV_ENTER_F2BOSS]     = ld_now && f1 && room == R_BOSS3;
+    assign dlg_ev[EV_VULN_F2]          = b_vuln & ~vuln_d;
+    assign dlg_ev[EV_BOSSDEAD_F2]      = b_died && b_kind == 2'd1;
+    assign dlg_ev[EV_ENTER_F3START]    = ld_now && f2 && room == R_START;
+    assign dlg_ev[EV_LOCK_F3C1]        = ld_now && locked_n && f2 && c1;
+    assign dlg_ev[EV_LOCK_F3C2]        = ld_now && locked_n && f2 && c2;
+    assign dlg_ev[EV_CLEAR_F3C2]       = clr_now && f2 && c2 && lock_seen[{2'd2, 1'b1}];
+    assign dlg_ev[EV_ENTER_F3PUZ]      = ld_now && f2 && room == R_PUZ;
+    assign dlg_ev[EV_ITEM_F3]          = sm_ok & ~sm_d & f2;
+    assign dlg_ev[EV_EVOLVED_F3]       = evolved & f2;
+    assign dlg_ev[EV_ENTER_F3BOSS]     = ld_now && f2 && room == R_BOSS3;
+    assign dlg_ev[EV_CHARGE_F3]        = b_tele & ~tele_d;
+    assign dlg_ev[EV_INTERRUPT_F3]     = b_intr;
+    assign dlg_ev[EV_KEY_DROP]         = key_drop_ev;
+    assign dlg_ev[EV_ENTER_F3START_KEY] = ld_now && f2 && room == R_START && has_key;
+    assign dlg_ev[EV_MAZE_BANNER_END]  = ban_d & ~esc_banner & is_esc;
+    assign dlg_ev[63:EV_MAZE_BANNER_END + 1] = 0;
+    wire [11:0] dlg_b0, dlg_b1; wire [4:0] dlg_n0, dlg_n1; wire [1:0] dlg_spk;
+    dialog dlg (.clk(clk), .rst(rst), .restart(restart), .frame_tick(frame_tick), .en((state == S_PLAY || is_esc) && !paused),
+                .ev(dlg_ev), .advance(bc_rise), .show(dlg_show), .block(dlg_block),
+                .b0(dlg_b0), .b1(dlg_b1), .n0(dlg_n0), .n1(dlg_n1), .spk(dlg_spk));
+    wire [11:0] dlg_col = (dlg_spk == 2'd0) ? 12'hFFF : (dlg_spk == 2'd1) ? 12'hFF0 : 12'h0FF;      // Player white, Voice yellow, System cyan
 
     // ---------- render ----------
     // TITLE: sprite ร่าง 1 idle หันลง กลางจอ
     wire [9:0]  rpx = is_title ? 10'd304 : px;
     wire [9:0]  rpy = is_title ? 10'd224 : py;
-    wire [5:0]  pframe = is_title ? 6'd0 : form * 6'd12 + facing * 6'd3 + pose;
-    player_frame pfr (.clk(clk), .rst(rst), .frame_tick(ft), .form(form), .facing(facing), .melee_dir(melee_dir),
+    always @(posedge clk) if (ev_shoot | ev_melee) turn_cnt <= LOCK_TURN_FRAMES; else if (ft && turn_cnt != 5'd0) turn_cnt <= turn_cnt - 5'd1;
+    wire [1:0]  face_vis = (sw9 && turn_cnt != 5'd0 && lock_use) ? lock_face : facing;     // W18: the hero turns to the locked target (picture only)
+    wire [5:0]  pframe = is_title ? 6'd0 : form * 6'd12 + face_vis * 6'd3 + pose;
+    player_frame pfr (.clk(clk), .rst(rst), .frame_tick(ft), .form(form), .facing(face_vis), .melee_dir(melee_dir),
                       .moving(p_moving), .melee_on(melee_on), .invuln(invuln), .dead(state == S_GAME_OVER), .active(!is_title),
-                      .anim_sel(p_anim), .aframe(p_aframe));
+                      .shoot(ev_shoot), .anim_sel(p_anim), .aframe(p_aframe), .hurt_flash(p_hurt));
     wire [2:0]  screen = is_title ? 3'd1 : (state == S_GAME_OVER) ? 3'd2 : is_win ? 3'd3 : is_pro ? 3'd4 : is_esc ? 3'd5 : 3'd0;
     wire [11:0] color;
-    renderer rnd (.brk(brk), .open_E(open_E), .hud_hp(hp), .hud_hp_max(hp_max), .hud_b_hp(b_hp), .clk(clk), .ce(ce), .hcount(hcount), .vcount(vcount), .grid(grid), .floor(floor),
+    renderer rnd (.brk(brk), .open_E(open_E), .p_hurt(p_hurt), .dlg_on(txt_scr == 4'd14), .dlg_b0(dlg_b0), .dlg_b1(dlg_b1), .dlg_n0(dlg_n0), .dlg_n1(dlg_n1), .dlg_col(dlg_col), .hud_hp(hp), .hud_hp_max(hp_max), .hud_b_hp(b_hp), .clk(clk), .ce(ce), .hcount(hcount), .vcount(vcount), .grid(grid), .floor(floor),
                   .form(form), .doors_open(doors_open), .open_L(open_L),
                   .screen(screen), .hide_player(fsm_hide | is_pro | is_esc | (obj_blink && !is_title)),
                   .px(rpx), .py(rpy), .pframe(pframe), .p_anim(p_anim), .p_aframe(p_aframe),

@@ -15,7 +15,7 @@ module tb_boss;
         if (tick) frame_no <= frame_no + 1;
     end
 
-    reg goal_t = 0;
+    reg goal_t = 0, auto_b = 0;
     reg up = 0, down = 0, left = 0, right = 0, atk_press = 0, atk_hold = 0, fsm_btnc = 0, clap = 0;
     reg tb_load = 0; reg [9:0] lx = 40, ly = 240;
 
@@ -27,18 +27,21 @@ module tb_boss;
     wire [1:0] kb_dir, melee_dir; wire [5:0] pb_act; wire [11:0] pb_kind; wire charged; wire [2:0] alive;
     wire [5:0] mon_act, mon_type, mon_flash; wire [59:0] mon_x, mon_y;
     wire [59:0] pb_x, pb_y; wire [15:0] eb_act; wire [159:0] eb_x, eb_y;
-    wire b_act, b_flash, b_stun, b_fire, b_died, b_anim, b_busy, b_dmg, b_big, b_summon, b_kill, b_shield, b_tele; wire [9:0] b_x, b_y;
+    wire b_act, b_flash, b_stun, b_fire, b_died, b_anim, b_busy, b_dmg, b_big, b_summon, b_kill, b_shield, b_tele, b_vuln; wire [9:0] b_x, b_y;
     wire [1:0] b_kind; wire [2:0] b_amt; wire [2:0] b_dead; wire [4:0] b_hp; wire [7:0] b_bar;
 
     wire ld = w_load | tb_load;
-    wire esc_t = exit_evt & fsm.has_key;       // W7: door E with the key starts the maze
+    wire esc_t = exit_evt & fsm.has_key;
+    wire key_vis, key_pick; wire [9:0] key_x, key_y;
+    keyitem kit (.clk(clk), .rst(rst), .restart(restart), .died3(b_died && b_kind == 2), .bx(b_x), .by(b_y), .px(px), .py(py),
+                 .floor(floor), .room(room), .play(state == 3'd1), .vis(key_vis), .kx(key_x), .ky(key_y), .pick(key_pick));       // W7: door E with the key starts the maze
     wire run = (state == 3'd1) || (state == 3'd4);
 
     world wld (.clk(clk), .rst(rst), .restart(restart), .next_floor(next_floor), .door_evt(door_evt), .door_dir(door_dir),
                .floor(floor), .room(room), .grid(grid), .load(w_load), .load_x(w_lx), .load_y(w_ly), .exit_evt(exit_evt));
     game_fsm #(.PROLOGUE(0)) fsm (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(fsm_btnc), .got_item(1'b0),
                   .take_hit(obj_hit), .floor_done(b_died && b_kind != 2), .exit_evt(exit_evt),
-                  .exit_direct(1'b0), .sprint(1'b0), .key_get(b_died && b_kind == 2), .goal(goal_t), .escape_start(esc_t), .has_key(), .kill(b_kill),
+                  .exit_direct(1'b0), .sprint(1'b0), .key_get(key_pick), .goal(goal_t), .escape_start(esc_t), .has_key(), .kill(b_kill),
                   .state(state), .restart(restart), .next_floor(next_floor), .form(form), .hp(hp),
                   .hp_max(hp_max), .speed(speed), .damage(damage), .rgb(rgb), .freeze(freeze),
                   .hide_player(fsm_hide), .m_t(m_t), .m_o(m_o), .s_t(s_t), .s_o(s_o),
@@ -54,7 +57,7 @@ module tb_boss;
                 .px(px), .py(py), .facing(facing), .form(form), .damage(damage),
                 .atk_press(atk_press), .atk_hold(atk_hold), .dbg_clear(1'b0),
                 .blk0(12'd0), .blk1(12'd0), .blk2(12'd0), .blk_en(3'd0),
-                .boss_act(b_act), .boss_x(b_x), .boss_y(b_y), .boss_fire(b_fire), .summon(b_summon), .boss_dmg(b_dmg), .boss_dmg_amt(b_amt), .boss_dmg_big(b_big),
+                .boss_act(b_act), .boss_x(b_x), .boss_y(b_y), .boss_fire(b_fire), .auto_lock(auto_b), .lock_use(), .lock_face(), .summon(b_summon), .boss_dmg(b_dmg), .boss_dmg_amt(b_amt), .boss_dmg_big(b_big),
                 .doors_open(doors_open), .alive(alive), .hit(obj_hit), .kb_start(kb_start), .kb_dir(kb_dir),
                 .invuln(invuln), .player_blink(blink), .busy(obj_busy),
                 .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
@@ -62,7 +65,7 @@ module tb_boss;
                 .eb_act(eb_act), .eb_x(eb_x), .eb_y(eb_y), .melee_on(melee_on), .melee_dir(melee_dir));
     boss bs (.brk(8'd0), .clk(clk), .rst(rst), .frame_tick(tick), .run(run), .restart(restart), .room_load(ld),
              .floor(floor), .room(room), .grid(grid), .px(px), .py(py), .dmg(b_dmg), .dmg_amt(b_amt), .dmg_big(b_big), .minions(alive), .clap(clap),
-             .act(b_act), .bx(b_x), .by(b_y), .kind(b_kind), .flash(b_flash), .stunned(b_stun), .fire(b_fire), .summon(b_summon), .kill(b_kill), .shield(b_shield), .tele(b_tele),
+             .act(b_act), .bx(b_x), .by(b_y), .kind(b_kind), .flash(b_flash), .stunned(b_stun), .fire(b_fire), .summon(b_summon), .kill(b_kill), .shield(b_shield), .tele(b_tele), .vuln(b_vuln),
              .died(b_died), .dead(b_dead), .hp(b_hp), .hp_bar(b_bar), .anim(b_anim), .busy(b_busy));
 
     integer errors = 0, checks = 0, fires = 0, nexts = 0, lastfire = -1, per_ok = 1, nper = 0, exits = 0;
@@ -123,6 +126,11 @@ module tb_boss;
         check(x0 - b_x >= 58 && x0 - b_x <= 62, "boss 1 is fast: 2 px every frame");
         $display("      boss 1 moved %0d px in 30 frames", x0 - b_x);
         check(fires == 0 && eb_act == 0, "boss 1 never shoots");
+        go_room(0, 4, 120, 240);
+        auto_b = 1; frames(3);
+        check(ob.lock_use && ob.lock_face == 2'd3, "W18: the boss is a lock target (it is to the right of the hero)");
+        auto_b = 0; frames(2);
+        check(!ob.lock_use, "W18: lock off again with the switch");
         go_room(0, 4, 40, 240);
         hp0 = b_hp; poke(3'd1, 1'b0);
         check(b_hp == hp0 - 1 && (b_flash || bs.fl != 0), "boss 1 takes damage at any time: HP -1, flashes");
@@ -158,40 +166,38 @@ module tb_boss;
         go_room(0, 4, 40, 240);
         check(!b_act && doors_open, "defeated boss 1 stays defeated (room open)");
 
-        // ================= W11 boss 2: summons, hurt only when all minions are dead =================
+        // ================= W11 / W17 boss 2: summons waves of minions, can ALWAYS be hit =================
         go_room(1, 4, 40, 240);
         check(b_act && b_kind == 1 && b_hp == BOSS2_HP && grid == 3, "boss 2 spawns in the fence room with HP 16");
-        check(bs.bs2 == 0 && b_shield, "boss 2 starts shielded (IDLE, before the first summon)");
+        check(bs.bs2 == 0 && !b_shield, "boss 2 has no shield (W17)");
         hp0 = b_hp; poke(3'd2, 1'b0);
-        check(b_hp == hp0, "IDLE: damage rejected (boss cannot be hit before the first summon)");
+        check(b_hp == hp0 - 2 && (b_flash || bs.fl != 0), "W17: damage accepted before the first summon (IDLE)");
         x0 = b_x; y0 = b_y; fires = 0;
         for (n = 0; n < 40; n = n + 1) begin safe; frames(1); end
         check(b_x == x0 && b_y == y0 && fires == 0 && alive == 0, "boss 2 is stationary, never shoots, no minions yet");
         for (n = 0; n < 40 && alive == 0; n = n + 1) begin safe; frames(1); end
-        check(alive == BOSS2_MINIONS && bs.bs2 == 1 && b_shield, "SUMMON: 3 minions appear, boss shielded");
+        check(alive == BOSS2_MINIONS && bs.bs2 == 1, "SUMMON: 3 minions appear");
         $display("      first summon after ~%0d frames", 40 + n);
-        hp0 = b_hp; poke(3'd2, 1'b0); poke(3'd4, 1'b1);
-        check(b_hp == hp0, "MINIONS_ALIVE: every kind of damage rejected (even charged)");
+        hp0 = b_hp; poke(3'd2, 1'b0);
+        check(b_hp == hp0 - 2, "W17: damage accepted while the minions are alive");
+        hp0 = b_hp; poke(3'd4, 1'b1);
+        check(b_hp == hp0 - 4, "W17: a charged shot hurts it too");
         for (n = 0; n < 20; n = n + 1) begin safe; frames(1); end
-        check(alive == BOSS2_MINIONS && bs.bs2 == 1, "boss stays shielded while the minions live");
-        ob.m_act = 6'd1; frames(3);
-        check(alive == 1 && bs.bs2 == 1, "one minion left: still shielded");
+        check(alive == BOSS2_MINIONS && bs.bs2 == 1, "the minions stay (boss waits for them)");
         ob.m_act = 6'd0; frames(4);
-        check(bs.bs2 == 2 && !b_shield, "all minions dead -> VULNERABLE (shield off)");
+        check(bs.bs2 == 2 && b_vuln, "all minions dead -> the vuln event state (new wave in BOSS2_VULN_FRAMES)");
         hp0 = b_hp; poke(3'd2, 1'b0);
-        check(b_hp == hp0 - 2 && (b_flash || bs.fl != 0), "VULNERABLE: damage accepted");
+        check(b_hp == hp0 - 2, "damage accepted in that state too");
         for (n = 0; n < 140 && bs.bs2 == 2; n = n + 1) begin safe; frames(1); end
-        check(bs.bs2 == 1 && n >= 116 && n <= 124, "VULNERABLE window ends after BOSS2_VULN_FRAMES");
+        check(bs.bs2 == 1 && n >= 116 && n <= 124, "after BOSS2_VULN_FRAMES the next wave is summoned");
         frames(4);
-        check(alive == BOSS2_MINIONS && b_shield, "new SUMMON round: 3 more minions, shield back");
-        hp0 = b_hp; poke(3'd2, 1'b0);
-        check(b_hp == hp0, "second round: shielded again");
+        check(alive == BOSS2_MINIONS, "new wave: 3 more minions");
         ob.m_act = 6'd0; frames(4);
         while (b_busy) @(posedge clk);
         bs.hp = 5'd2; nexts = 0;
         poke(3'd2, 1'b0);
         frames(2);
-        check(!b_act && b_dead[1] && state == 3'd3, "boss 2 dies in VULNERABLE -> FLOOR_CLEAR");
+        check(!b_act && b_dead[1] && state == 3'd3, "boss 2 dies -> FLOOR_CLEAR");
         frames(128);
         check(nexts == 1 && floor == 2, "boss 2 dead -> floor 3");
 
@@ -232,7 +238,12 @@ module tb_boss;
         check(b_act && b_hp == 1, "two charged hits: HP 1");
         poke(3'd4, 1'b1);
         frames(2);
-        check(!b_act && b_dead[2] && state == 3'd1 && fsm.has_key, "boss 3 dead (3 charged hits) -> key, game goes on (no ESCAPE yet)");
+        check(!b_act && b_dead[2] && state == 3'd1 && !fsm.has_key && key_vis, "boss 3 dead (3 charged hits) -> the key lies on the floor, game goes on (no ESCAPE yet)");
+        check(key_x == b_x + 16 && key_y == b_y + 16, "the key lies where the boss stood");
+        frames(3);
+        check(!fsm.has_key, "standing away from the key does not pick it up");
+        pl.px = key_x; pl.py = key_y; frames(2);
+        check(fsm.has_key && !key_vis, "walking over the key picks it up: has_key, the key is gone"); 
         go_room(2, 0, 100, 240);
         safe; left = 1; frames(60); left = 0; frames(2);
         check(state == 3'd4 && freeze, "walk into door E with the key -> the maze starts (ESCAPE, hero frozen)");
@@ -247,7 +258,9 @@ module tb_boss;
         bs.hp = 5'd1; fsm.form = 2'd1;
         poke(3'd4, 1'b1);
         frames(2);
-        check(state == 3'd1 && fsm.has_key, "key again");
+        check(state == 3'd1 && key_vis, "key dropped again");
+        pl.px = key_x; pl.py = key_y; frames(2);
+        check(fsm.has_key, "key picked up again");
         go_room(2, 0, 100, 240);
         safe; left = 1; frames(60); left = 0; frames(2);
         check(state == 3'd4, "maze again");
