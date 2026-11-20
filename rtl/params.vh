@@ -87,8 +87,14 @@ localparam BOSS3_CHASE      = 180;          // W12: บอส 3 ไล่ (เ�
 localparam BOSS3_CHARGE     = 120;          // W12: ชาร์จโจมตีใหญ่ 2 วิ (ตอนนี้ยิงชาร์จขัดได้) ครบ = ผู้เล่นตายทั้งห้อง          // หลังมึนจบ รอกี่เฟรมถึงตบมือได้อีก
 
 // ---------- ฉากหนี (P5) ----------
-localparam ESCAPE_SECONDS  = 30;           // นับถอยหลัง (1800 เฟรม)
-localparam ESCAPE_BANNER   = 120;          // ข้อความ ESCAPE! กี่เฟรม
+localparam ESCAPE_SECONDS  = 60;           // W7: ESCAPE state = Ball in a Maze: นับถอยหลัง 60 วิ (หมดเวลา = GAME OVER)
+localparam ESCAPE_BANNER   = 120;          // ข้อความตอนเริ่มเขาวงกต กี่เฟรม
+localparam MAZE_DEADZONE   = 3;            // W7: เอียงน้อยกว่านี้ (นับ ADXL ~64 ต่อ 1 g) ถือว่าราบ
+localparam MAZE_TILT_SHIFT = 2;            // ความเร่ง = tilt >> นี้ (1/16 px ต่อเฟรม^2)
+localparam MAZE_BTN_ACC    = 8;            // ความเร่งตอนใช้ปุ่มแทนเซนเซอร์
+localparam MAZE_MAXV       = 96;           // ความเร็วสูงสุด 6 px/เฟรม
+localparam MAZE_SIGN_X     = 1;            // 1 / 0 = กลับทิศแกน X ของเซนเซอร์ (ต้องเช็คบนบอร์ดจริง)
+localparam MAZE_SIGN_Y     = 1;
 localparam SHAKE_PX        = 2;            // จอสั่น +-px (ค่า 1..3)
 localparam SHAKE_EVERY     = 4;            // เปลี่ยน offset ทุกกี่เฟรม
 localparam HURT_SHAKE_FRAMES = 12;         // จอสั่นกี่เฟรมหลังโดนตี (0 = ปิด)

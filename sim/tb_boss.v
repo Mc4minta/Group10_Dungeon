@@ -15,6 +15,7 @@ module tb_boss;
         if (tick) frame_no <= frame_no + 1;
     end
 
+    reg goal_t = 0;
     reg up = 0, down = 0, left = 0, right = 0, atk_press = 0, atk_hold = 0, fsm_btnc = 0, clap = 0;
     reg tb_load = 0; reg [9:0] lx = 40, ly = 240;
 
@@ -30,24 +31,25 @@ module tb_boss;
     wire [1:0] b_kind; wire [2:0] b_amt; wire [2:0] b_dead; wire [4:0] b_hp; wire [7:0] b_bar;
 
     wire ld = w_load | tb_load;
+    wire esc_t = exit_evt & fsm.has_key;       // W7: door E with the key starts the maze
     wire run = (state == 3'd1) || (state == 3'd4);
 
     world wld (.clk(clk), .rst(rst), .restart(restart), .next_floor(next_floor), .door_evt(door_evt), .door_dir(door_dir),
                .floor(floor), .room(room), .grid(grid), .load(w_load), .load_x(w_lx), .load_y(w_ly), .exit_evt(exit_evt));
     game_fsm #(.PROLOGUE(0)) fsm (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(fsm_btnc), .got_item(1'b0),
                   .take_hit(obj_hit), .floor_done(b_died && b_kind != 2), .exit_evt(exit_evt),
-                  .escape_start(b_died && b_kind == 2), .exit_direct(1'b0), .sprint(1'b0), .kill(b_kill),
+                  .exit_direct(1'b0), .sprint(1'b0), .key_get(b_died && b_kind == 2), .goal(goal_t), .escape_start(esc_t), .has_key(), .kill(b_kill),
                   .state(state), .restart(restart), .next_floor(next_floor), .form(form), .hp(hp),
                   .hp_max(hp_max), .speed(speed), .damage(damage), .rgb(rgb), .freeze(freeze),
                   .hide_player(fsm_hide), .m_t(m_t), .m_o(m_o), .s_t(s_t), .s_o(s_o),
                   .e_s_t(es1), .e_s_o(es0), .e_f_t(ef1), .e_f_o(ef0), .esc_banner(banner));
-    player pl (.clk(clk), .rst(rst), .frame_tick(tick), .up(up), .down(down), .left(left), .right(right),
+    player pl (.open_E(fsm.has_key), .brk(8'd0), .clk(clk), .rst(rst), .frame_tick(tick), .up(up), .down(down), .left(left), .right(right),
                .hold_facing(atk_hold), .form(form), .speed(speed), .freeze(freeze), .grid(grid),
                .doors_open(doors_open), .open_L(1'b1), .load(ld), .load_x(tb_load ? lx : w_lx), .load_y(tb_load ? ly : w_ly),
                .blk0(12'd0), .blk1(12'd0), .blk2(12'd0), .blk_en(3'd0),
                .kb_start(kb_start), .kb_dir(kb_dir), .px(px), .py(py), .facing(facing), .pose(pose),
                .door_evt(door_evt), .door_dir(door_dir));
-    objects ob (.clk(clk), .rst(rst), .frame_tick(tick), .run(run), .restart(restart),
+    objects ob (.brk(8'd0), .brk_set(), .brk_idx(), .clk(clk), .rst(rst), .frame_tick(tick), .run(run), .restart(restart),
                 .room_load(ld), .floor(floor), .room(room), .grid(grid), .open_L(1'b1),
                 .px(px), .py(py), .facing(facing), .form(form), .damage(damage),
                 .atk_press(atk_press), .atk_hold(atk_hold), .dbg_clear(1'b0),
@@ -58,7 +60,7 @@ module tb_boss;
                 .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
                 .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .pb_kind(pb_kind), .charged(charged),
                 .eb_act(eb_act), .eb_x(eb_x), .eb_y(eb_y), .melee_on(melee_on), .melee_dir(melee_dir));
-    boss bs (.clk(clk), .rst(rst), .frame_tick(tick), .run(run), .restart(restart), .room_load(ld),
+    boss bs (.brk(8'd0), .clk(clk), .rst(rst), .frame_tick(tick), .run(run), .restart(restart), .room_load(ld),
              .floor(floor), .room(room), .grid(grid), .px(px), .py(py), .dmg(b_dmg), .dmg_amt(b_amt), .dmg_big(b_big), .minions(alive), .clap(clap),
              .act(b_act), .bx(b_x), .by(b_y), .kind(b_kind), .flash(b_flash), .stunned(b_stun), .fire(b_fire), .summon(b_summon), .kill(b_kill), .shield(b_shield), .tele(b_tele),
              .died(b_died), .dead(b_dead), .hp(b_hp), .hp_bar(b_bar), .anim(b_anim), .busy(b_busy));
@@ -230,11 +232,12 @@ module tb_boss;
         check(b_act && b_hp == 1, "two charged hits: HP 1");
         poke(3'd4, 1'b1);
         frames(2);
-        check(!b_act && b_dead[2] && state == 3'd4 && !freeze, "boss 3 dead (3 charged hits) -> ESCAPE (player not frozen)");
-        fsm.form = 2'd3;
+        check(!b_act && b_dead[2] && state == 3'd1 && fsm.has_key, "boss 3 dead (3 charged hits) -> key, game goes on (no ESCAPE yet)");
         go_room(2, 0, 100, 240);
         safe; left = 1; frames(60); left = 0; frames(2);
-        check(state == 3'd5, "reach the E door during ESCAPE -> WIN");
+        check(state == 3'd4 && freeze, "walk into door E with the key -> the maze starts (ESCAPE, hero frozen)");
+        @(posedge clk) goal_t <= 1; @(posedge clk) goal_t <= 0; frames(2);
+        check(state == 3'd5, "ball reaches the goal -> WIN");
 
         // ================= ESCAPE timeout =================
         @(posedge clk) fsm_btnc <= 1; @(posedge clk) fsm_btnc <= 0; frames(2);
@@ -244,9 +247,13 @@ module tb_boss;
         bs.hp = 5'd1; fsm.form = 2'd1;
         poke(3'd4, 1'b1);
         frames(2);
-        check(state == 3'd4, "ESCAPE again");
-        for (n = 0; n < 1900 && state == 3'd4; n = n + 1) begin safe; frames(1); end
-        check(state == 3'd6 && n >= 1795 && n <= 1801, "ESCAPE countdown hits 0 -> GAME_OVER");
+        check(state == 3'd1 && fsm.has_key, "key again");
+        go_room(2, 0, 100, 240);
+        safe; left = 1; frames(60); left = 0; frames(2);
+        check(state == 3'd4, "maze again");
+        for (n = 0; n < 3700 && state == 3'd4; n = n + 1) begin safe; frames(1); end
+        $display("      maze timed out after %0d frames (state %0d)", n, state);
+        check(state == 3'd6 && n >= 3560 && n <= 3601, "maze countdown (60 s) hits 0 -> GAME_OVER");
         $display("      ESCAPE timed out after %0d frames", n);
 
         $display("checks = %0d  errors = %0d", checks, errors);

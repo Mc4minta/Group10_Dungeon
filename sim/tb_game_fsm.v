@@ -16,13 +16,13 @@ module tb_game_fsm;
     always @(posedge clk) begin c <= c + 1; tick <= (c == 2'd3); end
 
     // second instance with the prologue (W9a): TITLE -> PROLOGUE pages 0..3 -> PLAY
-    reg btnc2 = 0; reg kill_t = 0;
+    reg btnc2 = 0; reg kill_t = 0, key_t = 0, goal_t = 0; wire has_key;
     wire [2:0] state2; wire [1:0] page2; wire restart2; wire freeze2;
     game_fsm #(.PROLOGUE(1)) dut2 (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(btnc2), .got_item(1'b0),
-                  .take_hit(1'b0), .floor_done(1'b0), .exit_evt(1'b0), .escape_start(1'b0), .exit_direct(1'b1), .sprint(1'b0), .kill(1'b0),
+                  .take_hit(1'b0), .floor_done(1'b0), .exit_evt(1'b0), .escape_start(1'b0), .exit_direct(1'b1), .sprint(1'b0), .key_get(1'b0), .goal(1'b0), .kill(1'b0),
                   .state(state2), .page(page2), .restart(restart2), .freeze(freeze2));
     game_fsm #(.PROLOGUE(0)) dut (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(btnc), .got_item(item),
-                  .take_hit(hit), .floor_done(fdone), .exit_evt(ext), .escape_start(esc), .exit_direct(1'b1), .sprint(sprint), .kill(kill_t),
+                  .take_hit(hit), .floor_done(fdone), .exit_evt(ext), .escape_start(esc), .exit_direct(1'b1), .sprint(sprint), .key_get(key_t), .goal(goal_t), .kill(kill_t), .has_key(has_key),
                   .state(state), .restart(restart), .next_floor(next_floor), .form(form), .hp(hp),
                   .hp_max(hp_max), .speed(speed), .damage(damage), .rgb(rgb), .freeze(freeze),
                   .hide_player(hide), .m_t(m_t), .m_o(m_o), .s_t(s_t), .s_o(s_o),
@@ -197,25 +197,32 @@ module tb_game_fsm;
         pulse_btnc; pulse_btnc;
         check(state == PLAY, "back in PLAY after the kill test");
 
-        // ---------- ESCAPE (P5) ----------
+        // ---------- W7: key ----------
+        check(!has_key, "no key at the start of a game");
+        @(posedge clk) key_t <= 1; @(posedge clk) key_t <= 0; repeat (2) @(posedge clk);
+        check(has_key && state == PLAY, "boss 3 dead -> key_get -> has_key (state unchanged: no ESCAPE any more)");
+
+        // ---------- ESCAPE = Ball in a Maze (W7) ----------
         @(posedge clk) esc <= 1; @(posedge clk) esc <= 0; repeat (2) @(posedge clk);
-        check(state == ESCAPE && !freeze && {es1, es0, ef1, ef0} == 16'h3000 && banner, "boss 3 dead -> ESCAPE 30.00, not frozen, banner on");
+        check(state == ESCAPE && freeze && {es1, es0, ef1, ef0} == 16'h6000 && banner, "door E with the key -> maze: 60.00 countdown, hero frozen, banner on");
         t_snap = tm(0);
         wait_ticks(1);
-        check({es1, es0, ef1, ef0} == 16'h2959, "countdown 30.00 -> 29.59 (ss.ff)");
+        check({es1, es0, ef1, ef0} == 16'h5959, "countdown 60.00 -> 59.59 (ss.ff)");
         wait_ticks(120);
-        check(!banner, "ESCAPE! banner gone after 2 s");
+        check(!banner, "maze banner gone after 2 s");
         pulse_hit;
         check(state == ESCAPE && hp == HP4 - 1, "take_hit works in ESCAPE");
         pulse_exit;
-        check(state == WIN, "exit_evt during ESCAPE -> WIN");
+        check(state == ESCAPE, "exit_evt is ignored inside the maze");
+        @(posedge clk) goal_t <= 1; @(posedge clk) goal_t <= 0; repeat (2) @(posedge clk);
+        check(state == WIN, "ball reaches the goal -> WIN");
         pulse_btnc; pulse_btnc;
-        check(state == PLAY, "new game");
+        check(state == PLAY && !has_key, "new game (the key is gone)");
         @(posedge clk) esc <= 1; @(posedge clk) esc <= 0; repeat (2) @(posedge clk);
         t_snap = tm(0);
         n_ticks = 0;
-        while (state == ESCAPE && n_ticks < 2000) begin wait_ticks(1); n_ticks = n_ticks + 1; end
-        check(state == OVER && n_ticks >= 1798 && n_ticks <= 1801, "ESCAPE timeout after 1800 frames -> GAME_OVER");
+        while (state == ESCAPE && n_ticks < 4000) begin wait_ticks(1); n_ticks = n_ticks + 1; end
+        check(state == OVER && n_ticks >= 3598 && n_ticks <= 3601, "maze timeout after 3600 frames (60 s) -> GAME_OVER");
         $display("      ESCAPE lasted %0d frames", n_ticks);
         check(tm(0) != t_snap, "play timer kept running during ESCAPE");
 

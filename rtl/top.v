@@ -35,7 +35,10 @@ module top #(
     // ไมค์ PDM (ADMP421)
     output wire        M_CLK,
     input  wire        M_DATA,
-    output wire        M_LRSEL
+    output wire        M_LRSEL,
+    // accelerometer ADXL362 (SPI) for Ball in a Maze
+    input  wire        ACL_MISO,
+    output wire        ACL_MOSI, ACL_SCLK, ACL_CSN
 );
     `include "params.vh"
     wire clk = CLK100MHZ;
@@ -61,6 +64,8 @@ module top #(
     debounce #(DEBOUNCE) d_s3(.clk(clk), .in(SW[3]),  .level(), .rise(sw3_r));
     debounce #(DEBOUNCE) d_s4(.clk(clk), .in(SW[4]),  .level(), .rise(sw4_r));
     debounce #(DEBOUNCE) d_s13(.clk(clk), .in(SW[13]), .level(), .rise(sw13_rise));
+    wire sw10;                         // SW10 = เขาวงกต: ใช้ปุ่มแทนเซนเซอร์เอียง
+    debounce #(DEBOUNCE) d_s10(.clk(clk), .in(SW[10]), .level(sw10), .rise());
     wire sw11_rise;                    // SW11 = ตบมือสำรอง (ถ้าไมค์ใช้ไม่ได้): ยก = pulse stun บอส 1
     debounce #(DEBOUNCE) d_s11(.clk(clk), .in(SW[11]), .level(), .rise(sw11_rise));
     // debug: ใช้ได้เฉพาะ DEBUG = 1
@@ -99,6 +104,7 @@ module top #(
     face_lock #(FACE_LOCK_FRAMES) flk (.clk(clk), .rst(rst), .frame_tick(ft), .press(bc_rise_g), .lock(face_lock));
 
     // ---------- world (ห้อง/ประตู) + game FSM ----------
+    wire       has_key, maze_goal;
     wire [1:0] floor;
     wire [2:0] room;
     wire [3:0] grid;
@@ -157,8 +163,12 @@ module top #(
     wire [4:0]  b_hp;
     wire [7:0]  b_hpbar;
     wire        clap;
+    wire [7:0]  brk;                    // W5 overlay: บล็อกพังได้ของห้องนี้ที่พังแล้ว
+    wire        brk_set;
+    wire [2:0]  brk_idx;
     wire [11:0] mic_amp;
 
+    overlay ovl (.clk(clk), .rst(rst), .restart(restart), .grid(grid), .set(brk_set), .set_idx(brk_idx), .brk(brk));
     world wld (.clk(clk), .rst(rst), .restart(restart), .next_floor(next_floor),
                .door_evt(door_evt), .door_dir(door_dir),
                .floor(floor), .room(room), .grid(grid),
@@ -167,7 +177,8 @@ module top #(
     game_fsm #(.PROLOGUE(PROLOGUE)) fsm (.clk(clk), .rst(rst), .frame_tick(ft), .btnc_rise(bc_rise),
                   .got_item(sw3_rise | pz_got), .take_hit(sw4_rise | obj_hit | pz_hit),
                   .floor_done(sw1_rise | (b_died && b_kind != 2'd2)),          // บอส 1, 2 ตาย -> FLOOR_CLEAR
-                  .exit_evt(exit_evt), .escape_start(b_died && b_kind == 2'd2),  // บอส 3 ตาย -> ESCAPE
+                  .exit_evt(exit_evt), .escape_start(exit_evt & has_key),     // W7: เดินเข้าประตู E ด้วยกุญแจ -> เขาวงกต (state ESCAPE)
+                  .key_get(b_died && b_kind == 2'd2), .goal(maze_goal), .has_key(has_key),   // บอส 3 ตาย -> ได้กุญแจ
                   .exit_direct(dbg), .sprint(sw14), .kill(b_kill),
                   .state(state), .page(pro_page), .restart(restart), .next_floor(next_floor),
                   .form(form), .hp(hp), .hp_max(hp_max), .speed(speed), .damage(damage),
@@ -178,7 +189,8 @@ module top #(
     localparam [2:0] S_TITLE = 3'd0, S_PLAY = 3'd1, S_CLEAR = 3'd3, S_ESCAPE = 3'd4, S_WIN = 3'd5, S_GAME_OVER = 3'd6, S_PROLOGUE = 3'd7, S_EVOLVE = 3'd2;
     localparam [2:0] R_BOSS = 3'd4;
     wire is_esc   = (state == S_ESCAPE);
-    wire run      = (state == S_PLAY) || is_esc;   // objects / puzzles / boss ทำงาน
+    wire run      = (state == S_PLAY);             // objects / puzzles / boss ทำงาน (เขาวงกต = ESCAPE: หยุดทุกอย่างยกเว้น maze)
+    wire open_E   = has_key | sw0_key;             // W7: ประตู E เปิดเมื่อมีกุญแจ (debug SW0 เปิดด้วย)
     wire is_title = (state == S_TITLE);
     wire is_win   = (state == S_WIN);
     wire is_pro   = (state == S_PROLOGUE);
@@ -191,10 +203,10 @@ module top #(
                .load(load), .load_x(load_x), .load_y(load_y),
                .kb_start(kb_start), .kb_dir(kb_dir),
                .px(px), .py(py), .facing(facing), .pose(pose),
-               .door_evt(door_evt), .door_dir(door_dir), .moving_o(p_moving));
+               .door_evt(door_evt), .door_dir(door_dir), .open_E(open_E), .brk(brk), .moving_o(p_moving));
 
     // ---------- objects: มอน กระสุน ฟัน โดนตี ห้องล็อก ----------
-    objects obj (.clk(clk), .rst(rst), .frame_tick(ft), .run(run),
+    objects obj (.clk(clk), .rst(rst), .frame_tick(ft), .run(run), .brk(brk), .brk_set(brk_set), .brk_idx(brk_idx),
                  .restart(restart), .room_load(load), .floor(floor), .room(room), .grid(grid),
                  .open_L(open_L), .px(px), .py(py), .facing(facing), .form(form), .damage(damage),
                  .atk_press(bc_rise_g), .atk_hold(bc & ~paused), .dbg_clear(sw2_rise),
@@ -210,7 +222,7 @@ module top #(
 
     // ---------- ปริศนา + ไอเทม ----------
     // ---------- บอส + ไมค์ ----------
-    boss bs (.clk(clk), .rst(rst), .frame_tick(ft), .run(run), .restart(restart), .room_load(load),
+    boss bs (.clk(clk), .rst(rst), .frame_tick(ft), .run(run), .brk(brk), .restart(restart), .room_load(load),
              .floor(floor), .room(room), .grid(grid), .px(px), .py(py),
              .dmg(b_dmg), .dmg_amt(b_dmg_amt), .dmg_big(b_dmg_big), .minions(alive), .clap((clap | sw11_rise) & ~paused),
              .act(b_act), .bx(b_x), .by(b_y), .kind(b_kind), .flash(b_flash), .stunned(b_stunned),
@@ -220,7 +232,7 @@ module top #(
              .clap_pulse(clap), .amplitude(mic_amp),
              .win_pulse(), .holdoff(), .th_dyn(12'd0), .use_dyn(1'b0));
 
-    puzzles #(.SEED(SEED)) pz (.clk(clk), .rst(rst), .frame_tick(ft), .run(run),
+    puzzles #(.SEED(SEED)) pz (.clk(clk), .rst(rst), .frame_tick(ft), .run(run), .brk(brk),
                  .restart(restart), .room_load(load), .floor(floor), .grid(grid), .px(px), .py(py),
                  .up(bu), .down(bd), .left(bl), .right(br), .melee_on(melee_on), .melee_dir(melee_dir),
                  .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .soko_reset(sw13_rise),
@@ -275,7 +287,7 @@ module top #(
     always @(posedge clk) if (ft) begin
         fc <= fc + 1'b1;
         blk_cnt <= (blk_cnt == LED_BLINK - 1) ? 4'd0 : blk_cnt + 1'b1;
-        if (is_esc || hurt_shake != 5'd0) begin
+        if (hurt_shake != 5'd0) begin
             if (sh_cnt == SHAKE_EVERY - 1) begin
                 sh_cnt <= 0;
                 sh_lfsr <= {sh_lfsr[6:0], sh_lfsr[7] ^ sh_lfsr[5] ^ sh_lfsr[4] ^ sh_lfsr[3]};
@@ -293,6 +305,27 @@ module top #(
                          is_win ? 4'd4 : (state == S_GAME_OVER) ? 4'd5 : 4'd0;
     wire [2:0] b_frame = {b_kind, 1'b0} + ((b_kind == 2'd0) ? b_stunned : b_anim);   // บอส 1 เฟรม 1 = ภาพมึน (W10)
 
+    // ---------- W7: Ball in a Maze (state ESCAPE) ----------
+    wire [7:0] adx_ax, adx_ay; wire adx_valid, adx_ready;
+    adxl362 acl (.clk(clk), .rst(rst), .ACL_MISO(ACL_MISO), .ACL_MOSI(ACL_MOSI), .ACL_SCLK(ACL_SCLK), .ACL_CSN(ACL_CSN),
+                 .ax(adx_ax), .ay(adx_ay), .valid(adx_valid), .ready(adx_ready));
+    reg esc_d = 1'b0;
+    always @(posedge clk) esc_d <= is_esc;
+    wire maze_start = is_esc & ~esc_d;
+    wire [9:0] ball_x, ball_y;
+    maze #(.DEADZONE(MAZE_DEADZONE), .TILT_SHIFT(MAZE_TILT_SHIFT), .BTN_ACC(MAZE_BTN_ACC), .MAXV(MAZE_MAXV),
+           .SIGN_X(MAZE_SIGN_X), .SIGN_Y(MAZE_SIGN_Y)) mz (
+        .clk(clk), .rst(rst), .frame_tick(ft), .run(is_esc), .start(maze_start),
+        .ax(adx_ax), .ay(adx_ay), .sample_valid(adx_valid), .use_btn(sw10 | ~adx_ready),
+        .bu(bu), .bd(bd), .bl(bl), .br(br), .bx(ball_x), .by(ball_y), .goal(maze_goal));
+    // the ball is drawn as puzzle object slot 0 (frame 10 = ball art, 32x32 sprite around the 20x20 ball box)
+    wire [8:0]  pz_act_r   = is_esc ? 9'd1 : pz_act;
+    wire [89:0] pz_x_r     = is_esc ? {80'd0, ball_x - 10'd6} : pz_x;
+    wire [89:0] pz_y_r     = is_esc ? {80'd0, ball_y - 10'd6} : pz_y;
+    wire [35:0] pz_frame_r = is_esc ? {32'd0, 4'd10} : pz_frame;
+    wire [9:0]  dbg_ballx /*verilator public*/ = ball_x;
+    wire [9:0]  dbg_bally /*verilator public*/ = ball_y;
+
     // ---------- render ----------
     // TITLE: sprite ร่าง 1 idle หันลง กลางจอ
     wire [9:0]  rpx = is_title ? 10'd304 : px;
@@ -301,17 +334,17 @@ module top #(
     player_frame pfr (.clk(clk), .rst(rst), .frame_tick(ft), .form(form), .facing(facing), .melee_dir(melee_dir),
                       .moving(p_moving), .melee_on(melee_on), .invuln(invuln), .dead(state == S_GAME_OVER), .active(!is_title),
                       .anim_sel(p_anim), .aframe(p_aframe));
-    wire [2:0]  screen = is_title ? 3'd1 : (state == S_GAME_OVER) ? 3'd2 : is_win ? 3'd3 : is_pro ? 3'd4 : 3'd0;
+    wire [2:0]  screen = is_title ? 3'd1 : (state == S_GAME_OVER) ? 3'd2 : is_win ? 3'd3 : is_pro ? 3'd4 : is_esc ? 3'd5 : 3'd0;
     wire [11:0] color;
-    renderer rnd (.hud_hp(hp), .hud_hp_max(hp_max), .hud_b_hp(b_hp), .clk(clk), .ce(ce), .hcount(hcount), .vcount(vcount), .grid(grid), .floor(floor),
+    renderer rnd (.brk(brk), .open_E(open_E), .hud_hp(hp), .hud_hp_max(hp_max), .hud_b_hp(b_hp), .clk(clk), .ce(ce), .hcount(hcount), .vcount(vcount), .grid(grid), .floor(floor),
                   .form(form), .doors_open(doors_open), .open_L(open_L),
-                  .screen(screen), .hide_player(fsm_hide | is_pro | (obj_blink && !is_title)),
+                  .screen(screen), .hide_player(fsm_hide | is_pro | is_esc | (obj_blink && !is_title)),
                   .px(rpx), .py(rpy), .pframe(pframe), .p_anim(p_anim), .p_aframe(p_aframe),
                   .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
                   .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .pb_kind(pb_kind),
                   .p_tint(charged && fc[2]),
                   .eb_act(eb_act), .eb_x(eb_x), .eb_y(eb_y), .melee_on(melee_on), .melee_dir(melee_dir),
-                  .pz_act(pz_act), .pz_x(pz_x), .pz_y(pz_y), .pz_frame(pz_frame),
+                  .pz_act(pz_act_r), .pz_x(pz_x_r), .pz_y(pz_y_r), .pz_frame(pz_frame_r),
                   .pbox0(pbox0), .pbox1(pbox1), .pbox_en(pbox_en),
                   .simon_lit_on(simon_lit_on), .simon_lit(simon_lit), .simon_wrong(simon_wrong),
                   .boss_act(b_act), .boss_x(b_x), .boss_y(b_y), .boss_frame(b_frame), .boss_flash(b_flash | (b_shield & fc[3]) | (b_tele & fc[2])),

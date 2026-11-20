@@ -56,6 +56,8 @@ Not used by the game at all: `Jump.png`, `ChargedAttack.png`.
 | plate with box | crate over the plate | FINAL |
 | floor decoration (crack, bones, skull, rubble) on floors 1-2 | pack cells | FINAL |
 | Simon plates (floor 3) | red potion, blue potion, coin, key | FINAL |
+| maze ball | `my_asset/props/coin_1.png`, 2x (puzzle frame 10; `sprites/puzzle.json`) | PLACEHOLDER-ish (a coin; swap the PNG) |
+| overlay: breakable block `Z` / spike trap `X` (red plate + spikes) / solid decoration `Y` | `my_asset/props/box_1_1.png`, `peaks_1.png`, `candlestick_1_1.png`, 2x (`sprites/overlay.json` -> `mem/ovtile.mem`, +2 RAMB36) | FINAL art slots; swap the PNG in `overlay.json` to change |
 | floor colours | floor 1 purple, 2 teal, 3 olive (recolor + gain 1.7) | FINAL (adjust in `tileset.json`) |
 | wall variety (corners, tops, torches) | none: one wall id only | NOT POSSIBLE without Verilog (NEXT_STEPS C1) |
 

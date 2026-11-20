@@ -56,7 +56,7 @@ class Maps(unittest.TestCase):
                 self.assertFalse(ids & set("cdef"), f"room {g} must not contain tile ids C-F")
 
     def test_map_files_only_differ_by_decoration(self):
-        decor = set(",;:`")
+        decor = set(",;:`ZXY")        # decoration + W5 overlay (Z breakable block, X spike trap, Y solid decoration): all sit on plain floor
         for old in sorted(glob.glob(os.path.join(V1, "[0-9][0-9]_*.txt"))):
             cur = os.path.join(ROOT, "maps", os.path.basename(old))
             a, b = text(old).split("\n"), text(cur).split("\n")
@@ -69,6 +69,54 @@ class Maps(unittest.TestCase):
                     if ca != cb:
                         self.assertEqual(ca, ".", f"{os.path.basename(old)} ({x},{y})")
                         self.assertIn(cb, decor)
+
+    def test_overlay_rules(self):
+        """W5 overlay.mem: codes 0..3, only on plain floor, only in allowed rooms, <= 8 breakable blocks with unique indices 0..n-1 per room,
+        and the overlay never disconnects a room: every door tile stays reachable from every other one (breakable blocks and decorations count as walls)"""
+        ov = text(os.path.join(ROOT, "mem", "overlay.mem")).split()
+        tm = text(os.path.join(ROOT, "mem", "tilemap.mem")).split()
+        self.assertEqual(len(ov), 4096)
+        allowed = {0, 1, 4, 5, 7, 8, 10, 11}
+        total = {1: 0, 2: 0, 3: 0}
+        for g in range(13):
+            ents = [int(v, 16) for v in ov[g * 300:(g + 1) * 300]]
+            idxs = []
+            for i, e in enumerate(ents):
+                code = e & 15
+                self.assertIn(code, (0, 1, 2, 3), f"room {g} tile {i}")
+                self.assertEqual(e >> 7, 0, "bit 7 unused")
+                if code:
+                    total[code] += 1
+                    self.assertIn(g, allowed, f"overlay in room {g}")
+                    self.assertEqual(tm[g * 300 + i], "1", f"room {g} tile {i}: overlay only on plain floor")
+                    if code == 1:
+                        idxs.append((e >> 4) & 7)
+                    else:
+                        self.assertEqual((e >> 4) & 7, 0)
+            self.assertEqual(sorted(idxs), list(range(len(idxs))), f"room {g}: breakable indices must be 0..n-1")
+            self.assertLessEqual(len(idxs), 8)
+            if not any(e & 15 for e in ents):
+                continue
+
+            def reach(block):
+                cells = [(x, y) for y in range(15) for x in range(20)]
+                def free(x, y):
+                    t = int(tm[g * 300 + y * 20 + x], 16)
+                    return t not in (0, 6) and not (block and (ents[y * 20 + x] & 15) in (1, 3))
+                doors = [(x, y) for (x, y) in cells if int(tm[g * 300 + y * 20 + x], 16) in (2, 3, 4)]
+                start = next((c for c in cells if free(*c) and int(tm[g * 300 + c[1] * 20 + c[0]], 16) == 1), None)
+                seen, todo = {start}, [start]
+                while todo:
+                    x, y = todo.pop()
+                    for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                        if 0 <= nx < 20 and 0 <= ny < 15 and (nx, ny) not in seen and (free(nx, ny) or (nx, ny) in doors):
+                            seen.add((nx, ny)); todo.append((nx, ny))
+                return {d for d in doors if d in seen}, {c for c in cells if free(*c) and int(tm[g * 300 + c[1] * 20 + c[0]], 16) == 1 and c in seen}
+            d0, f0 = reach(False)
+            d1, f1 = reach(True)
+            self.assertEqual(d0, d1, f"room {g}: the overlay cuts off a door")
+            self.assertTrue(f1, f"room {g}: nothing walkable left")
+        self.assertGreater(total[1], 0); self.assertGreater(total[2], 0); self.assertGreater(total[3], 0)
 
     def test_simon_plates_are_even_blocks(self):
         """each Simon plate is a 2x2 block of tiles starting on an even column and an even row (the renderer draws it as ONE big plate);

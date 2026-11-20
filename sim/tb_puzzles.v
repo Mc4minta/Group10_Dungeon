@@ -36,19 +36,19 @@ module tb_puzzles;
     wire [9:0] dseq; wire [2:0] dsm; wire [1:0] dround;
 
     game_fsm #(.PROLOGUE(0)) fsm (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(fsm_btnc), .got_item(pz_got | item_dbg),
-                  .take_hit(obj_hit | pz_hit), .floor_done(1'b0), .exit_evt(1'b0), .escape_start(1'b0), .exit_direct(1'b1), .sprint(1'b0), .kill(1'b0),
+                  .take_hit(obj_hit | pz_hit), .floor_done(1'b0), .exit_evt(1'b0), .escape_start(1'b0), .exit_direct(1'b1), .sprint(1'b0), .key_get(1'b0), .goal(1'b0), .kill(1'b0),
                   .state(state), .restart(restart), .next_floor(next_floor), .form(form), .hp(hp),
                   .hp_max(hp_max), .speed(speed), .damage(damage), .rgb(rgb), .freeze(freeze),
                   .hide_player(fsm_hide), .m_t(m_t), .m_o(m_o), .s_t(s_t), .s_o(s_o));
 
-    player pl (.clk(clk), .rst(rst), .frame_tick(tick), .up(up), .down(down), .left(left), .right(right),
+    player pl (.open_E(form == 2'd3), .brk(8'd0), .clk(clk), .rst(rst), .frame_tick(tick), .up(up), .down(down), .left(left), .right(right),
                .hold_facing(atk_hold), .form(form), .speed(speed), .freeze(freeze), .grid(grid),
                .doors_open(doors_open), .open_L(has_item[floor]), .load(p_load), .load_x(lx), .load_y(ly),
                .blk0(blk0), .blk1(blk1), .blk2(blk2), .blk_en(blk_en),
                .kb_start(kb_start), .kb_dir(kb_dir), .px(px), .py(py), .facing(facing), .pose(pose),
                .door_evt(door_evt), .door_dir(door_dir));
 
-    objects ob (.clk(clk), .rst(rst), .frame_tick(tick), .run(state == 3'd1), .restart(restart | restart_tb),
+    objects ob (.brk(8'd0), .brk_set(), .brk_idx(), .clk(clk), .rst(rst), .frame_tick(tick), .run(state == 3'd1), .restart(restart | restart_tb),
                 .room_load(o_load), .floor(floor), .room(room), .grid(grid), .open_L(has_item[floor]),
                 .px(px), .py(py), .facing(facing), .form(form), .damage(damage),
                 .atk_press(atk_press), .atk_hold(atk_hold), .dbg_clear(1'b0),

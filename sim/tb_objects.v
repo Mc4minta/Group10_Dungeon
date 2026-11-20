@@ -34,18 +34,20 @@ module tb_objects;
     wire [59:0] pb_x, pb_y; wire [15:0] eb_act; wire [159:0] eb_x, eb_y;
 
     game_fsm #(.PROLOGUE(0)) fsm (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(fsm_btnc), .got_item(item),
-                  .take_hit(hit), .floor_done(1'b0), .exit_evt(1'b0), .escape_start(1'b0), .exit_direct(1'b1), .sprint(1'b0), .kill(1'b0),
+                  .take_hit(hit), .floor_done(1'b0), .exit_evt(1'b0), .escape_start(1'b0), .exit_direct(1'b1), .sprint(1'b0), .key_get(1'b0), .goal(1'b0), .kill(1'b0),
                   .state(state), .restart(restart), .next_floor(next_floor), .form(form), .hp(hp),
                   .hp_max(hp_max), .speed(speed), .damage(damage), .rgb(rgb), .freeze(freeze),
                   .hide_player(fsm_hide), .m_t(m_t), .m_o(m_o), .s_t(s_t), .s_o(s_o));
 
-    player pl (.clk(clk), .rst(rst), .frame_tick(tick), .up(up), .down(down), .left(left), .right(right),
+    wire [7:0] brk_w; wire bset; wire [2:0] bidx;
+    overlay ovl_i (.clk(clk), .rst(rst), .restart(restart | restart_tb), .grid(grid), .set(bset), .set_idx(bidx), .brk(brk_w));
+    player pl (.open_E(form == 2'd3), .brk(brk_w), .clk(clk), .rst(rst), .frame_tick(tick), .up(up), .down(down), .left(left), .right(right),
                .hold_facing(atk_hold), .form(form), .speed(speed), .freeze(freeze), .grid(grid),
                .doors_open(doors_open), .open_L(open_L), .load(p_load), .load_x(lx), .load_y(ly),
                .kb_start(kb_start), .kb_dir(kb_dir), .blk0(12'd0), .blk1(12'd0), .blk2(12'd0), .blk_en(3'd0), .px(px), .py(py), .facing(facing), .pose(pose),
                .door_evt(door_evt), .door_dir(door_dir));
 
-    objects dut (.clk(clk), .rst(rst), .frame_tick(tick), .run(state == 3'd1), .restart(restart | restart_tb),
+    objects dut (.brk(brk_w), .brk_set(bset), .brk_idx(bidx), .clk(clk), .rst(rst), .frame_tick(tick), .run(state == 3'd1), .restart(restart | restart_tb),
                  .room_load(o_load), .floor(floor), .room(room), .grid(grid), .open_L(open_L),
                  .px(px), .py(py), .facing(facing), .form(form), .damage(damage),
                  .atk_press(atk_press), .atk_hold(atk_hold), .dbg_clear(1'b0),
@@ -119,6 +121,12 @@ module tb_objects;
         dut.e_act[s] = 1; dut.e_xv[(s)*10 +: 10] = x; dut.e_yv[(s)*10 +: 10] = y; dut.e_dirv[(s)*2 +: 2] = d;
     end endtask
     task heal; begin while (busy) @(posedge clk); fsm.hp = fsm.hp_max; end endtask
+    // W5: write an overlay entry into every tilemap_rom copy (objects x4, player x2) so the tests do not depend on the map files
+    task set_ov(input [11:0] a, input [7:0] v); begin
+        while (busy) @(posedge clk);
+        dut.rom_a.omem[a] = v; dut.rom_b.omem[a] = v; dut.rom_t.omem[a] = v; dut.rom_m.omem[a] = v;
+        pl.rom_a.omem[a] = v; pl.rom_b.omem[a] = v;
+    end endtask
 
     // ---------- ป้อมยิง: บันทึกเฟรมที่แต่ละ slot ยิง ----------
     integer fire_frame [0:5][0:3];
@@ -522,6 +530,59 @@ module tb_objects;
             @(posedge clk) summon_t <= 1; @(posedge clk) summon_t <= 0; frames(1);
             check(alive == 6, "third summon: no free slot, nothing breaks");
             clear_all;
+        end
+
+        // ================= 10. W5 overlay: breakable block, spike trap, solid decoration =================
+        begin : w5
+            integer hits0, maxx, nn;
+            localparam [11:0] T0 = 0;                           // grid 0
+            while (busy) @(posedge clk); fsm.form = 2'd1;
+            enter(0, 0, 0, 288, 224); clear_all; heal;
+            right = 1; frames(1); right = 0; frames(16); clear_all; heal;
+            // breakable block idx 0 at tile (12, 7): a shot stops at it and breaks it
+            set_ov(7 * 20 + 12, 8'h01);
+            check(brk_w == 8'h00, "no block broken yet");
+            press; maxx = 0;
+            for (nn = 0; nn < 40; nn = nn + 1) begin frames(1); if (pb_act[0] && pb_x[9:0] > maxx) maxx = pb_x[9:0]; end
+            check(brk_w[0] == 1'b1, "W5: a bullet hitting a breakable block breaks it");
+            check(maxx > 0 && maxx <= 384, "W5: the unbroken block stopped the bullet before tile 12");
+            clear_all; heal;
+            press; maxx = 0;
+            for (nn = 0; nn < 25; nn = nn + 1) begin frames(1); if (pb_act[0] && pb_x[9:0] > maxx) maxx = pb_x[9:0]; end
+            check(maxx > 400, "W5: after it broke, bullets fly through the tile");
+            // persistence: leave the room and come back, state kept; new game clears it
+            enter(1, 0, 1, 288, 224);
+            check(brk_w == 8'h00, "other room has its own (empty) block state");
+            enter(0, 0, 0, 288, 224);
+            check(brk_w[0] == 1'b1, "broken block stays broken after leaving and re-entering the room");
+            @(posedge clk) restart_tb <= 1; @(posedge clk) restart_tb <= 0; repeat (4) @(posedge clk);
+            check(brk_w == 8'h00, "new game: all blocks are back");
+            // melee breaks a block (idx 1 at tile (10, 7) = centre of the human's right-hand swing box)
+            while (busy) @(posedge clk); fsm.form = 2'd0;
+            enter(0, 0, 0, 288, 224); clear_all; heal;
+            right = 1; frames(1); right = 0; frames(16); clear_all; heal;
+            set_ov(7 * 20 + 10, 8'h11);
+            press; frames(4);
+            check(brk_w[1] == 1'b1, "W5: a melee swing breaks the block in front of the player");
+            // solid decoration (code 3) blocks the player; trap (code 2) hurts
+            set_ov(7 * 20 + 10, 8'h03);
+            place(0, 200, 224); clear_all; heal;
+            right = 1; frames(40); right = 0;
+            check(px > 240 && px + 24 <= 320, "W5: a solid decoration stops the player (tile 10 is a wall for him)");
+            set_ov(7 * 20 + 10, 8'h00);
+            set_ov(7 * 20 + 9, 8'h02);
+            while (busy) @(posedge clk); fsm.form = 2'd0;
+            place(0, 288, 224); clear_all; heal; dut.hurt_cnt = 7'd0;
+            hits0 = hits; frames(3);
+            check(hits == hits0 + 1, "W5: standing on a spike trap hurts the player once (form 1)");
+            frames(3);
+            check(hits == hits0 + 1, "W5: the trap cannot chain-hit during invulnerability");
+            while (busy) @(posedge clk); fsm.form = 2'd2;
+            place(0, 288, 224); clear_all; heal; dut.hurt_cnt = 7'd0;
+            hits0 = hits; frames(4);
+            check(hits == hits0, "W5: form 3 (Angel) flies over spike traps");
+            set_ov(7 * 20 + 9, 8'h00);
+            clear_all; heal;
         end
 
         // ================= 7. เวลา vblank =================

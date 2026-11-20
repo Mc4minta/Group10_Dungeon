@@ -169,6 +169,7 @@ Only how the floors LOOK changed. `maps_v1/` holds the original maps and generat
   the game already treats exactly like floor for the player, monsters and bullets, so they change nothing but looks.
   Allowed only in rooms 00, 03, 04, 05, 06, 07, 08 (floors 1-2 art). **Not allowed** in rooms 01, 02, 10, 11 (floor 3: ids 12-15 are the Simon plates),
   09 (Sokoban: boxes only move onto floor/plate) or 12 (Simon). `build_maps.py` refuses decoration in those rooms.
+* **Overlay elements (W5)**: `Z` = breakable block, `X` = spike trap, `Y` = solid decoration (candlestick). Draw them in `maps/*.txt` on plain floor, only in rooms 0, 1, 4, 5, 7, 8, 10, 11 (`build_maps.py` refuses other rooms), at most 8 `Z` per room, never so that a door becomes unreachable (`tests/test_maps.py` checks it). Their pictures come from `sprites/overlay.json` (`python scripts/build_overlay_mem.py --preview`).
 * Floor 1-2 decoration art is set by the overrides `f1.t12 ... f2.t15` in `tileset.json`; change the cell numbers to change the pictures.
 * After editing maps run: `python scripts/build_maps.py` then `python tests/test_maps.py` (checks objects, monsters, puzzle layout,
   exits unchanged and Sokoban solvable) and `python scripts/solve_sokoban.py`.

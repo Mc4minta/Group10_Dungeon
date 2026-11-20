@@ -33,7 +33,7 @@ FRAMES = 16
 FW = P.FRAME_WORDS
 TOTAL = FRAMES * FW
 NAMES = ["bulb off", "bulb on", "lever up", "lever down", "box", "gate closed", "gate open",
-         "item floor 1", "item floor 2", "item floor 3"] + [f"spare {i}" for i in range(10, 16)]
+         "item floor 1", "item floor 2", "item floor 3", "maze ball"] + [f"spare {i}" for i in range(11, 16)]
 ROOT_DEFAULT = P.ROOT_DEFAULT
 
 
@@ -240,7 +240,7 @@ def build(cfg, root):
     for i in range(FRAMES):
         spec = cfg["frames"].get(i)
         info = {"idx": i, "name": NAMES[i], "source": None, "fallback": None, "stats": None}
-        if spec is None and i >= 10:
+        if spec is None and i >= 11:
             info["fallback"] = "spare frame (kept as old art)"
             b.result.append(info)
             continue
@@ -258,11 +258,11 @@ def build(cfg, root):
 
 def report(b, previous):
     for r in b.result:
-        if r["fallback"] and r["idx"] < 10:
+        if r["fallback"] and r["idx"] < 11:
             print(f"WARNING: puzzle frame {r['idx']} ({r['name']}) -> FALLBACK old art: {r['fallback']}")
     print(f"\n{'idx':>3}  {'name':<14} {'source':<32} status")
     for r in b.result:
-        if r["idx"] >= 10:
+        if r["idx"] >= 11:
             continue
         if r["fallback"]:
             print(f"{r['idx']:>3}  {r['name']:<14} {'old art (puzzle_v1)':<32} FALLBACK ({r['fallback']})")
@@ -276,7 +276,7 @@ def report(b, previous):
     nfb = sum(1 for r in b.result[:10] if r["fallback"])
     print(f"\nSummary: {10 - nfb} new-art frames, {nfb} fallback frames (old art); frames 10-15 unchanged")
     if previous is not None and len(previous) == TOTAL:
-        ch = [NAMES[i] for i in range(10) if previous[i * FW:(i + 1) * FW] != b.out[i * FW:(i + 1) * FW]]
+        ch = [NAMES[i] for i in range(11) if previous[i * FW:(i + 1) * FW] != b.out[i * FW:(i + 1) * FW]]
         print("Changed since previous mem/puzzle.mem: " + (", ".join(ch) if ch else "nothing"))
 
 
@@ -298,7 +298,7 @@ def make_previews(cfg, b, root):
     os.makedirs(pdir, exist_ok=True)
     z, pad = 4, 8
     cw = 32 * z
-    W = pad + 10 * (cw + pad)
+    W = pad + 11 * (cw + pad)
     H = 20 + 2 * (cw + 18 + pad)
     im = Image.new("RGB", (W, H), (30, 30, 30))
     d = ImageDraw.Draw(im)
