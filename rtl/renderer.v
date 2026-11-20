@@ -33,6 +33,7 @@ module renderer (
     input  wire [5:0]   pb_act,
     input  wire [59:0]  pb_x, pb_y,
     input  wire [11:0]  pb_kind,
+    input  wire         p_hurt,           // W14: red flash of the player sprite (just hit)
     input  wire         p_tint,           // ผู้เล่นสว่าง (ร่าง 4 ชาร์จเต็ม)
     input  wire [15:0]  eb_act,
     input  wire [159:0] eb_x, eb_y,
@@ -108,6 +109,7 @@ module renderer (
     reg [15:0] r1_aaddr = 0;
     reg [2:0]  r1_asel = 0;
     reg        r1_p = 0, r1_lit = 0, r1_red = 0, r1_out = 0, r1_tint = 0;
+    reg        r1_hurt = 0, r2_hurt = 0;
     reg [2:0]  r1_scr = 0;
     reg [1:0]  r1_ovs = 0, r2_ovs = 0;         // overlay picture: 0 none, 1 breakable block, 2 spike trap, 3 solid decoration
     reg [11:0] r1_oaddr = 0;
@@ -172,6 +174,7 @@ module renderer (
         r1_asel  <= p_anim;
         r1_p     <= in_spr && !hide_player;
         r1_tint  <= p_tint;
+        r1_hurt  <= p_hurt;
         r1_scr   <= screen;
         r1_ovs   <= maze_on ? 2'd0 : (ovraw[3:0] == 4'd1 && !brk[ovraw[6:4]]) ? 2'd1 : (ovraw[3:0] == 4'd2) ? 2'd2 : (ovraw[3:0] == 4'd3) ? 2'd3 : 2'd0;
         r1_oaddr <= {((ovraw[3:0] == 4'd2) ? 2'd1 : (ovraw[3:0] == 4'd3) ? 2'd2 : 2'd0), vs_r[4:0], hs_r[4:0]};
@@ -191,7 +194,7 @@ module renderer (
     generate
         if (IDLE_ANIM_EN)   begin : g_idle   player_idle_rom   ri (.clk(clk), .addr(r1_aaddr),        .data(idle_px)); end
         else begin : g_idle_off   assign idle_px = 12'd0; end
-        if (ATTACK_ANIM_EN) begin : g_attack player_attack_rom ra (.clk(clk), .addr(r1_aaddr[13:0]),  .data(atk_px)); end
+        if (ATTACK_ANIM_EN) begin : g_attack player_attack_rom ra (.clk(clk), .addr(r1_aaddr),        .data(atk_px)); end
         else begin : g_attack_off assign atk_px = 12'd0; end
         if (HURT_ANIM_EN)   begin : g_hurt   player_hurt_rom   rh (.clk(clk), .addr(r1_aaddr[13:0]),  .data(hurt_px)); end
         else begin : g_hurt_off   assign hurt_px = 12'd0; end
@@ -218,7 +221,7 @@ module renderer (
     reg [2:0] r2_gx = 0;
     reg [7:0] r2_font = 0;
     always @(posedge clk) begin
-        r2_p <= r1_p; r2_tint <= r1_tint; r2_scr <= r1_scr; r2_vb <= r1_vb; r2_ovs <= r1_ovs; r2_lit <= r1_lit; r2_red <= r1_red; r2_out <= r1_out;
+        r2_p <= r1_p; r2_tint <= r1_tint; r2_scr <= r1_scr; r2_vb <= r1_vb; r2_hurt <= r1_hurt; r2_ovs <= r1_ovs; r2_lit <= r1_lit; r2_red <= r1_red; r2_out <= r1_out;
         r2_txt <= r1_txt; r2_gx <= r1_gx;
         r2_font <= fontmem[r1_faddr];
     end
@@ -236,7 +239,7 @@ module renderer (
         else if (r2_scr == 3'd4)                     color <= 12'h000;    // prologue: black screen
         else if (r2_scr == 3'd2)                     color <= C_OVER;
         else if (r2_scr == 3'd3)                     color <= C_WIN;
-        else if (r2_p && spr_fin != C_T)             color <= r2_tint ? (spr_fin | 12'hCCC) : spr_fin;   // ชาร์จเต็ม: สว่าง
+        else if (r2_p && spr_fin != C_T)             color <= r2_hurt ? {4'hF, 1'b0, spr_fin[7:5], 1'b0, spr_fin[3:1]} : r2_tint ? (spr_fin | 12'hCCC) : spr_fin;   // W14: hit = red   // ชาร์จเต็ม: สว่าง
         else if (r2_scr == 3'd1)                     color <= {4'h1, 2'b00, r2_vb[2:1], 4'h4 + {1'b0, r2_vb}};   // TITLE: navy -> blue gradient (W6)
         else if (r2_out)                             color <= 12'h000;    // จอสั่น: ขอบที่เลื่อนออก
         else if (obj_px_d != C_T)                    color <= obj_px_d;   // มอน < กระสุน < ฟัน (เรียงใน objline)

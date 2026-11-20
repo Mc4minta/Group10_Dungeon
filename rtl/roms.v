@@ -133,13 +133,13 @@ module player_idle_rom (
     always @(posedge clk) data <= mem[addr];
 endmodule
 
-// attack: 4 directions x 4 pictures, address = ((dir*4 + k)*1024) + y*32 + x
+// attack: 3 forms (Human, Orc, Angel) x 4 directions x 4 pictures, address = ((form*16 + dir*4 + k)*1024) + y*32 + x  (W14)
 module player_attack_rom (
     input  wire        clk,
-    input  wire [13:0] addr,
+    input  wire [15:0] addr,
     output reg  [11:0] data
 );
-    reg [11:0] mem [0:16383];
+    reg [11:0] mem [0:49151];
     initial $readmemh("player_attack.mem", mem);
     always @(posedge clk) data <= mem[addr];
 endmodule

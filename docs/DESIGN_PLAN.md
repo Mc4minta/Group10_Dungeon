@@ -106,7 +106,7 @@ Your picture `my_asset/props/plate.png` = 32x64: cell row 0 = **raised** plate, 
 * Known limit: the lit Simon plate is the raised plate brightened (not the pressed art; there is no free tile slot). If you want pressed art for "lit", it needs the overlay layer of 5.1.
 * Tests: `tests/test_tileset_pipeline.py` (new file/tint cases), `tests/test_maps.py`, `sim/tb_simonplate.v` (renderer pixels vs `tileset.mem`).
 
-### W14 Orc (form 2) and Angel (form 3) attack + hurt animations  (Phase A2, art received, NOT started - waiting for your approval)
+### W14 Orc (form 2) and Angel (form 3) attack + hurt animations  (Phase A2) - DONE 20/11 on dev, **option C chosen**: attack ROM for Human + Orc + Angel (48 pictures, address {form, dir, k}), `player_frame.v` takes a `shoot` pulse, hurt = red flash in `renderer.v` (`p_hurt`); flags in `sprites.json`; the board build must confirm the Block RAM (about +16 RAMB36 for the attack ROM)
 Received 19/11 (uploads `Angel-...zip`, `ORc-...zip`, nothing copied into the repo yet):
 
 | File | Size | Content (looked at) |

@@ -5,14 +5,16 @@
 // anim_sel: 0 = normal picture, 1 = idle loop, 2 = attack, 3 = hurt, 4 = death.   Only the Human (form 1, form = 0) has these pictures.
 // Priority: death > hurt > attack > idle loop > normal (walking pictures).
 // aframe  : picture number inside the animation ROM
-//           idle   {facing, k[3:0]}  k = 0..15     attack {melee_dir, k[1:0]} k = 0..3
+//           idle   {facing, k[3:0]}  k = 0..15     attack {form[1:0], dir, k[1:0]} (form 0 Human melee_dir, 1 Orc / 2 Angel the facing at the shot)
 //           hurt   {facing, k[1:0]}  k = 0..3      die    {2'b00, k[3:0]}     k = 0..11 (last one is held)
 module player_frame (
     input  wire       clk, rst, frame_tick,
     input  wire [1:0] form, facing, melee_dir,
     input  wire       moving, melee_on, invuln, dead, active,   // active = not the title screen
+    input  wire       shoot,                                    // pulse: the player fired a bullet (objects.ev_shoot) - W14
     output wire [2:0] anim_sel,
-    output wire [5:0] aframe
+    output wire [5:0] aframe,
+    output wire       hurt_flash                                // W14: red flash of the sprite right after a hit (all forms)
 );
     `include "params.vh"
     `include "sprite_cfg.vh"
@@ -21,6 +23,31 @@ module player_frame (
     localparam HURT_LEN = 4 * HURT_STEP;                         // frames the hurt pictures are shown (then the normal picture + blink)
 
     wire human = (form == 2'd0) && active;
+    wire orc   = (form == 2'd1) && active && ATK_F2_EN;
+    wire angel = (form == 2'd2) && active && ATK_F3_EN;
+    wire shotf = orc || angel;                                   // forms 2 / 3: attack pictures when they shoot or swing (W14)
+
+    // ---- attack of forms 2 / 3: starts on a shot (latched until the next frame tick) or when a melee swing starts; 4 pictures x SHOT_STEP frames
+    reg       shoot_lat = 1'b0, mel_d = 1'b0, sact = 1'b0;
+    reg [4:0] scnt = 5'd0;
+    reg [1:0] sface = 2'd0;
+    always @(posedge clk) begin
+        if (rst) begin shoot_lat <= 1'b0; mel_d <= 1'b0; sact <= 1'b0; scnt <= 5'd0; end
+        else begin
+            if (shoot) shoot_lat <= 1'b1;
+            if (frame_tick) begin
+                mel_d <= melee_on;
+                if (shoot_lat || (melee_on && !mel_d)) begin
+                    sact <= 1'b1; scnt <= 5'd0; shoot_lat <= 1'b0;
+                    sface <= (melee_on && !mel_d) ? melee_dir : facing;
+                end else if (sact) begin
+                    if (scnt == 4 * SHOT_STEP - 1) sact <= 1'b0; else scnt <= scnt + 5'd1;
+                end
+            end
+        end
+    end
+    wire [4:0] sq     = scnt / SHOT_STEP;
+    wire [1:0] shot_k = (sq > 5'd3) ? 2'd3 : sq[1:0];
 
     // ---- attack: frames since the melee box appeared
     reg [4:0] mcnt = 5'd0;
@@ -64,12 +91,15 @@ module player_frame (
 
     wire sel_die    = DEATH_ANIM_EN  && human && dead;
     wire sel_hurt   = HURT_ANIM_EN   && human && hurt_show;
-    wire sel_attack = ATTACK_ANIM_EN && human && melee_on;
+    wire sel_attack = ATK_F1_EN      && human && melee_on;
+    wire sel_shot   = shotf && sact;                             // W14
     wire sel_idle   = IDLE_ANIM_EN   && human && idle_ok;
 
-    assign anim_sel = sel_die ? 3'd4 : sel_hurt ? 3'd3 : sel_attack ? 3'd2 : sel_idle ? 3'd1 : 3'd0;
+    assign anim_sel = sel_die ? 3'd4 : sel_hurt ? 3'd3 : (sel_attack || sel_shot) ? 3'd2 : sel_idle ? 3'd1 : 3'd0;
     assign aframe   = sel_die    ? {2'b00, die_k} :
                       sel_hurt   ? {facing, hurt_k} :
                       sel_attack ? {2'b00, melee_dir, att_k} :
+                      sel_shot   ? {form, sface, shot_k} :        // attack ROM address {form 0 Human / 1 Orc / 2 Angel, dir, k}
                                    {facing, ik};
+    assign hurt_flash = HURT_FLASH_EN && active && invuln && (hcnt < FLASH_FRAMES);
 endmodule

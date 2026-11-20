@@ -101,6 +101,7 @@ module top #(
     wire p_moving;                     // จาก player.v (เฉพาะเลือกภาพ animation)
     wire [2:0] p_anim;
     wire [5:0] p_aframe;
+    wire       p_hurt;                 // W14: red flash after a hit
     face_lock #(FACE_LOCK_FRAMES) flk (.clk(clk), .rst(rst), .frame_tick(ft), .press(bc_rise_g), .lock(face_lock));
 
     // ---------- world (ห้อง/ประตู) + game FSM ----------
@@ -333,10 +334,10 @@ module top #(
     wire [5:0]  pframe = is_title ? 6'd0 : form * 6'd12 + facing * 6'd3 + pose;
     player_frame pfr (.clk(clk), .rst(rst), .frame_tick(ft), .form(form), .facing(facing), .melee_dir(melee_dir),
                       .moving(p_moving), .melee_on(melee_on), .invuln(invuln), .dead(state == S_GAME_OVER), .active(!is_title),
-                      .anim_sel(p_anim), .aframe(p_aframe));
+                      .shoot(ev_shoot), .anim_sel(p_anim), .aframe(p_aframe), .hurt_flash(p_hurt));
     wire [2:0]  screen = is_title ? 3'd1 : (state == S_GAME_OVER) ? 3'd2 : is_win ? 3'd3 : is_pro ? 3'd4 : is_esc ? 3'd5 : 3'd0;
     wire [11:0] color;
-    renderer rnd (.brk(brk), .open_E(open_E), .hud_hp(hp), .hud_hp_max(hp_max), .hud_b_hp(b_hp), .clk(clk), .ce(ce), .hcount(hcount), .vcount(vcount), .grid(grid), .floor(floor),
+    renderer rnd (.brk(brk), .open_E(open_E), .p_hurt(p_hurt), .hud_hp(hp), .hud_hp_max(hp_max), .hud_b_hp(b_hp), .clk(clk), .ce(ce), .hcount(hcount), .vcount(vcount), .grid(grid), .floor(floor),
                   .form(form), .doors_open(doors_open), .open_L(open_L),
                   .screen(screen), .hide_player(fsm_hide | is_pro | is_esc | (obj_blink && !is_title)),
                   .px(rpx), .py(rpy), .pframe(pframe), .p_anim(p_anim), .p_aframe(p_aframe),

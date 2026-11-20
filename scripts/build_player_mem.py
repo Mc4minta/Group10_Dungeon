@@ -43,7 +43,7 @@ EXPECTED = {"walk": (128, 128), "attack": (128, 128), "dmg": (128, 128), "jump":
 # animation ROMs (Phase B, form 1 only): sheet kind, per direction?, columns used, frames reserved per direction (stride), file
 ANIMS = {
     "idle":   {"sheet": "idle",   "per_dir": True,  "cols": 16, "stride": 16, "file": "player_idle.mem"},
-    "attack": {"sheet": "attack", "per_dir": True,  "cols": 4,  "stride": 4,  "file": "player_attack.mem"},
+    "attack": {"sheet": "attack", "per_dir": True,  "cols": 4,  "stride": 4,  "file": "player_attack.mem", "forms": (1, 2, 3)},   # W14: Human + Orc + Angel (48 pictures)
     "hurt":   {"sheet": "dmg",    "per_dir": True,  "cols": 4,  "stride": 4,  "file": "player_hurt.mem"},
     "die":    {"sheet": None,     "per_dir": False, "cols": 12, "stride": 16, "file": "player_die.mem"},
 }
@@ -206,8 +206,8 @@ def load_config(path, root):
     if not isinstance(an, dict):
         raise ConfigError('"animations" must be an object')
     a = {}
-    for fl in ("idle_anim", "attack_anim", "hurt_anim", "death_anim"):
-        v = an.get(fl, False)
+    for fl in ("idle_anim", "attack_anim", "attack_anim_form2", "attack_anim_form3", "hurt_anim", "hurt_flash", "death_anim"):
+        v = an.get(fl, True if fl == "hurt_flash" else False)
         if not isinstance(v, bool):
             raise ConfigError(f"animations.{fl} must be true or false, got {v!r}")
         a[fl] = v
@@ -217,6 +217,8 @@ def load_config(path, root):
     a["death_sheet"] = ds
     a["idle_step"] = _int(an.get("idle_step_frames", 6), 1, 60, "animations.idle_step_frames")
     a["hurt_step"] = _int(an.get("hurt_step_frames", 4), 1, 16, "animations.hurt_step_frames")
+    a["shot_step"] = _int(an.get("shot_step_frames", 3), 1, 16, "animations.shot_step_frames")
+    a["flash_frames"] = _int(an.get("hurt_flash_frames", 12), 1, 60, "animations.hurt_flash_frames")
     a["death_step"] = _int(an.get("death_step_frames", 6), 1, 30, "animations.death_step_frames")
     cfg["anim"] = a
     cfg["cfg_vh"] = os.path.join(root, raw.get("verilog_cfg", "rtl/sprite_cfg.vh"))
@@ -456,29 +458,30 @@ def build_anim(name, cfg, sheets, main_words):
     Missing / empty / outside cells fall back to the form-1 walk-idle frame of that direction (main ROM).
     -> (words, result list of dict(dir, k, fallback|None))"""
     a = ANIMS[name]
-    fc = cfg["forms"][1]
     kind = cfg["anim"]["death_sheet"] if name == "die" else a["sheet"]
-    sh = sheets[1].get(kind) if fc["enabled"] else None
     words, res = [], []
-    for d in range(4 if a["per_dir"] else 1):
-        row = cfg["dir_row"][DIRS[d]] if a["per_dir"] else 1
-        fb = main_words[fidx(1, d, 0) * FRAME_WORDS:(fidx(1, d, 0) + 1) * FRAME_WORDS]
-        for k in range(a["stride"]):
-            if k >= a["cols"]:
-                words.extend([cfg["key"]] * FRAME_WORDS)          # reserved, never shown
-                continue
-            if not fc["enabled"]:
-                w, why = None, "form disabled in config"
-            elif sh is None:
-                w, why = None, "no '" + kind + "' sheet configured for form 1"
-            else:
-                w, _, why = get_cell_words(sh, row, k, cfg, fc["scale"])
-                if w is None and name == "die" and why and why.endswith("fully transparent"):
-                    w, why = [cfg["key"]] * FRAME_WORDS, None        # an empty frame is a valid death frame (the soul has left)
-            if w is None:
-                w = fb
-            words.extend(w)
-            res.append({"dir": d, "k": k, "fallback": why})
+    for form in a.get("forms", (1,)):                                 # attack ROM: {form (Human, Orc, Angel), dir, k}
+        fc = cfg["forms"][form]
+        sh = sheets[form].get(kind) if fc["enabled"] else None
+        for d in range(4 if a["per_dir"] else 1):
+            row = cfg["dir_row"][DIRS[d]] if a["per_dir"] else 1
+            fb = main_words[fidx(form, d, 0) * FRAME_WORDS:(fidx(form, d, 0) + 1) * FRAME_WORDS]
+            for k in range(a["stride"]):
+                if k >= a["cols"]:
+                    words.extend([cfg["key"]] * FRAME_WORDS)          # reserved, never shown
+                    continue
+                if not fc["enabled"]:
+                    w, why = None, "form " + str(form) + " disabled in config"
+                elif sh is None:
+                    w, why = None, "no '" + kind + "' sheet configured for form " + str(form)
+                else:
+                    w, _, why = get_cell_words(sh, row, k, cfg, fc["scale"])
+                    if w is None and name == "die" and why and why.endswith("fully transparent"):
+                        w, why = [cfg["key"]] * FRAME_WORDS, None        # an empty frame is a valid death frame (the soul has left)
+                if w is None:
+                    w = fb
+                words.extend(w)
+                res.append({"form": form, "dir": d, "k": k, "fallback": why})
     return words, res
 
 
@@ -492,11 +495,17 @@ def make_cfg_vh(cfg):
         "// GENERATED by scripts/build_player_mem.py from sprites/sprites.json - do not edit by hand.",
         "// Visual-only animation switches (all 0 = exactly the 48-frame main ROM behaviour, no extra BRAM).",
         "localparam IDLE_ANIM_EN   = " + b(a["idle_anim"]) + ";",
-        "localparam ATTACK_ANIM_EN = " + b(a["attack_anim"]) + ";",
+        "localparam ATK_F1_EN      = " + b(a["attack_anim"]) + ";      // Human melee attack pictures",
+        "localparam ATK_F2_EN      = " + b(a["attack_anim_form2"]) + ";      // W14: Orc attack pictures (shot or melee)",
+        "localparam ATK_F3_EN      = " + b(a["attack_anim_form3"]) + ";      // W14: Angel attack pictures (shot or melee)",
+        "localparam ATTACK_ANIM_EN = " + b(a["attack_anim"] or a["attack_anim_form2"] or a["attack_anim_form3"]) + ";      // attack ROM built (3 forms x 16 pictures = about 16 RAMB36)",
+        "localparam HURT_FLASH_EN  = " + b(a["hurt_flash"]) + ";      // W14: red flash of the player sprite right after a hit (all forms, no ROM)",
         "localparam HURT_ANIM_EN   = " + b(a["hurt_anim"]) + ";",
         "localparam DEATH_ANIM_EN  = " + b(a["death_anim"]) + ";",
         "localparam IDLE_STEP      = " + str(a["idle_step"]) + ";     // game frames per idle animation step (16 frames per loop)",
         "localparam HURT_STEP      = " + str(a["hurt_step"]) + ";     // game frames per hurt picture (4 pictures)",
+        "localparam SHOT_STEP      = " + str(a["shot_step"]) + ";     // W14: game frames per attack picture when a form 2 / 3 shoots (4 pictures)",
+        "localparam FLASH_FRAMES   = " + str(a["flash_frames"]) + ";     // W14: frames of the red hurt flash",
         "localparam DEATH_STEP     = " + str(a["death_step"]) + ";     // game frames per death picture (12 pictures, last one is held)",
         ""])
 
@@ -615,8 +624,8 @@ def main(argv=None):
     print_table(b.result, b.main, previous)
     assert len(b.main) == TOTAL_FRAMES * FRAME_WORDS
 
-    flags = ", ".join(k + "=" + ("ON" if v else "off") for k, v in cfg["anim"].items() if k.endswith("_anim"))
-    print("\nAnimation ROMs for form 1 (used only when the flag in sprites.json -> animations is true; now: " + flags + ")")
+    flags = ", ".join(k + "=" + ("ON" if v else "off") for k, v in cfg["anim"].items() if (k.endswith("_anim") or "_anim_" in k or k == "hurt_flash"))
+    print("\nAnimation ROMs (attack: forms 1-3, the others: form 1; used only when the flag in sprites.json -> animations is true; now: " + flags + ")")
     for name in ANIMS:
         _, res = b.anims[name]
         bad = [r for r in res if r["fallback"]]

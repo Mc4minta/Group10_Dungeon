@@ -120,7 +120,7 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 ## 12. Built but switched OFF
 | Feature | How to switch on | Cost |
 |---|---|---|
-| Human idle / attack / hurt / death animations | flags in `sprites/sprites.json` -> `animations`, rebuild, re-synthesise | ~22 / 6 / 6 / 6 RAMB36 |
+| Human idle / attack / hurt / death animations; Orc + Angel attack pictures (ON, W14); red hurt flash (ON, no ROM) | flags in `sprites/sprites.json` -> `animations`, rebuild, re-synthesise | ~22 / 6 / 6 / 6 RAMB36; the 3-form attack ROM about 16 RAMB36 |
 | Wall variants (room border pictures) | not merged: branch `wip/wall-variants` | ~+6 RAMB36 |
 
 ## 13. Tooling and verification
