@@ -1,6 +1,6 @@
 # Design implementation plan (from the "Group 10 - Design Notes", 19/11/2026)
 
-**Status: PLAN ONLY. Nothing in this file is implemented yet** (except the on-screen hearts, item W8, already merged).
+**Status: implementation in progress.** Done: W8 hearts, W2 plates, W3 charged shot stops on hit. Everything else below is still plan.
 Source: the owner's design notes of 19/11/2026 (the master design for the Progress 20/11). Where they disagree with the code or with
 `Group10_Dungeon_DEVELOPER_GUIDE.md`, the design notes win (section 3 lists every conflict, checked against the code on branch `sprite-zip`).
 How to use this file: read section 1 (what is feasible when), pick items, answer the open questions in section 6, then I implement item by item
@@ -162,7 +162,7 @@ Final switch map (default; tell me if you want another):
 * Tests: `tb_game_fsm.v` (timer does not advance while paused), `tb_top.v` pause case (positions / monsters / timer unchanged for N frames with SW15 up, same after release), `tb_audio.v` (BGM position held), `tb_player.v` sprint test uses SW14 now, `scripts/run_sim.sh all`.
 * Risk low-medium (one gate on `frame_tick`; check timing: `frame_tick` is generated once, so it is a single AND). Effort ~2 h.
 
-### W3 Charged shot stops on hit  (Phase A, tiny Verilog)
+### W3 Charged shot stops on hit  (Phase A, tiny Verilog) - DONE 20/11 on dev (tb_objects + tb_boss green; enemy-bullet clash unchanged)
 * Today: kind 3 (16x16 big ball) pierces; `big_mask` stops double hits and enemy bullets are destroyed when it overlaps them (`S_CPE`).
 * Change in `objects.v` `S_CPB`: when kind 3 hits a monster, clear `p_act` of that bullet after applying `BIG_DMG`; drop `big_mask`. Keep "destroys enemy bullets" only if you still want it (decide: it must not delete the boss-3 big attack, see W12).
 * Boss hit: the boss takes damage (`boss_dmg` with amount) and the ball disappears.

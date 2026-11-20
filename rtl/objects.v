@@ -88,7 +88,6 @@ module objects (
     reg [NP*10-1:0] p_yv = 0;
     reg [NP*3-1:0] p_dirv = 0;               // 0 ลง 1 ขึ้น 2 ซ้าย 3 ขวา 4 ลงซ้าย 5 ลงขวา 6 ขึ้นซ้าย 7 ขึ้นขวา
     reg [NP*2-1:0] p_kindv = 0;
-    reg [6:0]  big_mask = 0;                 // ลูกใหญ่โดนมอน i / บอส (bit 6) แล้ว (มีลูกใหญ่ได้ทีละลูก)
     reg [6:0]  chg = 0;                      // ร่าง 4: เฟรมที่กดค้าง
     reg        chg_ok = 1'b0;                // กดครั้งนี้ยิงนัดเร็ว (ไม่ใช่ฟัน) -> ชาร์จได้
     reg [15:0] e_act = 0;
@@ -320,7 +319,7 @@ module objects (
                         if (!sp_done && !p_act[q]) begin
                             p_act[q] <= 1'b1; p_kindv[q*2 +: 2] <= 2'd3; p_dirv[q*3 +: 3] <= {1'b0, facing};
                             p_xv[q*10 +: 10] <= px + 10'd8; p_yv[q*10 +: 10] <= py + 10'd8;
-                            big_mask <= 0; sp_done = 1'b1; ev_shoot <= 1'b1; ev_shoot_k <= 2'd3;
+                            sp_done = 1'b1; ev_shoot <= 1'b1; ev_shoot_k <= 2'd3;
                         end
                 end
                 chg <= 0; chg_ok <= 1'b0;
@@ -481,13 +480,12 @@ module objects (
             end
         end
         // ------------------------------------------------------------------
-        S_CPB: begin                         // กระสุนผู้เล่น j x มอน i (6 x 6 คู่); ลูกใหญ่ทะลุ โดนแต่ละตัวครั้งเดียว
+        S_CPB: begin                         // กระสุนผู้เล่น j x มอน i (6 x 6 คู่); ทุกชนิดหายเมื่อโดน (W3)
             pk_k = p_kindv[j[2:0]*2 +: 2]; psz = (pk_k == 2'd3) ? 5'd16 : 5'd8;
-            if (p_act[j[2:0]] && m_act[i] && !(pk_k == 2'd3 && big_mask[i]) &&
+            if (p_act[j[2:0]] && m_act[i] &&
                 ovl({1'b0, p_xv[j[2:0]*10 +: 10]} + OFS, {1'b0, p_yv[j[2:0]*10 +: 10]} + OFS, {2'b00, psz}, {2'b00, psz},
                     {1'b0, m_xv[(i)*10 +: 10]} + OFS + 11'd4, {1'b0, m_yv[(i)*10 +: 10]} + OFS + 11'd4, 7'd24, 7'd24)) begin
-                if (pk_k == 2'd3) big_mask[i] <= 1'b1;
-                else p_act[j[2:0]] <= 1'b0;
+                p_act[j[2:0]] <= 1'b0;               // W3: ลูกใหญ่หยุดเมื่อโดน (ไม่ทะลุแล้ว)
                 m_flv[(i)*4 +: 4] <= MON_FLASH; ev_mdmg <= 1'b1;
                 if (m_hpv[(i)*3 +: 3] <= bdmg(pk_k)) begin m_hpv[(i)*3 +: 3] <= 0; m_act[i] <= 1'b0; ev_mdie <= 1'b1; end
                 else m_hpv[(i)*3 +: 3] <= m_hpv[(i)*3 +: 3] - bdmg(pk_k);
@@ -569,11 +567,10 @@ module objects (
         end
         S_BPB: begin                         // กระสุนผู้เล่น j x บอส (ลูกใหญ่โดนบอสครั้งเดียวต่อลูก)
             pk_k = p_kindv[j[2:0]*2 +: 2]; psz = (pk_k == 2'd3) ? 5'd16 : 5'd8;
-            if (boss_act && p_act[j[2:0]] && !(pk_k == 2'd3 && big_mask[6]) &&
+            if (boss_act && p_act[j[2:0]] &&
                 ovl({1'b0, p_xv[j[2:0]*10 +: 10]} + OFS, {1'b0, p_yv[j[2:0]*10 +: 10]} + OFS, {2'b00, psz}, {2'b00, psz},
                     {1'b0, boss_x} + OFS + 11'd8, {1'b0, boss_y} + OFS + 11'd8, 7'd48, 7'd48)) begin
-                if (pk_k == 2'd3) big_mask[6] <= 1'b1;
-                else p_act[j[2:0]] <= 1'b0;
+                p_act[j[2:0]] <= 1'b0;               // W3: ลูกใหญ่หยุดเมื่อโดนบอส
                 boss_dmg <= 1'b1; boss_dmg_amt <= bdmg(pk_k);
             end
             if (j == NP - 1) st <= S_BMEL;
