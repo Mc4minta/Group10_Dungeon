@@ -4,13 +4,14 @@
 // ปุ่ม / สวิตช์:
 //   BTNU/D/L/R เดิน · BTNC = เริ่มเกม (TITLE) / โจมตี (PLAY: ร่าง 1 ฟัน, ร่าง 2-4 ยิง, ค้าง = ยิงซ้ำ + strafe)
 //                    / กลับ TITLE (WIN, GAME_OVER)
-//   SW15 = sprint (ความเร็ว +1 px/เฟรม, ใช้ได้ทุกร่าง)   SW13 ยก = รีเซ็ตกล่องห้อง Sokoban (ตอน gate ยังปิด)
+//   SW15 = PAUSE (ยก = เกมหยุด + ข้อความ PAUSED, เสียงเงียบ; ใช้ได้ใน PLAY / ESCAPE)   SW14 = sprint (ความเร็ว +1 px/เฟรม, ใช้ได้ทุกร่าง)
+//   SW13 ยก = รีเซ็ตกล่องห้อง Sokoban (ตอน gate ยังปิด)   SW12 = ล็อกทิศค้าง (เดิม SW14)
 // สวิตช์ debug (ทำงานเฉพาะ DEBUG = 1; build ส่งงานตั้ง DEBUG = 0):
 //   SW0 = เปิดประตูบอส L ทุกชั้น (ทับ has_item)   SW1 ยก = floor_done (P5: มาจากบอสตาย)
 //   SW2 ยก = ลบมอนทั้งห้อง (ห้องเคลียร์)          SW3 ยก = got_item -> EVOLVE      SW4 ยก = take_hit HP-1
 // 7-seg: [ชั้น] - [HP] - mm.ss (TITLE = ----)
 // LED0-3 = ปุ่มทิศ (ห้อง Light Bulb = หลอด 1-4 ที่ LED3..0, ห้อง Simon = รอบที่ผ่าน), LED4-7 = มอนที่เหลือ (bar),
-// LED8-11 = HP, LED12 = ประตูห้องล็อก, LED13 = มีไอเทมชั้นนี้ (ประตู L เปิด), LED14 = sprint, LED15 = WIN,
+// LED8-11 = HP, LED12 = ประตูห้องล็อก, LED13 = มีไอเทมชั้นนี้ (ประตู L เปิด), LED14 = sprint (SW14), LED15 = WIN,
 // RGB16 = สีร่าง, RGB17 แดง = โดนตี (ช่วงอมตะ)
 module top #(
     parameter DEBOUNCE = 1_000_000,         // 10 ms ที่ 100 MHz
@@ -48,7 +49,7 @@ module top #(
     wire ce = (ce_cnt == CE_DIV - 1);        // 25 MHz เมื่อ CE_DIV = 4
 
     // ---------- input ----------
-    wire bu, bd, bl, br, bc, bc_rise, sw1_r, sw2_r, sw3_r, sw4_r, sw13_rise, sw15;
+    wire bu, bd, bl, br, bc, bc_rise, sw1_r, sw2_r, sw3_r, sw4_r, sw13_rise, sw15;   // sw15 = pause switch (level)
     debounce #(DEBOUNCE) d_u (.clk(clk), .in(BTNU),  .level(bu), .rise());
     debounce #(DEBOUNCE) d_d (.clk(clk), .in(BTND),  .level(bd), .rise());
     debounce #(DEBOUNCE) d_l (.clk(clk), .in(BTNL),  .level(bl), .rise());
@@ -64,20 +65,34 @@ module top #(
     wire sw1_rise = dbg & sw1_r, sw2_rise = dbg & sw2_r, sw3_rise = dbg & sw3_r, sw4_rise = dbg & sw4_r;
     wire sw0_key  = dbg & SW[0];
     debounce #(DEBOUNCE) d_s15(.clk(clk), .in(SW[15]), .level(sw15), .rise());
-    wire sw14;                         // SW14 = ล็อกทิศค้าง (ถอยหลังพร้อมฟันได้โดยไม่หันหนี; ลงเพื่อหันทิศใหม่)
+    wire sw14;                         // SW14 = sprint (+1 px/เฟรม)
     debounce #(DEBOUNCE) d_s14(.clk(clk), .in(SW[14]), .level(sw14), .rise());
+    wire sw12;                         // SW12 = ล็อกทิศค้าง (ถอยหลังพร้อมฟันได้โดยไม่หันหนี; ลงเพื่อหันทิศใหม่) (เดิม SW14)
+    debounce #(DEBOUNCE) d_s12(.clk(clk), .in(SW[12]), .level(sw12), .rise());
 
     // ---------- VGA timing ----------
     wire [9:0] hcount, vcount;
     wire hsync, vsync, active, frame_tick;
     vga_sync vga (.clk(clk), .rst(rst), .ce(ce), .hcount(hcount), .vcount(vcount),
                   .hsync(hsync), .vsync(vsync), .active(active), .frame_tick(frame_tick));
+    // ---------- PAUSE (SW15): ตัด frame_tick ของทุกอย่างในเกม (ตำแหน่ง มอน กระสุน อมตะ มึน Simon timer) -> ต่อจากจุดเดิมเมื่อปล่อย ----------
+    // vga_sync ใช้ frame_tick จริง (จอยังวาดต่อ); ใช้ได้เฉพาะ PLAY / ESCAPE (TITLE, EVOLVE, FLOOR_CLEAR, WIN, GAME_OVER ไม่สน SW15)
+    wire [2:0] state;                        // จาก game_fsm (ประกาศไว้ตรงนี้เพราะ ft ใช้ก่อน)
+    wire paused = sw15 && (state == 3'd1 || state == 3'd4);   // S_PLAY / S_ESCAPE
+    wire ft     = frame_tick & ~paused;
+    wire bc_rise_g = bc_rise & ~paused;      // ปุ่มโจมตีไม่เข้าคิวระหว่างหยุด
+    reg  pause_blink = 1'b0;                 // จุดทศนิยม 7-seg กะพริบตอนหยุด (ใช้ frame_tick จริง)
+    reg [4:0] pb_cnt = 5'd0;
+    always @(posedge clk) if (frame_tick) begin
+        pb_cnt <= pb_cnt + 1'b1;
+        pause_blink <= pb_cnt[4];
+    end
     // ล็อกทิศหลังกด BTNC: กดฟันแล้วถอยหลังได้โดยตัวไม่หันหนี (แทนการต้องค้าง BTNC + ปุ่มทิศพร้อมกัน); FACE_LOCK_FRAMES = 0 ปิด
     wire face_lock;
     wire p_moving;                     // จาก player.v (เฉพาะเลือกภาพ animation)
     wire [2:0] p_anim;
     wire [5:0] p_aframe;
-    face_lock #(FACE_LOCK_FRAMES) flk (.clk(clk), .rst(rst), .frame_tick(frame_tick), .press(bc_rise), .lock(face_lock));
+    face_lock #(FACE_LOCK_FRAMES) flk (.clk(clk), .rst(rst), .frame_tick(ft), .press(bc_rise_g), .lock(face_lock));
 
     // ---------- world (ห้อง/ประตู) + game FSM ----------
     wire [1:0] floor;
@@ -94,14 +109,14 @@ module top #(
     wire [1:0] facing, pose, door_dir;
     wire       door_evt;
 
-    wire [2:0] state, hp, hp_max, speed, rgb;
+    wire [2:0] hp, hp_max, speed, rgb;
     wire [1:0] form, damage;
     wire       freeze, fsm_hide;
     wire       obj_hit, kb_start, invuln, obj_blink, melee_on, mon_anim;
     reg [4:0] hurt_shake = 5'd0;       // จอสั่นสั้น ๆ หลังโดนตี (kb_start = เริ่ม knockback)
     always @(posedge clk) if (rst) hurt_shake <= 5'd0;
                           else if (kb_start) hurt_shake <= HURT_SHAKE_FRAMES;
-                          else if (frame_tick && hurt_shake != 5'd0) hurt_shake <= hurt_shake - 5'd1;
+                          else if (ft && hurt_shake != 5'd0) hurt_shake <= hurt_shake - 5'd1;
     wire [1:0] kb_dir, melee_dir;
     wire [5:0] pb_act;
     wire [11:0] pb_kind;
@@ -145,11 +160,11 @@ module top #(
                .floor(floor), .room(room), .grid(grid),
                .load(load), .load_x(load_x), .load_y(load_y), .exit_evt(exit_evt));
 
-    game_fsm fsm (.clk(clk), .rst(rst), .frame_tick(frame_tick), .btnc_rise(bc_rise),
+    game_fsm fsm (.clk(clk), .rst(rst), .frame_tick(ft), .btnc_rise(bc_rise),
                   .got_item(sw3_rise | pz_got), .take_hit(sw4_rise | obj_hit | pz_hit),
                   .floor_done(sw1_rise | (b_died && b_kind != 2'd2)),          // บอส 1, 2 ตาย -> FLOOR_CLEAR
                   .exit_evt(exit_evt), .escape_start(b_died && b_kind == 2'd2),  // บอส 3 ตาย -> ESCAPE
-                  .exit_direct(dbg), .sprint(sw15),
+                  .exit_direct(dbg), .sprint(sw14),
                   .state(state), .restart(restart), .next_floor(next_floor),
                   .form(form), .hp(hp), .hp_max(hp_max), .speed(speed), .damage(damage),
                   .rgb(rgb), .freeze(freeze), .hide_player(fsm_hide),
@@ -163,8 +178,8 @@ module top #(
     wire is_title = (state == S_TITLE);
     wire is_win   = (state == S_WIN);
 
-    player pl (.clk(clk), .rst(rst), .frame_tick(frame_tick),
-               .up(bu), .down(bd), .left(bl), .right(br), .hold_facing(bc | face_lock | sw14),
+    player pl (.clk(clk), .rst(rst), .frame_tick(ft),
+               .up(bu), .down(bd), .left(bl), .right(br), .hold_facing(bc | face_lock | sw12),
                .form(form), .speed(speed), .freeze(freeze),
                .grid(grid), .doors_open(doors_open), .open_L(open_L),
                .blk0(blk0), .blk1(blk1), .blk2(blk2), .blk_en(blk_en),
@@ -174,10 +189,10 @@ module top #(
                .door_evt(door_evt), .door_dir(door_dir), .moving_o(p_moving));
 
     // ---------- objects: มอน กระสุน ฟัน โดนตี ห้องล็อก ----------
-    objects obj (.clk(clk), .rst(rst), .frame_tick(frame_tick), .run(run),
+    objects obj (.clk(clk), .rst(rst), .frame_tick(ft), .run(run),
                  .restart(restart), .room_load(load), .floor(floor), .room(room), .grid(grid),
                  .open_L(open_L), .px(px), .py(py), .facing(facing), .form(form), .damage(damage),
-                 .atk_press(bc_rise), .atk_hold(bc), .dbg_clear(sw2_rise),
+                 .atk_press(bc_rise_g), .atk_hold(bc & ~paused), .dbg_clear(sw2_rise),
                  .blk0(blk0), .blk1(blk1), .blk2(blk2), .blk_en(blk_en),
                  .boss_act(b_act), .boss_x(b_x), .boss_y(b_y), .boss_fire(b_fire),
                  .boss_dmg(b_dmg), .boss_dmg_amt(b_dmg_amt),
@@ -190,9 +205,9 @@ module top #(
 
     // ---------- ปริศนา + ไอเทม ----------
     // ---------- บอส + ไมค์ ----------
-    boss bs (.clk(clk), .rst(rst), .frame_tick(frame_tick), .run(run), .restart(restart), .room_load(load),
+    boss bs (.clk(clk), .rst(rst), .frame_tick(ft), .run(run), .restart(restart), .room_load(load),
              .floor(floor), .room(room), .grid(grid), .px(px), .py(py),
-             .dmg(b_dmg), .dmg_amt(b_dmg_amt), .clap(clap),
+             .dmg(b_dmg), .dmg_amt(b_dmg_amt), .clap(clap & ~paused),
              .act(b_act), .bx(b_x), .by(b_y), .kind(b_kind), .flash(b_flash), .stunned(b_stunned),
              .fire(b_fire), .died(b_died), .dead(b_dead), .hp(b_hp), .hp_bar(b_hpbar), .anim(b_anim), .busy(b_busy));
     pdm_mic #(.CLK_DIV(MIC_CLK_DIV), .WINDOW(MIC_WINDOW), .TH(MIC_TH), .HOLDOFF(MIC_HOLDOFF)) mic (
@@ -200,7 +215,7 @@ module top #(
              .clap_pulse(clap), .amplitude(mic_amp),
              .win_pulse(), .holdoff(), .th_dyn(12'd0), .use_dyn(1'b0));
 
-    puzzles #(.SEED(SEED)) pz (.clk(clk), .rst(rst), .frame_tick(frame_tick), .run(run),
+    puzzles #(.SEED(SEED)) pz (.clk(clk), .rst(rst), .frame_tick(ft), .run(run),
                  .restart(restart), .room_load(load), .floor(floor), .grid(grid), .px(px), .py(py),
                  .up(bu), .down(bd), .left(bl), .right(br), .melee_on(melee_on), .melee_dir(melee_dir),
                  .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .soko_reset(sw13_rise),
@@ -252,7 +267,7 @@ module top #(
             default:    shv = 10'd0;
         endcase
     endfunction
-    always @(posedge clk) if (frame_tick) begin
+    always @(posedge clk) if (ft) begin
         fc <= fc + 1'b1;
         blk_cnt <= (blk_cnt == LED_BLINK - 1) ? 4'd0 : blk_cnt + 1'b1;
         if (is_esc || hurt_shake != 5'd0) begin
@@ -267,8 +282,8 @@ module top #(
         end
     end
     wire led_blink_on = (blk_cnt < (LED_BLINK + 1) / 2);
-    // ข้อความ: 1 TITLE 2 FLOOR CLEAR 3 ESCAPE! 4 WIN 5 GAME OVER
-    wire [2:0] txt_scr = is_title ? 3'd1 : (state == S_CLEAR) ? 3'd2 : esc_banner ? 3'd3 :
+    // ข้อความ: 1 TITLE 2 FLOOR CLEAR 3 ESCAPE! 4 WIN 5 GAME OVER 6 PAUSED
+    wire [2:0] txt_scr = paused ? 3'd6 : is_title ? 3'd1 : (state == S_CLEAR) ? 3'd2 : esc_banner ? 3'd3 :
                          is_win ? 3'd4 : (state == S_GAME_OVER) ? 3'd5 : 3'd0;
     wire [2:0] b_frame = {b_kind, 1'b0} + ((b_kind == 2'd1) ? b_stunned : b_anim);
 
@@ -277,7 +292,7 @@ module top #(
     wire [9:0]  rpx = is_title ? 10'd304 : px;
     wire [9:0]  rpy = is_title ? 10'd224 : py;
     wire [5:0]  pframe = is_title ? 6'd0 : form * 6'd12 + facing * 6'd3 + pose;
-    player_frame pfr (.clk(clk), .rst(rst), .frame_tick(frame_tick), .form(form), .facing(facing), .melee_dir(melee_dir),
+    player_frame pfr (.clk(clk), .rst(rst), .frame_tick(ft), .form(form), .facing(facing), .melee_dir(melee_dir),
                       .moving(p_moving), .melee_on(melee_on), .invuln(invuln), .dead(state == S_GAME_OVER), .active(!is_title),
                       .anim_sel(p_anim), .aframe(p_aframe));
     wire [1:0]  screen = is_title ? 2'd1 : (state == S_GAME_OVER) ? 2'd2 : is_win ? 2'd3 : 2'd0;
@@ -318,15 +333,15 @@ module top #(
     wire [31:0] digits = is_title ? 32'hEEEEEEEE :
                          is_esc   ? {1'b0, {1'b0, floor} + 3'd1, 4'hE, 1'b0, hp, 4'hE, e_s_t, e_s_o, e_f_t, e_f_o} :
                                     {1'b0, {1'b0, floor} + 3'd1, 4'hE, 1'b0, hp, 4'hE, m_t, m_o, s_t, s_o};
-    seg7 s7 (.clk(clk), .digits(digits), .dots(is_title ? 8'h00 : 8'b0000_0100),
+    seg7 s7 (.clk(clk), .digits(digits), .dots(is_title ? 8'h00 : (paused && pause_blink) ? 8'h00 : 8'b0000_0100),
              .seg(seg), .an(AN), .dp(DP));
     assign {CG, CF, CE, CD, CC, CB, CA} = seg;
 
     // LED0-3 = ปุ่มทิศ, LED4-7 = มอนเหลือ (bar), LED8-11 = HP bar (LED8 = HP 1 ...),
-    // LED12 = ประตูห้องล็อก, LED13 = มีไอเทมชั้นนี้, LED14 = sprint, LED15 = WIN; ห้องปริศนา: LED0-3 = หลอด / รอบ Simon
+    // LED12 = ประตูห้องล็อก, LED13 = มีไอเทมชั้นนี้, LED14 = sprint (SW14), LED15 = WIN; ห้องปริศนา: LED0-3 = หลอด / รอบ Simon
     wire [3:0] mon_bar = {alive >= 3'd4, alive >= 3'd3, alive >= 3'd2, alive >= 3'd1};
     wire [3:0] led_lo = room_led_on ? room_led : {br, bl, bd, bu};
-    wire [15:0] led_play = {is_win, sw15, has_item[floor], ~doors_open, hp >= 3'd4, hp >= 3'd3, hp >= 3'd2, hp >= 3'd1,
+    wire [15:0] led_play = {is_win, sw14, has_item[floor], ~doors_open, hp >= 3'd4, hp >= 3'd3, hp >= 3'd2, hp >= 3'd1,
                             mon_bar, led_lo};
     // ห้องบอส: LED0-7 = HP บอส (bar 8 ดวง ตามสัดส่วน) · ESCAPE: LED ทั้ง 16 ดวงกะพริบ 4 Hz
     assign LED = is_esc ? {16{led_blink_on}} :
@@ -357,7 +372,7 @@ module top #(
     localparam AUD_TSHIFT = (CE_DIV == 1) ? 2 : (CE_DIV == 2) ? 1 : 0;   // sim CE_DIV = 1: เฟรมสั้นลง 4 เท่า -> ย่อ half-period
     wire [7:0] aud_sample;
     audio #(.TSHIFT(AUD_TSHIFT)) aud (.clk(clk), .rst(rst), .frame_tick(frame_tick), .ev(aud_ev), .shoot_k(ev_shoot_k),
-              .simon_note_on(simon_note_on), .simon_note(simon_note),
+              .simon_note_on(simon_note_on), .simon_note(simon_note), .pause(paused),
               .bgm_en(!is_title), .bgm_track(bgm_track),
               .pwm(AUD_PWM), .sd(AUD_SD), .sample(aud_sample));
 endmodule

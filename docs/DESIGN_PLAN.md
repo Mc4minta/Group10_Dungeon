@@ -1,6 +1,6 @@
 # Design implementation plan (from the "Group 10 - Design Notes", 19/11/2026)
 
-**Status: implementation in progress.** Done: W8 hearts, W2 plates, W3 charged shot stops on hit. Everything else below is still plan.
+**Status: implementation in progress.** Done: W8 hearts, W2 plates, W3 charged shot stops on hit, W15 pause + switch map. Everything else below is still plan.
 Source: the owner's design notes of 19/11/2026 (the master design for the Progress 20/11). Where they disagree with the code or with
 `Group10_Dungeon_DEVELOPER_GUIDE.md`, the design notes win (section 3 lists every conflict, checked against the code on branch `sprite-zip`).
 How to use this file: read section 1 (what is feasible when), pick items, answer the open questions in section 6, then I implement item by item
@@ -83,7 +83,7 @@ the "big attack" range is not defined (whole room, a line, a radius?); timeout i
 
 Format: **what changes - how - tests - needs - risk / effort**. Effort = my working time, not including your board tests.
 
-### W1 Door sprites: every world door = spike trap, the maze door = solid wall  (Phase A, updated 19/11)
+### W1 Door sprites: every world door = spike trap, the maze door = solid wall  (Phase A, updated 19/11) - DONE 20/11 on dev (tileset.json overrides + new `cut` option in build_tileset_mem.py; tests in test_tileset_pipeline.py; no Verilog change)
 Rule from the owner: **every door in the world is a spike trap, except the winning door (the Ball in a Maze door), which stays a solid wall that disappears when it opens.**
 
 | Door | Tile ids (closed / open) | Look | Opens when (logic today) |
@@ -136,7 +136,7 @@ How they fit: the Human attack / hurt sheets have exactly this layout and are al
 * Docs: `docs/SPRITE_STATUS.md` section 2b (animations table) and `sprites/README.md` (Human animations section becomes "Form 1-3 animations").
 * Risk medium (BRAM + renderer address width), effort ~0.5 day for option C, ~1 day for A. Needs: your option choice + approval.
 
-### W15 Switch changes: SW15 = PAUSE, SW14 = SPRINT  (Phase A, requested 19/11, NOT started)
+### W15 Switch changes: SW15 = PAUSE, SW14 = SPRINT  (Phase A, requested 19/11) - DONE 20/11 on dev (SW12 = facing lock; SW10 / SW11 fallbacks stay with W4 / W7)
 Today (`rtl/top.v`): SW15 = sprint (`.sprint(sw15)`, LED14 shows it), **SW14 = facing lock** (`hold_facing = bc | face_lock | sw14`), SW13 = Sokoban box reset, SW0-4 = debug (only when `DEBUG = 1`).
 Requested: **SW15 = pause**, **SW14 = sprint**. This takes SW14 away from the facing lock, so the facing lock needs a new switch.
 

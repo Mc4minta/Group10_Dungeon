@@ -84,7 +84,7 @@ def encode(s):
 
 
 # ---------- ข้อความต่อหน้าจอ: (หน้าจอ, บรรทัด, ข้อความ, scale, y, กะพริบ) ----------
-# หน้าจอข้อความ: 1 TITLE, 2 FLOOR CLEAR, 3 ESCAPE banner, 4 WIN, 5 GAME OVER (บรรทัดละไม่เกิน 2)
+# หน้าจอข้อความ: 1 TITLE, 2 FLOOR CLEAR, 3 ESCAPE banner, 4 WIN, 5 GAME OVER, 6 PAUSED (บรรทัดละไม่เกิน 2)
 assert len(GAME_NAME) <= 18 and all(c in CODE for c in GAME_NAME)
 LINES = [
     (1, 0, GAME_NAME,        4,  96, 0),
@@ -95,6 +95,7 @@ LINES = [
     (4, 1, '{M1}{M0}:{S1}{S0}', 4, 260, 0),
     (5, 0, 'GAME OVER',      4, 160, 0),
     (5, 1, 'PRESS BTNC',     2, 300, 1),
+    (6, 0, 'PAUSED',         4, 208, 0),
 ]
 text = []
 desc = {}
@@ -112,8 +113,8 @@ with open(os.path.join(ROOT, 'mem', 'text.mem'), 'w') as f:
     f.write('\n'.join(f'{v:02x}' for v in text + [36] * (128 - len(text))) + '\n')
 
 vh = ['// สร้างโดย scripts/make_font.py — อย่าแก้มือ (ชื่อเกมแก้ที่ GAME_NAME ในสคริปต์)',
-      '// บรรทัดข้อความ: หน้าจอ s (1..5) บรรทัด l (0..1): Y, X, W(px), H(px), S (0 = 2x, 1 = 4x), B (ที่อยู่ใน text.mem), K (กะพริบ)']
-for scr in range(1, 6):
+      '// บรรทัดข้อความ: หน้าจอ s (1..6) บรรทัด l (0..1): Y, X, W(px), H(px), S (0 = 2x, 1 = 4x), B (ที่อยู่ใน text.mem), K (กะพริบ)']
+for scr in range(1, 7):
     for ln in range(2):
         y, x, w, h, s4, b, bl = desc.get((scr, ln), (0, 0, 0, 0, 0, 0, 0))
         vh.append(f'localparam [9:0] T{scr}{ln}_Y = 10\'d{y}, T{scr}{ln}_X = 10\'d{x}, T{scr}{ln}_W = 10\'d{w}, '

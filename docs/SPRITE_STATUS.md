@@ -49,7 +49,9 @@ Not used by the game at all: `Jump.png`, `ChargedAttack.png`.
 
 | Tile | Art | Status |
 |---|---|---|
-| wall, floor, doors (closed/open), boss door, exit (closed/open), hole, fence | asset pack `Dungeon_Tileset.png` (2x) | FINAL |
+| wall, floor, hole, fence | asset pack `Dungeon_Tileset.png` (2x) | FINAL |
+| doors D / L (closed = spikes up, open = spikes down) | `my_asset/props/peaks_1.png` / `peaks_3.png` over the floor (`cut` colour, W1) | FINAL (static; a spike animation is optional polish) |
+| exit E (closed = solid wall picture, open = plain floor: the maze door vanishes) | tile 0 / tile 1 cells (W1) | FINAL |
 | pressure plate | pack cell r6 c9, a flat brown square | PLACEHOLDER (no detailed plate in the pack) |
 | plate with box | crate over the plate | FINAL |
 | floor decoration (crack, bones, skull, rubble) on floors 1-2 | pack cells | FINAL |
