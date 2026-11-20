@@ -268,8 +268,6 @@ module top #(
     wire        dbg_stun  /*verilator public*/ = b_stunned;
     wire        dbg_clap  /*verilator public*/ = clap;
     wire [15:0] dbg_esc   /*verilator public*/ = {e_s_t, e_s_o, e_f_t, e_f_o};
-    wire [9:0]  dbg_ballx /*verilator public*/ = ball_x;
-    wire [9:0]  dbg_bally /*verilator public*/ = ball_y;
 
     // ---------- เฟรม: กะพริบข้อความ / LED, จอสั่น ----------
     reg [7:0] fc = 0;                     // นับเฟรม
@@ -325,6 +323,8 @@ module top #(
     wire [89:0] pz_x_r     = is_esc ? {80'd0, ball_x - 10'd6} : pz_x;
     wire [89:0] pz_y_r     = is_esc ? {80'd0, ball_y - 10'd6} : pz_y;
     wire [35:0] pz_frame_r = is_esc ? {32'd0, 4'd10} : pz_frame;
+    wire [9:0]  dbg_ballx /*verilator public*/ = ball_x;
+    wire [9:0]  dbg_bally /*verilator public*/ = ball_y;
 
     // ---------- render ----------
     // TITLE: sprite ร่าง 1 idle หันลง กลางจอ
