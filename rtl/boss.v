@@ -1,7 +1,7 @@
 // P5: บอส 3 ตัว (module เดียว + ROM พารามิเตอร์ boss_rom) — ใช้ slot บอสที่สำรองไว้ใน objects.v
 //
 //   บอส 1 (ชั้น 1): HP 10, ไล่เร็ว 2 px/เฟรม, ไม่ยิง, รับดาเมจตลอด, ตบมือ (หรือ SW11) = มึน 180 เฟรม แล้ว cooldown 240 (W10)
-//   บอส 2 (ชั้น 2): HP 16, อยู่กับที่, เรียกลูกน้อง 3 ตัวต่อรอบ; ตีไม่ได้ (shield) ขณะมีลูกน้อง ตีได้เฉพาะตอนลูกน้องตายหมด (VULNERABLE 120 เฟรม) แล้ว summon ใหม่ (W11)
+//   บอส 2 (ชั้น 2): HP 16, อยู่กับที่, เรียกลูกน้อง 3 ตัวต่อรอบ; ตีได้ตลอด (W17; เดิม W11 ตีได้เฉพาะตอนลูกน้องตายหมด) ลูกน้องตายหมด -> รอ 120 เฟรม -> summon รอบใหม่
 //   บอส 3 (ชั้น 3): HP 3, เกราะ: รับเฉพาะกระสุนชาร์จ (ทีละ 1); ไล่ 180 เฟรม -> ชาร์จโจมตีใหญ่ 120 เฟรม (หยุดนิ่ง กะพริบ) -> ผู้เล่นตาย (kill) / ถูกชาร์จขัดแล้ววนใหม่ (W12)
 //   (ค่าทั้งหมดอยู่ใน params.vh)
 //
@@ -106,10 +106,10 @@ module boss (
     reg [1:0]  bs2 = 0;
     reg        b3 = 1'b0;
     reg [8:0]  phase_t = 0;
-    assign shield = act && kind == 2'd1 && bs2 != 2'd2;
+    assign shield = 1'b0;                                   // W17: boss 2 no longer has a shield (it can always be hit)
     assign vuln   = act && kind == 2'd1 && bs2 == 2'd2;
     assign tele   = act && kind == 2'd2 && b3;
-    wire       acc = (kind == 2'd0) || (kind == 2'd1 && bs2 == 2'd2) || (kind == 2'd2 && dmg_big);
+    wire       acc = (kind == 2'd0) || (kind == 2'd1) || (kind == 2'd2 && dmg_big);   // W17: boss 2 takes damage in every state
     wire [2:0] amt = (kind == 2'd2) ? 3'd1 : dmg_amt;
 
     localparam [3:0] B_IDLE = 4'd0, B_DLY = 4'd1, B_X0 = 4'd2, B_X1 = 4'd3, B_X2 = 4'd4,

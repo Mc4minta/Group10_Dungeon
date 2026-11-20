@@ -19,7 +19,8 @@ module tb_objects;
     // ---------- DUT ----------
     reg up = 0, down = 0, left = 0, right = 0;
     reg atk_press = 0, atk_hold = 0;
-    reg fsm_btnc = 0, item = 0, summon_t = 0;
+    reg fsm_btnc = 0, item = 0, summon_t = 0, auto_t = 0;
+    wire lock_use_w; wire [1:0] lock_face_w;
     reg [1:0] floor = 0; reg [2:0] room = 0; reg [3:0] grid = 0;
     reg p_load = 0, o_load = 0, restart_tb = 0; reg [9:0] lx = 288, ly = 224;
     reg open_L = 0;
@@ -52,7 +53,7 @@ module tb_objects;
                  .px(px), .py(py), .facing(facing), .form(form), .damage(damage),
                  .atk_press(atk_press), .atk_hold(atk_hold), .dbg_clear(1'b0),
                  .blk0(12'd0), .blk1(12'd0), .blk2(12'd0), .blk_en(3'd0),
-                 .boss_act(1'b0), .boss_x(10'd0), .boss_y(10'd0), .boss_fire(1'b0), .summon(summon_t), .boss_dmg(), .boss_dmg_amt(), .boss_dmg_big(),
+                 .boss_act(1'b0), .boss_x(10'd0), .boss_y(10'd0), .boss_fire(1'b0), .auto_lock(auto_t), .lock_use(lock_use_w), .lock_face(lock_face_w), .summon(summon_t), .boss_dmg(), .boss_dmg_amt(), .boss_dmg_big(),
                  .doors_open(doors_open), .alive(alive), .hit(hit), .kb_start(kb_start), .kb_dir(kb_dir),
                  .invuln(invuln), .player_blink(blink), .busy(busy),
                  .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
@@ -583,6 +584,62 @@ module tb_objects;
             check(hits == hits0, "W5: form 3 (Angel) flies over spike traps");
             set_ov(7 * 20 + 9, 8'h00);
             clear_all; heal;
+        end
+
+        // ================= 11. W18 auto-lock (SW9): attacks aim at the nearest enemy in 8 directions =================
+        begin : w18
+            integer nn, dmask, nact;
+            // helper: after a press, which directions do the live player bullets have? (bit d of dmask)
+            while (busy) @(posedge clk); fsm.form = 2'd1;
+            enter(0, 0, 0, 288, 224); clear_all; heal;
+            right = 1; frames(1); right = 0; frames(16); clear_all; heal;
+            // A) lock OFF: the shot goes where the hero faces (right = 3) although an enemy is up-left
+            auto_t = 0; put_mon(0, 1, 200, 150, 7); dut.hurt_cnt = 7'd100;
+            press; frames(1); dmask = 0; for (nn = 0; nn < 6; nn = nn + 1) if (pb_act[nn]) dmask = dmask | (1 << dut.p_dirv[nn*3 +: 3]);
+            check(dmask == (1 << 3) && !lock_use_w, "W18 off: the shot follows the facing (right)");
+            clear_all; heal;
+            // B) lock ON: the same enemy up-left -> diagonal up-left (6)
+            auto_t = 1; put_mon(0, 1, 200, 150, 7); dut.hurt_cnt = 7'd100;
+            press; frames(1); dmask = 0; for (nn = 0; nn < 6; nn = nn + 1) if (pb_act[nn]) dmask = dmask | (1 << dut.p_dirv[nn*3 +: 3]);
+            check(lock_use_w && dmask == (1 << 6), "W18 on: enemy up-left -> the shot flies up-left (diagonal)");
+            clear_all; heal;
+            // C) enemy straight above, hero faces right -> shot goes up
+            put_mon(0, 1, 288, 120, 7); dut.hurt_cnt = 7'd100;
+            press; frames(1); dmask = 0; for (nn = 0; nn < 6; nn = nn + 1) if (pb_act[nn]) dmask = dmask | (1 << dut.p_dirv[nn*3 +: 3]);
+            check(dmask == (1 << 1) && lock_face_w == 2'd1, "W18: enemy straight above -> shot up, hero turns up (lock_face = 1)");
+            clear_all; heal;
+            // D) out of range (> LOCK_RANGE): no lock, facing used
+            put_mon(0, 1, 40, 40, 7); dut.hurt_cnt = 7'd100;
+            press; frames(1); dmask = 0; for (nn = 0; nn < 6; nn = nn + 1) if (pb_act[nn]) dmask = dmask | (1 << dut.p_dirv[nn*3 +: 3]);
+            check(!lock_use_w && dmask == (1 << 3), "W18: enemy beyond LOCK_RANGE is ignored");
+            clear_all; heal;
+            // E) two enemies: the nearest one wins (above, 54 px) over the far one (left, 188 px)
+            put_mon(0, 1, 100, 224, 7); put_mon(1, 1, 288, 170, 7); dut.hurt_cnt = 7'd100;
+            press; frames(1); dmask = 0; for (nn = 0; nn < 6; nn = nn + 1) if (pb_act[nn]) dmask = dmask | (1 << dut.p_dirv[nn*3 +: 3]);
+            check(dmask == (1 << 1), "W18: the nearest enemy is chosen");
+            clear_all; heal;
+            // F) no enemy at all: facing
+            dut.hurt_cnt = 7'd100; press; frames(1); dmask = 0; for (nn = 0; nn < 6; nn = nn + 1) if (pb_act[nn]) dmask = dmask | (1 << dut.p_dirv[nn*3 +: 3]);
+            check(!lock_use_w && dmask == (1 << 3), "W18: nobody to lock -> facing");
+            clear_all; heal;
+            // G) the boss counts as a target too (boss_act is tied to 0 in this testbench: skipped)
+            // H) form 3 spread is centred on the target: up + its two ring neighbours (up-left, up-right)
+            while (busy) @(posedge clk); fsm.form = 2'd2;
+            put_mon(0, 1, 288, 120, 7); dut.hurt_cnt = 7'd100;
+            press; frames(1); dmask = 0; for (nn = 0; nn < 6; nn = nn + 1) if (pb_act[nn]) dmask = dmask | (1 << dut.p_dirv[nn*3 +: 3]);
+            check(dmask == ((1 << 1) | (1 << 6) | (1 << 7)), "W18 + form 3: the 3-way spread is centred on the target (up, up-left, up-right)");
+            clear_all; heal;
+            // I) human melee: the swing turns toward the enemy above although the hero faces right
+            while (busy) @(posedge clk); fsm.form = 2'd0;
+            put_mon(0, 1, 288, 190, 7); dut.hurt_cnt = 7'd100;
+            press; frames(1);
+            check(melee_dir == 2'd1, "W18: the melee swing goes up (toward the enemy)");
+            clear_all; heal;
+            auto_t = 0; put_mon(0, 1, 288, 190, 7); dut.hurt_cnt = 7'd100;
+            press; frames(1);
+            check(melee_dir == 2'd3, "W18 off: the melee swing follows the facing (right)");
+            clear_all; heal;
+            auto_t = 0;
         end
 
         // ================= 7. เวลา vblank =================

@@ -64,6 +64,8 @@ module top #(
     debounce #(DEBOUNCE) d_s3(.clk(clk), .in(SW[3]),  .level(), .rise(sw3_r));
     debounce #(DEBOUNCE) d_s4(.clk(clk), .in(SW[4]),  .level(), .rise(sw4_r));
     debounce #(DEBOUNCE) d_s13(.clk(clk), .in(SW[13]), .level(), .rise(sw13_rise));
+    wire sw9;                          // SW9 = W18 auto-lock: attacks aim at the nearest enemy
+    debounce #(DEBOUNCE) d_s9(.clk(clk), .in(SW[9]), .level(sw9), .rise());
     wire sw10;                         // SW10 = เขาวงกต: ใช้ปุ่มแทนเซนเซอร์เอียง
     debounce #(DEBOUNCE) d_s10(.clk(clk), .in(SW[10]), .level(sw10), .rise());
     wire sw11_rise;                    // SW11 = ตบมือสำรอง (ถ้าไมค์ใช้ไม่ได้): ยก = pulse stun บอส 1
@@ -107,6 +109,8 @@ module top #(
 
     // ---------- world (ห้อง/ประตู) + game FSM ----------
     wire       has_key, maze_goal, tmo, key_pick, key_vis;
+    wire       lock_use; wire [1:0] lock_face;     // W18 auto-lock result from objects.v
+    reg  [4:0] turn_cnt = 5'd0;                    // the hero faces the locked target for a moment after each attack
     wire [9:0] key_x, key_y;
     wire [1:0] floor;
     wire [2:0] room;
@@ -209,7 +213,7 @@ module top #(
                .door_evt(door_evt), .door_dir(door_dir), .open_E(open_E), .brk(brk), .moving_o(p_moving));
 
     // ---------- objects: มอน กระสุน ฟัน โดนตี ห้องล็อก ----------
-    objects obj (.clk(clk), .rst(rst), .frame_tick(ft), .run(run), .brk(brk), .brk_set(brk_set), .brk_idx(brk_idx),
+    objects obj (.clk(clk), .rst(rst), .frame_tick(ft), .run(run), .brk(brk), .brk_set(brk_set), .brk_idx(brk_idx), .auto_lock(sw9), .lock_use(lock_use), .lock_face(lock_face),
                  .restart(restart), .room_load(load), .floor(floor), .room(room), .grid(grid),
                  .open_L(open_L), .px(px), .py(py), .facing(facing), .form(form), .damage(damage),
                  .atk_press(bc_rise_g), .atk_hold(bc & ~paused), .dbg_clear(sw2_rise),
@@ -409,8 +413,10 @@ module top #(
     // TITLE: sprite ร่าง 1 idle หันลง กลางจอ
     wire [9:0]  rpx = is_title ? 10'd304 : px;
     wire [9:0]  rpy = is_title ? 10'd224 : py;
-    wire [5:0]  pframe = is_title ? 6'd0 : form * 6'd12 + facing * 6'd3 + pose;
-    player_frame pfr (.clk(clk), .rst(rst), .frame_tick(ft), .form(form), .facing(facing), .melee_dir(melee_dir),
+    always @(posedge clk) if (ev_shoot | ev_melee) turn_cnt <= LOCK_TURN_FRAMES; else if (ft && turn_cnt != 5'd0) turn_cnt <= turn_cnt - 5'd1;
+    wire [1:0]  face_vis = (sw9 && turn_cnt != 5'd0 && lock_use) ? lock_face : facing;     // W18: the hero turns to the locked target (picture only)
+    wire [5:0]  pframe = is_title ? 6'd0 : form * 6'd12 + face_vis * 6'd3 + pose;
+    player_frame pfr (.clk(clk), .rst(rst), .frame_tick(ft), .form(form), .facing(face_vis), .melee_dir(melee_dir),
                       .moving(p_moving), .melee_on(melee_on), .invuln(invuln), .dead(state == S_GAME_OVER), .active(!is_title),
                       .shoot(ev_shoot), .anim_sel(p_anim), .aframe(p_aframe), .hurt_flash(p_hurt));
     wire [2:0]  screen = is_title ? 3'd1 : (state == S_GAME_OVER) ? 3'd2 : is_win ? 3'd3 : is_pro ? 3'd4 : is_esc ? 3'd5 : 3'd0;

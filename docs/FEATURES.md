@@ -44,7 +44,7 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 | Boss | Behaviour | Code |
 |---|---|---|
 | 1 (floor 1) | HP 10, very fast (2 px every frame), no shot, always takes damage; **a clap (or SW11) stuns it 3 s**, then 4 s cooldown | `rtl/boss.v`, `rtl/pdm_mic.v` |
-| 2 (floor 2) | HP 16, stationary, no shot; summons 3 minions per round; **shielded (blinks) while any minion lives, hurt only when all minions are dead (VULNERABLE 2 s)**, then summons again | `boss.v`, `objects.v` (summon) |
+| 2 (floor 2) | HP 16, stationary, no shot; summons waves of 3 minions; **can be hit at all times, also while its minions live (W17)**; when a wave is dead it waits 2 s and summons the next | `boss.v`, `objects.v` (summon) |
 | 3 (floor 3) | HP 3, **armour: only the charged shot (form 4) hurts, 1 per hit**; chases and shoots 3 s, then charges a big attack for 2 s (blinks, stands still): if it completes the player dies (GAME OVER); a charged hit interrupts and restarts the cycle; death starts ESCAPE (key + maze come with W7) | `boss.v`, `game_fsm.v` (`kill`) |
 | Shared | 64x64 sprite, hit flash, boss room locks while alive, boss HP bar on screen (+ LED0-7) | `boss.v`, `hud.v` |
 
@@ -107,6 +107,7 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 |---|---|
 | BTNU / D / L / R | walk (two together = diagonal) |
 | BTNC | start (TITLE) / attack (PLAY) / back to TITLE (WIN, GAME OVER) |
+| SW9 | **auto-lock (W18)**: up = attacks aim at the nearest enemy within 240 px (8 directions, the hero turns that way for a moment); form 3's spread is centred on it, melee swings turn toward it; down = old behaviour (aim = facing) |
 | SW10 | maze: use the 4 direction buttons instead of the accelerometer (also automatic when the sensor does not answer) |
 | SW15 | **PAUSE** (game frozen, PAUSED text, music + sfx muted; PLAY / ESCAPE only) |
 | SW14 | sprint (+1 px/frame) |
