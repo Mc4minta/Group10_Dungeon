@@ -33,7 +33,7 @@ Everything is documented in `sprites/README.md`; what is final / placeholder is 
 |---|---|---|
 | Easier: start HP 4 for forms 1-2 (was 3), invulnerable 90 frames after a hit (was 60), the chasing monster moves every 2nd frame (half speed) | `rtl/params.vh`, `rtl/objects.v` | `HP1`, `HP2`, `INV_FRAMES`, `MON_A_MOVE_EVERY` |
 | After tapping BTNC the facing stays locked for 24 frames (attack and step back with one hand) | new `rtl/face_lock.v`, `rtl/top.v` | `FACE_LOCK_FRAMES` (0 = off) |
-| SW14 up = facing locked all the time | `rtl/top.v` | - |
+| SW12 up = facing locked all the time (was SW14); SW15 = pause, SW14 = sprint (W15) | `rtl/top.v` | - |
 | Screen shake for 12 frames after being hit | `rtl/top.v` | `HURT_SHAKE_FRAMES` (0 = off) |
 | Two new sound effects: boss appears (11), room change (12) | `rtl/audio.v`, `rtl/params.vh`, `rtl/top.v` | `SFX_BOSS_*`, `SFX_DOOR_*` |
 | Music ROM has 8 tracks; track 6 is a custom track that loops; which track plays where comes from `sprites/music.json` | `rtl/audio.v`, `scripts/make_music.py`, generated `rtl/bgm_cfg.vh` | `sprites/music.json` |
@@ -70,6 +70,7 @@ All four flags are `false` in `sprites/sprites.json`, so the build is exactly th
 | `scripts/check_all.sh` (generated files current, all Python tests, `run_sim.sh all`) | PASS (`run_sim.sh all` = ALL OK) |
 | Whole-system test with all four animation flags forced ON (`run_sim.sh topanim`) | PASS |
 | Fallback drill on the real tree (4 scenarios) | PASS |
+| Verilator `full_game.txt` script | NOT valid any more after the W7 maze: the run used to end with the ESCAPE dash to door E; now boss 3 gives a key and door E starts the tilt maze (the script has no maze solution; extend it with button moves or use `SW10`) |
 | Verilator full game to WIN | last passed on the commit before the tuning / face lock / SW14 / music RTL changes (screenshots in `preview/game`); NOT repeated on the newest RTL because Verilator cannot be rebuilt on the build machine |
 | Vivado synthesis and board run | pending: the owner builds in the GUI (`docs/BOARD_TEST_STEPS.md`); Block RAM and WNS numbers are still to be recorded |
 

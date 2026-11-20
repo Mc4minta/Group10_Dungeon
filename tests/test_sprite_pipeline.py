@@ -394,6 +394,10 @@ class Fallbacks(unittest.TestCase):
         c = jload(self.cfgp)
         c["forms"]["1"]["sheets"].update({"attack": "my_asset/form1_attack.png", "dmg": "my_asset/form1_dmg.png",
                                           "soul_die": "my_asset/form1_die.png"})
+        self.make_sheet("my_asset/form2_attack.png", 128, 128, 8)             # W14: Orc and Angel attack sheets
+        self.make_sheet("my_asset/form3_attack.png", 128, 128, 9)
+        c["forms"]["2"]["sheets"]["attack"] = "my_asset/form2_attack.png"
+        c["forms"]["3"]["sheets"]["attack"] = "my_asset/form3_attack.png"
         jsave(self.cfgp, c)
         return c
 
@@ -403,12 +407,13 @@ class Fallbacks(unittest.TestCase):
         self.assertEqual(rc, 0)
         mem = os.path.join(self.t, "mem")
         self.assertEqual(len(words_of(os.path.join(mem, "player_idle.mem"))), 65536)
-        for nm in ("attack", "hurt", "die"):
-            self.assertEqual(len(words_of(os.path.join(mem, "player_" + nm + ".mem"))), 16384, nm)
+        for nm, n in (("attack", 49152), ("hurt", 16384), ("die", 16384)):                # attack = 3 forms x 16 pictures (W14)
+            self.assertEqual(len(words_of(os.path.join(mem, "player_" + nm + ".mem"))), n, nm)
         vh = open(os.path.join(self.t, "rtl", "sprite_cfg.vh"), encoding="utf-8").read()
         import re
-        for flag in ("IDLE_ANIM_EN", "ATTACK_ANIM_EN", "HURT_ANIM_EN", "DEATH_ANIM_EN"):
+        for flag in ("IDLE_ANIM_EN", "ATK_F1_EN", "ATK_F2_EN", "ATK_F3_EN", "ATTACK_ANIM_EN", "HURT_ANIM_EN", "DEATH_ANIM_EN"):   # no "animations" block = all off
             self.assertRegex(vh, r"localparam " + flag + r"\s*= 0;")
+        self.assertRegex(vh, r"localparam HURT_FLASH_EN\s*= 1;")                                      # the red hurt flash needs no ROM: on by default
         self.assertNotIn("WARNING: player_", out)
 
     def test_anim_frames_come_from_the_right_cells(self):
@@ -425,6 +430,11 @@ class Fallbacks(unittest.TestCase):
                 self.assertEqual(idle[(d * 16 + k) * N:(d * 16 + k + 1) * N], exp, f"idle dir{d} k{k}")
         exp = indep_frame(os.path.join(self.t, "my_asset", "form1_attack.png"), 2, 3, 1)       # left, 4th picture
         self.assertEqual(att[(2 * 4 + 3) * N:(2 * 4 + 4) * N], exp)
+        for f, src in ((1, "form2_attack.png"), (2, "form3_attack.png")):                       # W14: forms 2 / 3 own regions of the attack ROM {form, dir, k}
+            for d, row in ((0, 1), (1, 3), (2, 2), (3, 1)):
+                for k in (0, 3):
+                    exp = indep_frame(os.path.join(self.t, "my_asset", src), row, k, 1)
+                    self.assertEqual(att[(f * 16 + d * 4 + k) * N:(f * 16 + d * 4 + k + 1) * N], exp, f"attack form{f + 1} dir{d} k{k}")
         exp = indep_frame(os.path.join(self.t, "my_asset", "form1_die.png"), 1, 4, 1)           # die picture 4 = row 1 col 4
         self.assertEqual(die[4 * N:5 * N], exp)
 
@@ -437,6 +447,9 @@ class Fallbacks(unittest.TestCase):
         for d in range(4):                                                    # every attack picture = the walk-idle picture of that direction
             for k in range(4):
                 self.assertEqual(att[(d * 4 + k) * N:(d * 4 + k + 1) * N], w[(d * 3) * N:(d * 3 + 1) * N], (d, k))
+        for f in (1, 2):                                                      # W14: Orc / Angel without an attack sheet -> their own walk-idle picture
+            for d in range(4):
+                self.assertEqual(att[(f * 16 + d * 4) * N:(f * 16 + d * 4 + 1) * N], w[(f * 12 + d * 3) * N:(f * 12 + d * 3 + 1) * N], (f, d))
 
     def test_empty_last_death_picture_is_valid_not_a_fallback(self):
         self._anim_project()

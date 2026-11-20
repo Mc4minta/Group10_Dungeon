@@ -13,8 +13,8 @@ module tb_player;
     integer errors = 0; reg [1:0] maxpose = 0;
     always @(posedge clk) if (pose > maxpose) maxpose = pose;
 
-    player dut(.clk(clk), .rst(rst), .frame_tick(tick), .up(up), .down(down), .left(left), .right(right),
-               .hold_facing(hold), .form(form), .speed(spd), .freeze(freeze), .grid(grid), .doors_open(dopen), .open_L(openL),
+    player dut(.brk(8'd0), .clk(clk), .rst(rst), .frame_tick(tick), .up(up), .down(down), .left(left), .right(right),
+               .hold_facing(hold), .form(form), .speed(spd), .freeze(freeze), .grid(grid), .doors_open(dopen), .open_L(openL), .open_E(form == 2'd3),
                .load(load), .load_x(lx), .load_y(ly), .kb_start(1'b0), .kb_dir(2'd0), .blk0(12'd0), .blk1(12'd0), .blk2(12'd0), .blk_en(3'd0), .px(px), .py(py), .facing(facing), .pose(pose),
                .door_evt(devt), .door_dir(ddir));
 

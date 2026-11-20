@@ -6,7 +6,7 @@ module tb_hud;
     reg clk = 0; always #5 clk = ~clk;
     reg [9:0] hc = 0, vc = 0; reg [2:0] hp = 4, hpm = 4; reg bon = 0; reg [1:0] fl = 0; reg [4:0] bhp = 0;
     wire [11:0] px; wire on;
-    hud dut (.clk(clk), .hcount(hc), .vcount(vc), .hp(hp), .hp_max(hpm), .boss_on(bon), .floor(fl), .b_hp(bhp), .hud_px(px), .hud_on(on));
+    hud dut (.mic_th_bcd(16'd0), .mic_lv_bcd(16'd0), .mic_on(1'b0), .mic_w(7'd0), .mic_th(7'd0), .mic_hit(1'b0), .chg_w(7'd0), .clk(clk), .hcount(hc), .vcount(vc), .hp(hp), .hp_max(hpm), .boss_on(bon), .floor(fl), .b_hp(bhp), .hud_px(px), .hud_on(on));
     reg [11:0] rom [0:8191];
     initial $readmemh("hud.mem", rom);
     integer errors = 0, checks = 0, x, y, i, sx, sy, fw, rcp, maxhp, exp_on, k;

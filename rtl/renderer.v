@@ -1,6 +1,6 @@
 // วาดภาพต่อพิกเซล (pipeline 4 clock ทุกชั้นเท่ากัน — เดิม 3 ก่อน board prep)
 //   ชั้น (ล่าง -> บน): tile < ปริศนา/มอน/บอส/กระสุน/ฟัน (objline) < ผู้เล่น < ข้อความ      F0F = โปร่งใส
-//   screen: 0 เกม · 1 TITLE (พื้นกรมท่า + sprite ที่ px,py ที่ top ส่งมา) · 2 GAME OVER (แดงเข้ม) · 3 WIN (ทอง)
+//   screen: 0 เกม · 1 TITLE (พื้นกรมท่า + sprite ที่ px,py ที่ top ส่งมา) · 2 GAME OVER (แดงเข้ม) · 3 WIN (ทอง) · 4 PROLOGUE (ดำ)
 //   hide_player: ซ่อน sprite (กะพริบตอน EVOLVE / อมตะหลังโดนตี)
 //
 // pipeline (สีของพิกเซล hcount/vcount ออกที่ color หลัง 4 clock -> top หน่วง hsync/vsync/active 4 clock ให้ตรงกัน)
@@ -18,9 +18,13 @@ module renderer (
     input  wire [1:0]   floor,
     input  wire [1:0]   form,
     input  wire         doors_open, open_L,
-    input  wire [1:0]   screen,
+    input  wire [2:0]   screen,
+    input  wire         open_E,           // W7: ประตู E เปิด (มีกุญแจ) -> วาดเป็นพื้น
+    input  wire [7:0]   brk,              // W5: บล็อกพังได้ของห้องนี้ที่พังแล้ว (overlay.v)
     input  wire         hide_player,
     input  wire [9:0]   px, py,
+    input  wire [1:0]   facing,        // W25: 0 down 1 up 2 left 3 right (where the charge ball grows)
+    input  wire [2:0]   chg_lvl,       // W25: charge ball size step 0..4 (objects.v)
     input  wire [5:0]   pframe,        // form*12 + facing*3 + pose
     input  wire [2:0]   p_anim,        // 0 = pframe, 1 idle, 2 attack, 3 hurt, 4 death (from player_frame.v)
     input  wire [5:0]   p_aframe,      // picture number inside the animation ROM
@@ -31,6 +35,14 @@ module renderer (
     input  wire [5:0]   pb_act,
     input  wire [59:0]  pb_x, pb_y,
     input  wire [11:0]  pb_kind,
+    input  wire         dlg_on,           // W16: dialogue box (txt_scr = 14): black band + 2 lines from dlg_b0.. (text ROM)
+    input  wire [11:0]  dlg_b0, dlg_b1,
+    input  wire [4:0]   dlg_n0, dlg_n1,
+    input  wire [11:0]  dlg_col,
+    input  wire [1:0]   trap_a, trap_b,   // W19: timed spike phase (0 down, 1 warning, 2 up), groups A (overlay code 8) and B (code 9)
+    input  wire [1:0]   ov_phase,        // torch flame frame (0..3)
+    input  wire [1:0]   fade,             // extra darkness 0..3 (room-change fade in)
+    input  wire         p_hurt,           // W14: red flash of the player sprite (just hit)
     input  wire         p_tint,           // ผู้เล่นสว่าง (ร่าง 4 ชาร์จเต็ม)
     input  wire [15:0]  eb_act,
     input  wire [159:0] eb_x, eb_y,
@@ -49,21 +61,28 @@ module renderer (
     input  wire [9:0]   boss_x, boss_y,
     input  wire [2:0]   boss_frame,
     input  wire         boss_flash,
+    input  wire [11:0]  boss_fcol,        // W21: blink colour of the boss
     input  wire [9:0]   sh_dx, sh_dy,     // จอสั่น (two's complement): เลื่อนพิกัดภาพ ไม่ยุ่ง sync
-    input  wire [2:0]   txt_scr,          // ข้อความ: 0 ไม่มี 1 TITLE 2 FLOOR CLEAR 3 ESCAPE! 4 WIN 5 GAME OVER
+    input  wire [3:0]   txt_scr,          // ข้อความ: 0 ไม่มี 1 TITLE 2 FLOOR CLEAR 3 ESCAPE! 4 WIN 5 GAME OVER 6 PAUSED 7-10 PROLOGUE 11-13 NEW FORM
     input  wire         txt_blink,        // 1 = ซ่อนบรรทัดที่กะพริบ
     input  wire [3:0]   t_floor, t_m1, t_m0, t_s1, t_s0,   // ตัวเลขสดในข้อความ
     input  wire [2:0]   hud_hp, hud_hp_max,                // player hearts (hud.v)
+    input  wire         mic_on, mic_hit,                  // W4: clap meter on / clap detected
+    input  wire [15:0]  mic_th_bcd, mic_lv_bcd,           // W4: the same numbers as decimal digits
+    input  wire [6:0]   mic_w, mic_th,                    // W4: level and threshold in px
+    input  wire [6:0]   chg_w,                            // W21: boss 3 charge bar fill in px (0 = hidden)
     input  wire [4:0]   hud_b_hp,                          // boss bar (shown while boss_act)
     output reg  [11:0]  color = 12'h000
 );
     `include "text_layout.vh"
     `include "sprite_cfg.vh"
+    `include "puzzle_layout.vh"          // G_SIMON (generated from maps/)
     localparam [11:0] C_NAVY = 12'h114, C_OVER = 12'h300, C_WIN = 12'hFB0, C_T = 12'hF0F;
 
     // ======================= stage 1 =======================
     // ----- tile -----
-    wire [3:0] tid;
+    wire [3:0] tid_map;
+    wire       maze_on = (screen == 3'd5);   // W7: Ball in a Maze: tiles come from maze_rom instead of the room map
     // จอสั่น: ทุกชั้นภาพใช้พิกัดที่เลื่อนแล้ว (hs, vs); นอกจอ = ดำ
     wire [9:0] hs = hcount + sh_dx;
     wire [9:0] vs = vcount + sh_dy;
@@ -71,18 +90,33 @@ module renderer (
     `include "tilebase.vh"
     reg [9:0]  hs_r = 0, vs_r = 0;
     reg [11:0] taddr = 0;
+    reg [11:0] maddr = 0;
     always @(posedge clk) begin
         hs_r  <= hs;
         vs_r  <= vs;
         taddr <= rbase(grid) + rowx20(vs[8:5]) + hs[9:5];
+        maddr <= rowx20(vs[8:5]) + hs[9:5];
     end
-    tilemap_rom map (.addr(taddr), .data(tid));
+    wire [7:0] ovraw;                // W5 overlay entry of this tile (art drawn from ovtile_rom over the base tile)
+    tilemap_rom #(.RAW(1)) map (.addr(taddr), .brk(8'd0), .data(tid_map), .ov(ovraw));
+    wire [1:0] mzd;
+    maze_rom mzr (.addr(maddr[8:0]), .data(mzd));
+    wire [3:0] tid = maze_on ? ((mzd == 2'd1) ? 4'h0 : (mzd == 2'd2) ? 4'h7 : 4'h1) : tid_map;   // wall / goal plate / floor
+    // vignette level at this pixel (stage 0 coordinates): distance from the screen centre (dx + 1.5 dy) plus the room-change fade
+    wire [9:0]  vdx = (hs_r >= 10'd320) ? hs_r - 10'd320 : 10'd320 - hs_r;
+    wire [9:0]  vdy = (vs_r >= 10'd240) ? vs_r - 10'd240 : 10'd240 - vs_r;
+    wire [6:0]  vx7 = vdx[9:3];                                           // 0..40
+    wire [6:0]  vy7 = (vdy + {2'b00, vdy[9:2]}) >> 3;                     // dy * 1.25 / 8 = 0..37 (ellipse, not a diamond)
+    wire [11:0] vm  = vx7 * vx7 + vy7 * vy7;                              // squared distance from the centre
+    wire [1:0]  vig_edge = (vm >= 12'd2500) ? 2'd3 : (vm >= 12'd1900) ? 2'd2 : (vm >= 12'd1400) ? 2'd1 : 2'd0;
+    wire [2:0]  vig_sum  = {1'b0, vig_edge} + {1'b0, fade};
+    wire [1:0]  vig_lvl  = (screen == 3'd0 || screen == 3'd5) ? ((vig_sum > 3'd3) ? 2'd3 : vig_sum[1:0]) : 2'd0;
     reg [3:0] tvis;
     always @* begin                  // สถานะประตูเลือกรูปเปิด/ปิด
         case (tid)
             4'h2: tvis = doors_open ? 4'h8 : 4'h2;
             4'h3: tvis = open_L     ? 4'h9 : 4'h3;
-            4'h4: tvis = (form == 2'd3) ? 4'hA : 4'h4;
+            4'h4: tvis = open_E ? 4'hA : 4'h4;
             4'h7: tvis = ((pbox_en[0] && taddr == pbox0) || (pbox_en[1] && taddr == pbox1)) ? 4'hB : 4'h7;
             default: tvis = tid;
         endcase
@@ -98,9 +132,28 @@ module renderer (
     reg [15:0] r1_aaddr = 0;
     reg [2:0]  r1_asel = 0;
     reg        r1_p = 0, r1_lit = 0, r1_red = 0, r1_out = 0, r1_tint = 0;
-    reg [1:0]  r1_scr = 0;
+    // ----- W25 charge ball: a disc in front of the hero that grows in 4 steps (radius 2 / 4 / 6 / 7-8), colour orange -> yellow -> white -----
+    wire [10:0] orb_hb = {1'b0, hs_r} + 11'd64, orb_vb = {1'b0, vs_r} + 11'd64;           // +64 so nothing goes negative
+    wire [10:0] orb_cx = {1'b0, px} + 11'd80 + ((facing == 2'd3) ? ORB_DIST : 0) - ((facing == 2'd2) ? ORB_DIST : 0);
+    wire [10:0] orb_cy = {1'b0, py} + 11'd80 + ((facing == 2'd0) ? ORB_DIST : 0) - ((facing == 2'd1) ? ORB_DIST : 0);
+    wire [10:0] orb_ax = (orb_hb > orb_cx) ? orb_hb - orb_cx : orb_cx - orb_hb;
+    wire [10:0] orb_ay = (orb_vb > orb_cy) ? orb_vb - orb_cy : orb_cy - orb_vb;
+    wire [3:0]  orb_r  = (chg_lvl == 3'd1) ? 4'd2 : (chg_lvl == 3'd2) ? 4'd4 : (chg_lvl == 3'd3) ? 4'd6 : (ov_phase[0] ? 4'd8 : 4'd7);   // full = pulses 7 / 8
+    wire [8:0]  orb_d2 = orb_ax[3:0] * orb_ax[3:0] + orb_ay[3:0] * orb_ay[3:0];
+    wire        orb_in = (chg_lvl != 3'd0) && (orb_ax < 11'd9) && (orb_ay < 11'd9) && (orb_d2 <= orb_r * orb_r);
+    wire [11:0] orb_c  = (chg_lvl == 3'd1) ? 12'hF92 : (chg_lvl == 3'd2) ? 12'hFC4 : (chg_lvl == 3'd3) ? 12'hFE8 : 12'hFFF;
+    wire        orb_core = (orb_d2 <= (orb_r >> 1) * (orb_r >> 1));
+    reg         r1_orb = 0, r2_orb = 0; reg [11:0] r1_orbc = 0, r2_orbc = 0;
+    reg        r1_hurt = 0, r2_hurt = 0, r1_band = 0, r2_band = 0;
+    reg [2:0]  r1_scr = 0;
+    reg        r1_ovl = 0, r2_ovl = 0;                 // the overlay picture is a light source (torch): not darkened
+    reg        r1_ovs = 0, r2_ovs = 0;         // overlay picture present
+    reg [13:0] r1_oaddr = 0;
+    reg [1:0]  r1_vig = 0, r2_vig = 0;          // vignette level (0..3): darker towards the screen edges + the room fade
+    reg        r1_dth = 0, r2_dth = 0;                // ordered dither of the title gradient (smooth instead of 8 visible bands)
+    reg [2:0]  r1_vb = 0, r2_vb = 0;            // W6: แถบแนวนอน 8 แถบ (vcount[8:6]) ทำพื้นหน้า TITLE เป็นไล่สี
     // ----- ข้อความ: ไม่เกิน 2 บรรทัดต่อหน้าจอ, ฟอนต์ 8x8 ขยาย 2x / 4x (คิดเฉพาะตอนมีข้อความบนจอ) -----
-    reg [5:0]  txtmem [0:127];
+    reg [5:0]  txtmem [0:4095];
     reg [7:0]  fontmem [0:511];
     initial $readmemh("text.mem", txtmem);
     initial $readmemh("font.mem", fontmem);
@@ -109,25 +162,18 @@ module renderer (
     reg        r1_txt = 0;
     reg [9:0]  ly0, lx0, lw0, lh0, ly1, lx1, lw1, lh1, rx, ry, rx0, ry0, rx1, ry1;
     reg        ls0, ls1, lk0, lk1, in0, in1, s4, kk;
-    reg [6:0]  lb0, lb1, bb, ta_;
+    reg [11:0] lb0, lb1, bb, ta_;
     reg [5:0]  code;
     reg [4:0]  colc;
     // stage A: ตำแหน่งในบรรทัดข้อความ (ลบ + เทียบขอบ + เลือกบรรทัด) -> register; stage B: อ่านตัวอักษรจาก text ROM + เลขสด
-    reg [9:0]  a_rx = 0, a_ry = 0; reg a_in = 0, a_s4 = 0, a_kk = 0, a_on = 0; reg [6:0] a_bb = 0;
+    reg [9:0]  a_rx = 0, a_ry = 0; reg a_in = 0, a_s4 = 0, a_kk = 0, a_on = 0; reg [11:0] a_bb = 0;
     always @(posedge clk) begin
         a_on <= (txt_scr != 0);
         if (txt_scr != 0) begin
             case (txt_scr)
-                3'd1: begin ly0 = T10_Y; lx0 = T10_X; lw0 = T10_W; lh0 = T10_H; ls0 = T10_S; lb0 = T10_B; lk0 = T10_K;
-                            ly1 = T11_Y; lx1 = T11_X; lw1 = T11_W; lh1 = T11_H; ls1 = T11_S; lb1 = T11_B; lk1 = T11_K; end
-                3'd2: begin ly0 = T20_Y; lx0 = T20_X; lw0 = T20_W; lh0 = T20_H; ls0 = T20_S; lb0 = T20_B; lk0 = T20_K;
-                            ly1 = T21_Y; lx1 = T21_X; lw1 = T21_W; lh1 = T21_H; ls1 = T21_S; lb1 = T21_B; lk1 = T21_K; end
-                3'd3: begin ly0 = T30_Y; lx0 = T30_X; lw0 = T30_W; lh0 = T30_H; ls0 = T30_S; lb0 = T30_B; lk0 = T30_K;
-                            ly1 = T31_Y; lx1 = T31_X; lw1 = T31_W; lh1 = T31_H; ls1 = T31_S; lb1 = T31_B; lk1 = T31_K; end
-                3'd4: begin ly0 = T40_Y; lx0 = T40_X; lw0 = T40_W; lh0 = T40_H; ls0 = T40_S; lb0 = T40_B; lk0 = T40_K;
-                            ly1 = T41_Y; lx1 = T41_X; lw1 = T41_W; lh1 = T41_H; ls1 = T41_S; lb1 = T41_B; lk1 = T41_K; end
-                default: begin ly0 = T50_Y; lx0 = T50_X; lw0 = T50_W; lh0 = T50_H; ls0 = T50_S; lb0 = T50_B; lk0 = T50_K;
-                            ly1 = T51_Y; lx1 = T51_X; lw1 = T51_W; lh1 = T51_H; ls1 = T51_S; lb1 = T51_B; lk1 = T51_K; end
+                4'd14: begin ly0 = 10'd392; lx0 = 10'd320 - {1'b0, dlg_n0, 4'b0} / 2; lw0 = {1'b0, dlg_n0, 4'b0}; lh0 = 10'd16; ls0 = 1'b0; lb0 = dlg_b0; lk0 = 1'b0;
+                             ly1 = 10'd416; lx1 = 10'd320 - {1'b0, dlg_n1, 4'b0} / 2; lw1 = {1'b0, dlg_n1, 4'b0}; lh1 = 10'd16; ls1 = 1'b0; lb1 = dlg_b1; lk1 = 1'b0; end
+                `include "text_select.vh"
             endcase
             rx0 = hcount - lx0; ry0 = vcount - ly0; in0 = (rx0 < lw0) && (ry0 < lh0);
             rx1 = hcount - lx1; ry1 = vcount - ly1; in1 = (rx1 < lw1) && (ry1 < lh1);
@@ -157,13 +203,32 @@ module renderer (
     end
     always @(posedge clk) begin
         r1_out   <= (hs_r >= 10'd640) || (vs_r >= 10'd480);
-        r1_taddr <= {floor, tvis, vs_r[4:0], hs_r[4:0]};          // (floor*16 + tvis) = {floor, tvis}
+        // each Simon plate = a 2x2 block of tiles (even column / even row) drawn as ONE big plate: the 32x32 plate picture in tile 12..15 is
+        // sampled at half size, quadrant = tile column / row parity (floor 3, Simon room only)
+        if (floor == 2'd2 && grid == G_SIMON && tid[3:2] == 2'b11)
+            r1_taddr <= {floor, tvis, vs_r[5], vs_r[4:1], hs_r[5], hs_r[4:1]};
+        else
+            r1_taddr <= {floor, tvis, vs_r[4:0], hs_r[4:0]};          // (floor*16 + tvis) = {floor, tvis}
         r1_paddr <= {pframe, sy[4:0], sx[4:0]};
         r1_aaddr <= {p_aframe, sy[4:0], sx[4:0]};
         r1_asel  <= p_anim;
         r1_p     <= in_spr && !hide_player;
         r1_tint  <= p_tint;
+        r1_hurt  <= p_hurt;
+        r1_orb   <= orb_in;
+        r1_orbc  <= orb_core ? orb_c : {1'b0, orb_c[11:9], 1'b0, orb_c[7:5], 1'b0, orb_c[3:1]};   // bright core, darker rim
+        r1_band  <= dlg_on && (vs_r >= 10'd384) && (vs_r < 10'd448);
         r1_scr   <= screen;
+        // overlay code -> picture: 1 breakable block (if not broken) 0, 2 trap 1, 3 pillar 2, 4 torch 3 + phase, 5 left torch 7, 6 right torch 8, 7 shield 9
+        r1_ovs   <= maze_on ? 1'b0 : (ovraw[3:0] == 4'd1) ? !brk[ovraw[6:4]] : (ovraw[3:0] >= 4'd2 && ovraw[3:0] <= 4'd9);
+        // W19: code 8 / 9 = timed spikes: picture 10 flat, 11 half up, 12 fully up
+        r1_oaddr <= {(ovraw[3:0] == 4'd8) ? (4'd10 + {2'b00, trap_a}) : (ovraw[3:0] == 4'd9) ? (4'd10 + {2'b00, trap_b}) :
+                     (ovraw[3:0] == 4'd2) ? 4'd1 : (ovraw[3:0] == 4'd3) ? 4'd2 : (ovraw[3:0] == 4'd4) ? (4'd3 + {2'b00, ov_phase}) :
+                     (ovraw[3:0] == 4'd5) ? 4'd7 : (ovraw[3:0] == 4'd6) ? 4'd8 : (ovraw[3:0] == 4'd7) ? 4'd9 : 4'd0, vs_r[4:0], hs_r[4:0]};
+        r1_vig   <= vig_lvl;
+        r1_ovl   <= (ovraw[3:0] >= 4'd4 && ovraw[3:0] <= 4'd6);
+        r1_vb    <= vcount[8:6];
+        r1_dth   <= (vcount[5:2] > bayer4({vcount[1:0], hcount[1:0]}));
         r1_lit   <= simon_lit_on && (tid == {2'b11, simon_lit});
         r1_red   <= simon_wrong && (tid >= 4'hC);
     end
@@ -171,13 +236,36 @@ module renderer (
     // ======================= stage 2: ROM =======================
     wire [11:0] tile_px, spr_px, obj_px;
     tileset_rom tset (.clk(clk), .addr(r1_taddr), .data(tile_px));
+    wire [11:0] ov_px;
+    function [3:0] bayer4(input [3:0] p);                  // 4x4 Bayer threshold {y[1:0], x[1:0]}
+        case (p)
+            4'd0: bayer4 = 4'd0;  4'd1: bayer4 = 4'd8;  4'd2: bayer4 = 4'd2;  4'd3: bayer4 = 4'd10;
+            4'd4: bayer4 = 4'd12; 4'd5: bayer4 = 4'd4;  4'd6: bayer4 = 4'd14; 4'd7: bayer4 = 4'd6;
+            4'd8: bayer4 = 4'd3;  4'd9: bayer4 = 4'd11; 4'd10: bayer4 = 4'd1; 4'd11: bayer4 = 4'd9;
+            4'd12: bayer4 = 4'd15; 4'd13: bayer4 = 4'd7; 4'd14: bayer4 = 4'd13; default: bayer4 = 4'd5;
+        endcase
+    endfunction
+    ovtile_rom  otr  (.clk(clk), .addr(r1_oaddr), .data(ov_px));
+    // vignette: the tiles get darker towards the edges (25 / 37 / 50 %); `fade` adds up to 3 levels for a short fade-in after a room change
+    function [11:0] shade(input [11:0] c, input [1:0] l);
+        reg [3:0] r, g, b;
+        begin
+            r = c[11:8]; g = c[7:4]; b = c[3:0];
+            case (l)
+                2'd1: shade = {(r > 4'd0) ? r - 4'd1 : r, (g > 4'd0) ? g - 4'd1 : g, (b > 4'd0) ? b - 4'd1 : b};
+                2'd2: shade = {(r > 4'd1) ? r - 4'd2 : 4'd0, (g > 4'd1) ? g - 4'd2 : 4'd0, (b > 4'd1) ? b - 4'd2 : 4'd0};
+                2'd3: shade = {(r > 4'd2) ? r - 4'd3 : 4'd0, (g > 4'd2) ? g - 4'd3 : 4'd0, (b > 4'd2) ? b - 4'd3 : 4'd0};
+                default: shade = c;
+            endcase
+        end
+    endfunction
     player_rom  pspr (.clk(clk), .addr(r1_paddr), .data(spr_px));
     // animation ROMs: only built when their flag in sprite_cfg.vh is 1
     wire [11:0] idle_px, atk_px, hurt_px, die_px;
     generate
         if (IDLE_ANIM_EN)   begin : g_idle   player_idle_rom   ri (.clk(clk), .addr(r1_aaddr),        .data(idle_px)); end
         else begin : g_idle_off   assign idle_px = 12'd0; end
-        if (ATTACK_ANIM_EN) begin : g_attack player_attack_rom ra (.clk(clk), .addr(r1_aaddr[13:0]),  .data(atk_px)); end
+        if (ATTACK_ANIM_EN) begin : g_attack player_attack_rom ra (.clk(clk), .addr(r1_aaddr),        .data(atk_px)); end
         else begin : g_attack_off assign atk_px = 12'd0; end
         if (HURT_ANIM_EN)   begin : g_hurt   player_hurt_rom   rh (.clk(clk), .addr(r1_aaddr[13:0]),  .data(hurt_px)); end
         else begin : g_hurt_off   assign hurt_px = 12'd0; end
@@ -194,17 +282,17 @@ module renderer (
                       .eb_act(eb_act), .eb_x(eb_x), .eb_y(eb_y), .melee_on(melee_on), .melee_dir(melee_dir),
                       .pz_act(pz_act), .pz_x(pz_x), .pz_y(pz_y), .pz_frame(pz_frame),
                       .boss_act(boss_act), .boss_x(boss_x), .boss_y(boss_y), .boss_frame(boss_frame),
-                      .boss_flash(boss_flash), .sh_dx(sh_dx), .sh_dy(sh_dy),
+                      .boss_flash(boss_flash), .boss_fcol(boss_fcol), .sh_dx(sh_dx), .sh_dy(sh_dy),
                       .px(px), .py(py), .obj_px(obj_px));
 
     reg [11:0] obj_px_d = 12'hF0F;          // ชั้น object มาถึงเร็วกว่า tile 1 clock (tile มี stage 0 เพิ่ม) -> หน่วง 1 clock
     always @(posedge clk) obj_px_d <= obj_px;
     reg r2_p = 0, r2_lit = 0, r2_red = 0, r2_out = 0, r2_txt = 0, r2_tint = 0;
-    reg [1:0] r2_scr = 0;
+    reg [2:0] r2_scr = 0;
     reg [2:0] r2_gx = 0;
     reg [7:0] r2_font = 0;
     always @(posedge clk) begin
-        r2_p <= r1_p; r2_tint <= r1_tint; r2_scr <= r1_scr; r2_lit <= r1_lit; r2_red <= r1_red; r2_out <= r1_out;
+        r2_p <= r1_p; r2_orb <= r1_orb; r2_orbc <= r1_orbc; r2_tint <= r1_tint; r2_scr <= r1_scr; r2_vb <= r1_vb; r2_dth <= r1_dth; r2_hurt <= r1_hurt; r2_band <= r1_band; r2_vig <= r1_vig; r2_ovl <= r1_ovl; r2_ovs <= r1_ovs; r2_lit <= r1_lit; r2_red <= r1_red; r2_out <= r1_out;
         r2_txt <= r1_txt; r2_gx <= r1_gx;
         r2_font <= fontmem[r1_faddr];
     end
@@ -212,21 +300,26 @@ module renderer (
     // on-screen health: hearts (player) + bar (boss), same latency as the tile path; game screen only
     wire [11:0] hud_px; wire hud_on;
     hud hud0 (.clk(clk), .hcount(hcount), .vcount(vcount), .hp(hud_hp), .hp_max(hud_hp_max), .boss_on(boss_act), .floor(floor),
-              .b_hp(hud_b_hp), .hud_px(hud_px), .hud_on(hud_on));
+              .b_hp(hud_b_hp), .chg_w(chg_w), .mic_on(mic_on), .mic_w(mic_w), .mic_th(mic_th), .mic_hit(mic_hit), .mic_th_bcd(mic_th_bcd), .mic_lv_bcd(mic_lv_bcd), .hud_px(hud_px), .hud_on(hud_on));
 
     // ======================= stage 3: เลือกชั้น =======================
     always @(posedge clk) begin
-        if (txt_on)                                  color <= 12'hFFF;    // ข้อความอยู่บนสุด
-        else if (r2_scr == 2'd0 && hud_on)           color <= hud_px;     // hearts / boss bar above the world
-        else if (DEATH_ANIM_EN && r2_scr == 2'd2 && r2_p && r2_asel == 3'd4 && spr_fin != C_T) color <= spr_fin;   // death animation over the GAME OVER colour
-        else if (r2_scr == 2'd2)                     color <= C_OVER;
-        else if (r2_scr == 2'd3)                     color <= C_WIN;
-        else if (r2_p && spr_fin != C_T)             color <= r2_tint ? (spr_fin | 12'hCCC) : spr_fin;   // ชาร์จเต็ม: สว่าง
-        else if (r2_scr == 2'd1)                     color <= C_NAVY;
+        if (txt_on)                                  color <= dlg_on ? dlg_col : 12'hFFF;    // ข้อความอยู่บนสุด (dialogue: สีตามผู้พูด)
+        else if (r2_band)                            color <= 12'h000;    // W16: แถบดำใต้ข้อความ dialogue
+        else if (r2_scr == 3'd0 && hud_on)           color <= hud_px;     // hearts / boss bar above the world
+        else if (DEATH_ANIM_EN && r2_scr == 3'd2 && r2_p && r2_asel == 3'd4 && spr_fin != C_T) color <= spr_fin;   // death animation over the GAME OVER colour
+        else if (r2_scr == 3'd4)                     color <= 12'h000;    // prologue: black screen
+        else if (r2_scr == 3'd2)                     color <= C_OVER;
+        else if (r2_scr == 3'd3)                     color <= C_WIN;
+        else if (r2_orb)                             color <= r2_orbc;    // W25: the charge ball is drawn over the hero
+        else if (r2_p && spr_fin != C_T)             color <= r2_hurt ? {4'hF, 1'b0, spr_fin[7:5], 1'b0, spr_fin[3:1]} : r2_tint ? (spr_fin | 12'hCCC) : spr_fin;   // W14: hit = red   // ชาร์จเต็ม: สว่าง
+        else if (r2_scr == 3'd1 && obj_px_d != C_T)  color <= obj_px_d;   // TITLE: the two torches
+        else if (r2_scr == 3'd1)                     color <= {4'h1, 2'b00, r2_vb[2:1], 4'h4 + {1'b0, r2_vb} + {3'b000, r2_dth}};   // TITLE: dithered navy -> blue gradient (W6)
         else if (r2_out)                             color <= 12'h000;    // จอสั่น: ขอบที่เลื่อนออก
         else if (obj_px_d != C_T)                    color <= obj_px_d;   // มอน < กระสุน < ฟัน (เรียงใน objline)
         else if (r2_red)                             color <= {4'hF, 1'b0, tile_px[7:5], 1'b0, tile_px[3:1]};   // Simon ผิด: แดง
         else if (r2_lit)                             color <= {1'b1, tile_px[11:9], 1'b1, tile_px[7:5], 1'b1, tile_px[3:1]}; // สว่าง
-        else                                         color <= tile_px;
+        else if (r2_ovs && ov_px != C_T)             color <= r2_ovl ? ov_px : shade(ov_px, r2_vig);     // W5: breakable block / trap / decoration / wall torch over the floor
+        else                                         color <= shade(tile_px, r2_vig);
     end
 endmodule

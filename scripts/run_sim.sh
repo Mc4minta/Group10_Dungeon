@@ -38,6 +38,12 @@ case "${1:-player}" in
           vvp ../sim/tb_top_anim.vvp | tee /tmp/run_sim_tb_top_anim.log
           if grep -q "FAIL" /tmp/run_sim_tb_top_anim.log; then echo "== tb_top (animations ON): FAILED"; exit 1; fi ;;
   animroms) run tb_anim_roms ../sim/tb_anim_roms.v ../rtl/roms.v ;;
+  simonplate) run tb_simonplate ../sim/tb_simonplate.v ../rtl/renderer.v ../rtl/hud.v ../rtl/objline.v ../rtl/roms.v ;;
+  text) run tb_text ../sim/tb_text.v ../rtl/renderer.v ../rtl/hud.v ../rtl/objline.v ../rtl/roms.v ;;
+  ovrender) run tb_ovrender ../sim/tb_ovrender.v ../rtl/renderer.v ../rtl/hud.v ../rtl/objline.v ../rtl/roms.v ;;
+  adxl) run tb_adxl362 ../sim/tb_adxl362.v ../rtl/adxl362.v ;;
+  maze) run tb_maze ../sim/tb_maze.v ../rtl/maze.v ../rtl/roms.v ;;
+  dialog) run tb_dialog ../sim/tb_dialog.v ../rtl/dialog.v ;;
   hud) run tb_hud ../sim/tb_hud.v ../rtl/hud.v ../rtl/roms.v ;;
   puzzleart) run tb_puzzleart ../sim/tb_puzzleart.v ../rtl/roms.v ;;
   monster) run tb_monster ../sim/tb_monster.v ../rtl/roms.v ;;
@@ -47,12 +53,14 @@ case "${1:-player}" in
   audio)  run tb_audio ../sim/tb_audio.v ../rtl/audio.v ;;
   mictop) run tb_mic_test_top ../sim/tb_mic_test_top.v ../rtl/mic_test_top.v ../rtl/pdm_mic.v ../rtl/seg7.v ../rtl/debounce.v ../rtl/bin2bcd.v ;;
   mic)    run tb_pdm_mic ../sim/tb_pdm_mic.v ../rtl/pdm_mic.v ;;
-  boss)   run tb_boss ../sim/tb_boss.v ../rtl/boss.v ../rtl/objects.v ../rtl/player.v ../rtl/game_fsm.v ../rtl/world.v ../rtl/roms.v ;;
+  boss)   run tb_boss ../sim/tb_boss.v ../rtl/boss.v ../rtl/keyitem.v ../rtl/objects.v ../rtl/player.v ../rtl/game_fsm.v ../rtl/world.v ../rtl/roms.v ;;
   debug)  run tb_debug ../sim/tb_debug.v ../rtl/*.v ;;
-  objects) run tb_objects ../sim/tb_objects.v ../rtl/objects.v ../rtl/player.v ../rtl/game_fsm.v ../rtl/roms.v ;;
+  objects) run tb_objects ../sim/tb_objects.v ../rtl/overlay.v ../rtl/objects.v ../rtl/player.v ../rtl/game_fsm.v ../rtl/roms.v ;;
+  orb)    run tb_orb ../sim/tb_orb.v ../rtl/renderer.v ../rtl/hud.v ../rtl/objline.v ../rtl/roms.v ;;
+  ps2)    run tb_ps2 ../sim/tb_ps2.v ../rtl/ps2_kbd.v ;;
   top)    iverilog -g2012 -I../rtl -o ../sim/tb_top.vvp ../sim/tb_top.v ../rtl/*.v
           vvp ../sim/tb_top.vvp | tee /tmp/run_sim_tb_top.log
           if grep -q "FAIL" /tmp/run_sim_tb_top.log; then echo "== tb_top: FAILED"; exit 1; fi ;;
-  all)    "$SELF" player && "$SELF" world && "$SELF" fsm && "$SELF" objects && "$SELF" puzzles && "$SELF" mic && "$SELF" mictop && "$SELF" audio && "$SELF" boss && "$SELF" hud && "$SELF" debug && "$SELF" top && echo "== ALL OK" ;;
+  all)    "$SELF" player && "$SELF" world && "$SELF" fsm && "$SELF" objects && "$SELF" puzzles && "$SELF" mic && "$SELF" mictop && "$SELF" audio && "$SELF" boss && "$SELF" hud && "$SELF" simonplate && "$SELF" dialog && "$SELF" ovrender && "$SELF" text && "$SELF" ps2 && "$SELF" orb && "$SELF" debug && "$SELF" top && echo "== ALL OK" ;;
   *) echo "usage: $0 [player|world|fsm|top|all]"; exit 1 ;;
 esac

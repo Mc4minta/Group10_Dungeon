@@ -16,7 +16,8 @@ module audio #(
     input  wire        clk,
     input  wire        rst,
     input  wire        frame_tick,
-    input  wire [12:1] ev,              // pulse เอฟเฟกต์ 1..12 (11 = บอสปรากฏ, 12 = ผ่านประตู; 12 ต่ำกว่า 11 เพื่อให้เสียงบอสแทรกเสียงประตูได้)
+    input  wire        pause,           // 1 = หยุดเกม (SW15): เงียบ + SFX / BGM ค้างที่เดิม แล้วต่อเมื่อปล่อย
+    input  wire [13:1] ev,              // pulse เอฟเฟกต์ 1..13 (11 = บอสปรากฏ, 12 = ผ่านประตู; 12 ต่ำกว่า 11 เพื่อให้เสียงบอสแทรกเสียงประตูได้; 13 = W21 boss-3 charge beep, ต่ำสุด)
     input  wire [1:0]  shoot_k,
     input  wire        simon_note_on,
     input  wire [1:0]  simon_note,
@@ -27,6 +28,7 @@ module audio #(
     output wire [7:0]  sample           // ค่า 8 bit ก่อน PWM (debug / test)
 );
     `include "params.vh"
+    wire ft = frame_tick & ~pause;                 // เวลาของ SFX / BGM หยุดตอน pause
 
     assign sd = (AUD_SD_ON != 0);
 
@@ -53,6 +55,7 @@ module audio #(
         else if (ev[10]) new_id = 4'd10;
         else if (ev[11]) new_id = 4'd11;
         else if (ev[12]) new_id = 4'd12;
+        else if (ev[13]) new_id = 4'd13;
         new_hp = 0; new_sl = 0; new_len = 0;
         case (new_id)
             4'd1:  begin new_hp = SFX_HURT_HP;  new_sl = SFX_HURT_SL;  new_len = SFX_HURT_LEN;  end
@@ -72,6 +75,7 @@ module audio #(
             4'd10: begin new_hp = SFX_MELEE_HP; new_sl = SFX_MELEE_SL; new_len = SFX_MELEE_LEN; end
             4'd11: begin new_hp = SFX_BOSS_HP;  new_sl = SFX_BOSS_SL;  new_len = SFX_BOSS_LEN;  end
             4'd12: begin new_hp = SFX_DOOR_HP;  new_sl = SFX_DOOR_SL;  new_len = SFX_DOOR_LEN;  end
+            4'd13: begin new_hp = SFX_CHG_HP;   new_sl = SFX_CHG_SL;   new_len = SFX_CHG_LEN;   end
             default: ;
         endcase
     end
@@ -81,7 +85,7 @@ module audio #(
         else begin
             if (new_id != 0 && (!sfx_on || new_id < sfx_id)) begin
                 sfx_on <= 1'b1; sfx_id <= new_id; sfx_hp <= new_hp; sfx_sl <= new_sl; sfx_len <= new_len;
-            end else if (frame_tick && sfx_on) begin
+            end else if (ft && sfx_on) begin
                 sfx_hp <= sfx_hp + sfx_sl;
                 if (sfx_len <= 1) sfx_on <= 1'b0;
                 sfx_len <= sfx_len - 1'b1;
@@ -120,7 +124,7 @@ module audio #(
             cur_track <= 3'd7; pos <= 0; dur_cnt <= 0; b_hp <= 0; b_done <= 1'b0;
         end else if (bgm_track != cur_track) begin
             cur_track <= bgm_track; pos <= 0; dur_cnt <= 0; b_hp <= 0; b_done <= 1'b0;
-        end else if (frame_tick && !b_done) begin
+        end else if (ft && !b_done) begin
             if (dur_cnt != 0) dur_cnt <= dur_cnt - 1'b1;
             else if (ent[31:24] == 8'd0) begin
                 if (loop) pos <= 0; else begin b_done <= 1'b1; b_hp <= 0; end
@@ -140,8 +144,8 @@ module audio #(
     end
 
     // ---------- mix + PWM ----------
-    wire signed [9:0] sfx_v = tone_on ? (s_q ? SFX_AMP : -SFX_AMP) : 10'sd0;
-    wire signed [9:0] bgm_v = b_gate  ? (b_q ? BGM_AMP : -BGM_AMP) : 10'sd0;
+    wire signed [9:0] sfx_v = (tone_on && !pause) ? (s_q ? SFX_AMP : -SFX_AMP) : 10'sd0;
+    wire signed [9:0] bgm_v = (b_gate && !pause) ? (b_q ? BGM_AMP : -BGM_AMP) : 10'sd0;
     wire signed [9:0] mix   = 10'sd128 + sfx_v + bgm_v;
     assign sample = mix[7:0];
     reg [7:0] pc = 0;

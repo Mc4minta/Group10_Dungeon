@@ -31,7 +31,7 @@ How to change any sprite: see `sprites/README.md`. One command for everything: `
 Art available but NOT used by the game yet (needs Verilog, see NEXT_STEPS B): Human `Attack.png`, `Dmg.png`, `Jump.png`, `ChargedAttack.png`, `SoulDie.png`, `SpinDie.png`, the 16-frame idle loop.
 Row 4 of every walk sheet (back facing Left) is unused: the game has only 4 directions.
 
-## 2b. Human animations (built, switched OFF)
+## 2b. Player animations (Human built but OFF; Orc / Angel attack + red hurt flash ON since 20/11, W14 option C)
 
 The Human (form 1) has extra pictures that the game does not show yet unless you switch them on (`sprites/sprites.json` -> `animations`, then rebuild and synthesise; each costs Block RAM):
 
@@ -42,29 +42,40 @@ The Human (form 1) has extra pictures that the game does not show yet unless you
 | hurt (4 x 4) | `Human/Dmg.png` | `hurt_anim` | about 6 | built, tested, OFF |
 | death (12 pictures, last held; the last one is empty on purpose) | `Human/SoulDie.png` or `SpinDie.png` (`death_sheet`) | `death_anim` | about 6 | built, tested, OFF |
 
-Forms 2-4 have no such pictures (they keep the walking pictures). Nothing here is a placeholder: it is finished art waiting for a Block RAM check (`docs/NEXT_STEPS.md` P3.1).
+**W14 (option C):** the **attack ROM now holds 3 forms** (Human, Orc, Angel: 48 pictures, about 16 RAMB36 in total). Orc (`ORc/form2_Attack.png`) and Angel (`Angel/Angel_Attack.png`) show their 4 attack pictures (3 frames each) whenever they fire a shot or swing melee (flags `attack_anim_form2` / `attack_anim_form3`, ON). The **hurt** reaction of every form is a **red flash** of the sprite for 12 frames (`hurt_flash`, ON, no ROM). The Orc / Angel damage sheets (`form2_Dmg.png`, `Angel_Dmg.png`) are in `my_asset` and built into the config but unused (a hurt ROM for them would be option A). Angel wing tips are cut at the 32 px frame edge. If the Vivado build runs out of Block RAM: set `attack_anim_form2` / `attack_anim_form3` to false and rebuild (no attack ROM = about -16 RAMB36). Form 4 has no attack pictures yet.
+
+Forms 2-4 otherwise keep the walking pictures. Nothing here is a placeholder: it is finished art waiting for a Block RAM check (`docs/NEXT_STEPS.md` P3.1).
 Not used by the game at all: `Jump.png`, `ChargedAttack.png`.
 
 ## 3. Map tiles (mem/tileset.mem, `scripts/build_tileset_mem.py`, `sprites/tileset.json`)
 
 | Tile | Art | Status |
 |---|---|---|
-| wall, floor, doors (closed/open), boss door, exit (closed/open), hole, fence | asset pack `Dungeon_Tileset.png` (2x) | FINAL |
+| wall, floor, hole, fence | asset pack `Dungeon_Tileset.png` (2x) | FINAL |
+| doors D / L (closed = spikes up, open = spikes down) | `my_asset/props/peaks_1.png` / `peaks_3.png` over the floor (`cut` colour, W1) | FINAL (static; a spike animation is optional polish) |
+| exit E (closed = solid wall picture, open = plain floor: the maze door vanishes) | tile 0 / tile 1 cells (W1) | FINAL |
 | pressure plate | pack cell r6 c9, a flat brown square | PLACEHOLDER (no detailed plate in the pack) |
 | plate with box | crate over the plate | FINAL |
 | floor decoration (crack, bones, skull, rubble) on floors 1-2 | pack cells | FINAL |
 | Simon plates (floor 3) | red potion, blue potion, coin, key | FINAL |
+| maze ball | AXIALE orb (`my_asset/ball/orb_rotate.png`, derived 16x16 `ball_0..3.png` by `scripts/make_ball_art.py`, 2x = 20x20 = the collision box; puzzle frames 10-13, picture follows the position = rolling) | FINAL |
+| boss-3 key item | `my_asset/props/keys_1_1.png`, 2x (puzzle frame 14, lies where boss 3 died) | FINAL |
+| overlay: breakable block `Z` / spike trap `X` (red plate + spikes) / solid decoration `Y` | `my_asset/props/box_1_1.png`, `peaks_1.png`, `candlestick_1_1.png`, 2x (`sprites/overlay.json` -> `mem/ovtile.mem`, +2 RAMB36) | FINAL art slots; swap the PNG in `overlay.json` to change |
+| Sokoban pressed plate with the box on it (W26) | composed by `scripts/make_plate_box.py` from `plate.png` (pressed) + `box_1_1.png` (2x) -> `my_asset/props/plate_box.png`, tile 11 | GENERATED: re-run the script if the plate or box picture changes |
+| overlay W19 timed spikes (floor 2): picture 10 flat, 11 half up, 12 fully up (= picture 1) | 10 / 11 drawn in code (`timed_pic` in `scripts/build_overlay_mem.py`: red base + dark holes / small grey tips), 12 copies the `X` picture; no new BRAM (same 16-picture ROM) | PLACEHOLDER look for flat / half: replace with real art if wanted |
 | floor colours | floor 1 purple, 2 teal, 3 olive (recolor + gain 1.7) | FINAL (adjust in `tileset.json`) |
 | wall variety (corners, tops, torches) | none: one wall id only | NOT POSSIBLE without Verilog (NEXT_STEPS C1) |
 
 ## 4. Enemies and bosses
 
+**Visual polish pass (20/11):** monsters are now drawn at 2x like the hero (the 16x16 pixels around the art are doubled; `monsters.json` -> `scale`), bosses at 3x with the art centred in the 64x64 box (`bosses.json` -> `scale`, 1.5x bigger than before), boss 2 is the **blue-sparked priest** from the 2D Pixel Dungeon pack (a robed caster fits a summoner; `scripts/make_boss2_art.py`), floor palettes are darker and more distinct (floor 1 maroon, floor 2 indigo, floor 3 moss green; walls brighter than floors so the sprites stand out; `tileset.json`), every room has animated wall torches and shields (overlay codes 4-7, `maps/*.txt` chars `t [ ] v`, art from the pack's torch / shield), a soft vignette darkens the screen edges and every room change fades in over 6 frames, the title is a scene (hero vs the big vampire between two torches). Preview any scene with `scripts/make_shots.sh` -> `preview/shots/*.png`.
+
 | Sprite | Source | Status |
 |---|---|---|
 | Monster A (chaser) 2 frames | skeleton1 movement cols 1, 4 (`sprites/monsters.json`) | FINAL (2 frames only, no facing) |
 | Monster B (turret) 2 frames | vampire idle cols 0, 3 | FINAL |
-| Boss 1 (floors 1) | skeleton2 idle, 2x | FINAL but smaller than the old 64x64 blob |
-| Boss 2 (floor 2) normal / stunned | skeleton1 idle / skeleton1 damage frame, 2x | FINAL, the stunned picture is subtle |
+| Boss 1 (floor 1) normal / stunned | skeleton2 idle col 0 / skeleton2 damage col 2, 2x (W10: frame 1 = stunned picture) | FINAL, the stunned picture is subtle |
+| Boss 2 (floor 2) 2 idle frames | skeleton1 idle cols 0, 3, 2x (blinks white while shielded = no art needed) | FINAL |
 | Boss 3 (floor 3) | vampire attack frames 4, 7, 2x | FINAL |
 
 Unused enemy art in `my_asset/enemies/`: attack, death and damage strips for all three enemies (needs Verilog).
@@ -78,6 +89,15 @@ Unused enemy art in `my_asset/enemies/`: attack, death and damage strips for all
 | box | iron crate | FINAL |
 | gate closed / open | spikes up / retracted (background cut out) | FINAL |
 | item floor 1 / 2 / 3 | gold key / silver key / red shield | FINAL |
+
+## 5a. Pressure plates (`my_asset/props/plate.png`, tiles 7 / 11 / 12-15 in `sprites/tileset.json`)
+
+| Use | Art | Status |
+|---|---|---|
+| Sokoban plates (floor 2): no box on it / box on it | **your** plate picture: row 0 raised / row 1 pressed (1:1, 32x32) | FINAL |
+| Simon plates (floor 3): 4 big plates (each = 2x2 tiles, drawn as one 64x64 plate) | the same picture at half-size sampling, tinted red / blue / green / yellow (`"tint"`) | FINAL; lit = brightened raised plate (no pressed art for lit) |
+
+The Simon map has its plates on even rows now (`maps/12_f3_puzzle_simon.txt`); tests: `tests/test_maps.py`, `scripts/run_sim.sh simonplate`.
 
 ## 5b. Health display (mem/hud.mem, `scripts/build_hud_mem.py`, `sprites/hud.json`)
 

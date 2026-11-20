@@ -3,13 +3,16 @@
  1 01_start_f3.txt                  P x= 9 y= 7
  2 02_boss_f13.txt                  B x=10 y= 7
  3 03_boss_f2.txt                   B x= 9 y= 7
- 4 04_f1_combat1.txt                S x= 3 y= 2
- 4 04_f1_combat1.txt                S x=15 y= 2
- 4 04_f1_combat1.txt                S x=10 y=12
- 5 05_f1_combat2.txt                S x= 3 y= 2
- 5 05_f1_combat2.txt                S x=16 y= 2
- 5 05_f1_combat2.txt                T x=10 y= 7
- 5 05_f1_combat2.txt                S x= 3 y=12
+ 4 04_f1_combat1.txt                S x= 3 y= 3
+ 4 04_f1_combat1.txt                S x=12 y= 4
+ 4 04_f1_combat1.txt                S x= 8 y=12
+ 4 04_f1_combat1.txt                T x=16 y=12
+ 5 05_f1_combat2.txt                T x= 9 y= 2
+ 5 05_f1_combat2.txt                T x=15 y= 2
+ 5 05_f1_combat2.txt                T x= 3 y= 3
+ 5 05_f1_combat2.txt                S x= 5 y= 9
+ 5 05_f1_combat2.txt                S x=13 y= 9
+ 5 05_f1_combat2.txt                S x= 7 y=12
  6 06_f1_puzzle_lightbulb.txt       a x= 4 y= 1
  6 06_f1_puzzle_lightbulb.txt       b x= 8 y= 1
  6 06_f1_puzzle_lightbulb.txt       c x=12 y= 1
@@ -19,27 +22,28 @@
  6 06_f1_puzzle_lightbulb.txt       3 x=12 y= 3
  6 06_f1_puzzle_lightbulb.txt       4 x=16 y= 3
  6 06_f1_puzzle_lightbulb.txt       I x=10 y= 8
- 7 07_f2_combat1.txt                T x= 2 y= 1
- 7 07_f2_combat1.txt                T x=17 y= 1
- 7 07_f2_combat1.txt                S x= 8 y= 5
- 7 07_f2_combat1.txt                S x=11 y= 5
+ 7 07_f2_combat1.txt                T x= 3 y= 2
+ 7 07_f2_combat1.txt                T x=16 y= 2
+ 7 07_f2_combat1.txt                S x= 5 y= 6
+ 7 07_f2_combat1.txt                S x= 5 y= 8
  7 07_f2_combat1.txt                T x= 2 y=13
  7 07_f2_combat1.txt                T x=17 y=13
- 8 08_f2_combat2.txt                S x= 3 y= 2
- 8 08_f2_combat2.txt                T x=10 y= 5
- 8 08_f2_combat2.txt                S x= 3 y= 9
- 8 08_f2_combat2.txt                S x=15 y= 9
+ 8 08_f2_combat2.txt                S x= 2 y= 2
+ 8 08_f2_combat2.txt                S x=15 y= 3
+ 8 08_f2_combat2.txt                T x= 7 y= 5
+ 8 08_f2_combat2.txt                S x= 3 y=12
  9 09_f2_puzzle_sokoban.txt         K x= 8 y= 5
  9 09_f2_puzzle_sokoban.txt         K x=11 y= 6
  9 09_f2_puzzle_sokoban.txt         G x=13 y= 7
  9 09_f2_puzzle_sokoban.txt         I x=16 y= 7
-10 10_f3_combat1.txt                S x= 4 y= 2
-10 10_f3_combat1.txt                S x=15 y= 2
-10 10_f3_combat1.txt                S x=10 y= 7
-10 10_f3_combat1.txt                T x= 3 y=10
-10 10_f3_combat1.txt                T x=16 y=10
-11 11_f3_combat2.txt                S x= 3 y= 2
-11 11_f3_combat2.txt                S x=16 y= 2
-11 11_f3_combat2.txt                T x= 5 y= 7
-11 11_f3_combat2.txt                S x=16 y=10
+10 10_f3_combat1.txt                T x= 3 y= 2
+10 10_f3_combat1.txt                T x=16 y= 2
+10 10_f3_combat1.txt                S x=14 y= 7
+10 10_f3_combat1.txt                S x= 4 y= 9
+10 10_f3_combat1.txt                S x= 9 y=11
+11 11_f3_combat2.txt                S x= 3 y= 3
+11 11_f3_combat2.txt                T x=16 y= 3
+11 11_f3_combat2.txt                S x= 7 y= 7
+11 11_f3_combat2.txt                S x= 4 y=10
+11 11_f3_combat2.txt                T x=16 y=12
 12 12_f3_puzzle_simon.txt           I x=10 y= 7

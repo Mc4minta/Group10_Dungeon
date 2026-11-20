@@ -1,7 +1,7 @@
 {
   "_help": [
     "Enemy sprites. mem/monster.mem is GENERATED from this file + the PNG strips.  Rebuild: python scripts/build_monster_mem.py",
-    "monster.mem has 4 frames of 32x32: A0 A1 = monster A (the chaser), B0 B1 = monster B (the turret). No scaling.",
+    "monster.mem has 4 frames of 32x32: A0 A1 = monster A (the chaser), B0 B1 = monster B (the turret). scale 1 = as drawn, scale 2 = the 16x16 pixels around the art are doubled (same size as the hero; art must be at most 16x16).",
     "Each sheet is a strip (or grid) of 32x32 cells. frame = {\"sheet\": name, \"col\": n, \"row\": 1}  (col from 0, row from 1).",
     "Anything not listed, skipped, outside the sheet or fully transparent falls back to mem/monster_v1.mem (old art).",
     "Keys starting with _ are comments."
@@ -19,8 +19,8 @@
     "vampire_move": "my_asset/enemies/enemies-vampire_movement.png"
   },
   "monsters": {
-    "A": { "enabled": true, "frames": [ { "sheet": "skeleton1_move", "col": 1 }, { "sheet": "skeleton1_move", "col": 4 } ] },
-    "B": { "enabled": true, "frames": [ { "sheet": "vampire_idle", "col": 0 }, { "sheet": "vampire_idle", "col": 3 } ] }
+    "A": { "enabled": true, "scale": 2, "frames": [ { "sheet": "skeleton1_move", "col": 1 }, { "sheet": "skeleton1_move", "col": 4 } ] },
+    "B": { "enabled": true, "scale": 2, "frames": [ { "sheet": "vampire_idle", "col": 0 }, { "sheet": "vampire_idle", "col": 3 } ] }
   },
   "alternatives": {
     "B = skeleton2 idle (cols 0,3)": [ { "sheet": "skeleton2_idle", "col": 0 }, { "sheet": "skeleton2_idle", "col": 3 } ],
