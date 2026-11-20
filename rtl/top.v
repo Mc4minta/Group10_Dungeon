@@ -63,22 +63,23 @@ module top #(
     debounce #(DEBOUNCE) d_c (.clk(clk), .in(BTNC),  .level(bc_b), .rise(bc_rise_b));
     // ---- W22 USB keyboard (PS/2): arrows / WASD walk, Space / J / Enter attack, Shift sprint, P / Esc pause (toggle), L auto-lock (toggle),
     //      R Sokoban box reset, C clap fallback. Works together with the buttons (logical OR). ----
-    wire k_up, k_dn, k_lf, k_rt, k_atk, k_spr, k_pause_p, k_lock_p, k_reset_p, k_clap_p, k_got, k_clkact;
+    wire k_up, k_dn, k_lf, k_rt, k_atk, k_spr, k_pause_p, k_lock_p, k_reset_p, k_clap_p, k_got, k_clkact, k_hbox_p;
     ps2_kbd kbd (.clk(clk), .rst(rst), .ps2_clk(PS2_CLK), .ps2_data(PS2_DATA), .up(k_up), .down(k_dn), .left(k_lf), .right(k_rt),
-                 .atk(k_atk), .sprint(k_spr), .pause_p(k_pause_p), .lock_p(k_lock_p), .reset_p(k_reset_p), .clap_p(k_clap_p), .got_key(k_got), .clk_act(k_clkact));
+                 .atk(k_atk), .sprint(k_spr), .pause_p(k_pause_p), .lock_p(k_lock_p), .reset_p(k_reset_p), .clap_p(k_clap_p), .hbox_p(k_hbox_p), .got_key(k_got), .clk_act(k_clkact));
     // keyboard diagnostics on RGB LED 17: BLUE flickers when the PS2_CLK line moves (the keyboard talks), GREEN flickers when a good byte was decoded
     reg [23:0] kd_clk = 24'd0, kd_got = 24'd0;
     always @(posedge clk) begin
         kd_clk <= k_clkact ? 24'd10_000_000 : (kd_clk != 0) ? kd_clk - 1'b1 : 24'd0;     // 0.1 s stretch
         kd_got <= k_got    ? 24'd10_000_000 : (kd_got != 0) ? kd_got - 1'b1 : 24'd0;
     end
-    reg k_pause_on = 1'b0, k_lock_on = 1'b0, k_atk_d = 1'b0;
+    reg k_pause_on = 1'b0, k_lock_on = 1'b0, k_atk_d = 1'b0, k_hbox_on = 1'b0;
     always @(posedge clk) begin
         k_atk_d <= k_atk;
         if (rst) begin k_pause_on <= 1'b0; k_lock_on <= 1'b0; end
         else begin
             if (k_pause_p) k_pause_on <= ~k_pause_on;
             if (k_lock_p)  k_lock_on  <= ~k_lock_on;
+            if (k_hbox_p)  k_hbox_on  <= ~k_hbox_on;
         end
     end
     wire u_raw = bu_b | k_up, d_raw = bd_b | k_dn, l_raw = bl_b | k_lf, r_raw = br_b | k_rt;
@@ -229,12 +230,15 @@ module top #(
     wire [11:0] mic_amp;
 
     overlay ovl (.clk(clk), .rst(rst), .restart(restart), .grid(grid), .set(brk_set), .set_idx(brk_idx), .brk(brk));
-    world wld (.clk(clk), .rst(rst), .restart(restart), .next_floor(next_floor),
+    world wld (.clk(clk), .rst(rst), .restart(restart), .retry(retry), .next_floor(next_floor),
                .door_evt(door_evt), .door_dir(door_dir),
                .floor(floor), .room(room), .grid(grid),
                .load(load), .load_x(load_x), .load_y(load_y), .exit_evt(exit_evt));
 
-    game_fsm #(.PROLOGUE(PROLOGUE)) fsm (.clk(clk), .rst(rst), .frame_tick(ft), .btnc_rise(bc_rise),
+    reg bl_dg = 1'b0; always @(posedge clk) bl_dg <= bl;
+    wire bl_rise_g = bl & ~bl_dg;
+    wire retry;                                // W43: GAME OVER -> retry the current floor
+    game_fsm #(.PROLOGUE(PROLOGUE)) fsm (.clk(clk), .rst(rst), .frame_tick(ft), .btnc_rise(bc_rise), .btnl_rise(bl_rise_g), .floor_in(floor), .retry(retry),
                   .got_item(sw3_rise | pz_got), .take_hit(sw4_rise | obj_hit | pz_hit),
                   .floor_done(sw1_rise | (b_died && b_kind != 2'd2)),          // บอส 1, 2 ตาย -> FLOOR_CLEAR
                   .exit_evt(exit_evt), .escape_start(exit_evt & has_key),     // W7: เดินเข้าประตู E ด้วยกุญแจ -> เขาวงกต (state ESCAPE)
@@ -269,7 +273,7 @@ module top #(
         else if (bl & ~bl_d) tpage <= (tpage == 4'd0) ? 4'd9 : tpage - 4'd1;
     end
     wire [11:0] mic_step_th = (mic_step == 3'd0) ? 12'd192 : (mic_step == 3'd1) ? 12'd320 : (mic_step == 3'd2) ? 12'd448 : (mic_step == 3'd3) ? 12'd704 : 12'd1024;
-    wire [11:0] mic_th_eff = (SW[8:5] != 4'd0) ? {1'b0, SW[8:5], 7'd0} : mic_step_th;      // SW5-SW8 override (0 = the menu value)
+    wire [11:0] mic_th_eff = (SW[7:5] != 3'd0) ? {2'b00, SW[7:5], 7'd0} : mic_step_th;      // SW5-SW7 override (0 = the menu value); SW8 = hitbox overlay (W43)
     wire is_title0 = is_title && (tpage == 4'd0);          // the hero / vampire scene is only on the first page
     wire is_win   = (state == S_WIN);
     wire is_pro   = (state == S_PROLOGUE);
@@ -561,7 +565,7 @@ module top #(
                       .shoot(ev_shoot), .anim_sel(p_anim), .aframe(p_aframe), .hurt_flash(p_hurt));
     wire [2:0]  screen = is_title ? ((tpage == 4'd0) ? 3'd1 : 3'd4) : (state == S_GAME_OVER) ? 3'd2 : is_win ? 3'd3 : is_pro ? 3'd4 : is_esc ? 3'd5 : 3'd0;
     wire [11:0] color;
-    renderer rnd (.brk(brk), .trap_a(trap_a), .trap_b(trap_b), .open_E(open_E), .p_hurt(p_hurt), .ov_phase(fc[4:3]), .fade(fade_lvl), .dlg_on(txt_scr == 5'd14), .dlg_top(room == R_C2), .dlg_b0(dlg_b0), .dlg_b1(dlg_b1), .dlg_n0(dlg_n0), .dlg_n1(dlg_n1), .dlg_col(dlg_col), .hud_hp(hp), .hud_hp_max(is_title ? 3'd0 : hp_max), .hud_b_hp(b_hp), .chg_w(b_chg_w), .facing(face_vis), .chg_lvl(p_chg_lvl), .tgt_on(sw9 && lock_use && state == S_PLAY && !paused && !dlg_block), .tgt_x(lock_tx), .tgt_y(lock_ty), .boss_fcol(b_fcol), .mic_on(mic_on), .mic_w(mic_w), .mic_th(mic_th_px), .mic_hit(mic_hit_cnt != 5'd0), .mic_nums(mic_nums), .mic_th_bcd(mic_th_bcd), .mic_lv_bcd(mic_lv_bcd), .clk(clk), .ce(ce), .hcount(hcount), .vcount(vcount), .grid(grid), .floor(floor),
+    renderer rnd (.brk(brk), .trap_a(trap_a), .trap_b(trap_b), .open_E(open_E), .p_hurt(p_hurt), .ov_phase(fc[4:3]), .fade(fade_lvl), .dlg_on(txt_scr == 5'd14), .hbox_on(SW[8] ^ k_hbox_on), .dlg_top((room == R_C2) || (room == R_PUZ && floor == 2'd0)), .dlg_b0(dlg_b0), .dlg_b1(dlg_b1), .dlg_n0(dlg_n0), .dlg_n1(dlg_n1), .dlg_col(dlg_col), .hud_hp(hp), .hud_hp_max(is_title ? 3'd0 : hp_max), .hud_b_hp(b_hp), .chg_w(b_chg_w), .facing(face_vis), .chg_lvl(p_chg_lvl), .tgt_on(sw9 && lock_use && state == S_PLAY && !paused && !dlg_block), .tgt_x(lock_tx), .tgt_y(lock_ty), .boss_fcol(b_fcol), .mic_on(mic_on), .mic_w(mic_w), .mic_th(mic_th_px), .mic_hit(mic_hit_cnt != 5'd0), .mic_nums(mic_nums), .mic_th_bcd(mic_th_bcd), .mic_lv_bcd(mic_lv_bcd), .clk(clk), .ce(ce), .hcount(hcount), .vcount(vcount), .grid(grid), .floor(floor),
                   .form(form), .doors_open(doors_open), .open_L(open_L),
                   .screen(screen), .hide_player(fsm_hide | is_pro | is_esc | (is_title && tpage != 4'd0) | (obj_blink && !is_title)),
                   .px(rpx), .py(rpy), .pframe(pframe), .p_anim(p_anim), .p_aframe(p_aframe),

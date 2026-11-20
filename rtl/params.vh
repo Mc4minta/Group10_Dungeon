@@ -86,6 +86,14 @@ localparam TRAP_UP         = 60;           //   frames fully up (2 damage)
 localparam TRAP_LOOP       = TRAP_DOWN + TRAP_WARN + TRAP_UP;   // 180 = 3 s
 localparam TRAP_GRACE      = 60;           //   after entering a room the traps stay safe this long
 localparam [17:0] SFX_CHG_HP = 18'd41667;  localparam signed [17:0] SFX_CHG_SL = -18'sd1200;  localparam SFX_CHG_LEN = 12;   // W21: boss-3 charge beep, 600 -> about 1000 Hz (rising)
+localparam BOSS1_FIRE_RAGE = 55;           // W43: second phase (below half HP; boss 3 below a third): faster volleys
+localparam BOSS2_FIRE_RAGE = 60;
+localparam BOSS3_FIRE_RAGE = 60;
+localparam BOSS2_VULN_RAGE = 180;          // boss 2 second phase: shorter vulnerable window (3 s) and a shorter breather
+localparam BOSS2_REST_RAGE = 45;
+localparam BOSS3_CHASE_RAGE = 120;         // boss 3 second phase: shorter chase, faster storm volleys, shorter rest
+localparam BOSS3_STORM_PERIOD_RAGE = 18;
+localparam BOSS3_REST_RAGE = 90;
 localparam BOSS_FLASH      = 8;           // โดนตีกะพริบ
 localparam STUN_FRAMES     = 180;          // W10: ตบมือ -> บอส 1 มึน 3 วิ
 localparam STUN_COOLDOWN   = 240;          // W10: 4 วิ

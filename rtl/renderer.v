@@ -37,6 +37,7 @@ module renderer (
     input  wire [5:0]   pb_act,
     input  wire [59:0]  pb_x, pb_y,
     input  wire [11:0]  pb_kind,
+    input  wire         hbox_on,          // W43: draw the hit boxes (hero green, monsters red, boss orange, bullets yellow)
     input  wire         dlg_top,          // W38: draw the dialogue box at the TOP (rooms with a door in the bottom wall) instead of the bottom
     input  wire         dlg_on,           // W16: dialogue box (txt_scr = 14): black band + 2 lines from dlg_b0.. (text ROM)
     input  wire [11:0]  dlg_b0, dlg_b1,
@@ -155,6 +156,27 @@ module renderer (
     wire [10:0] tg_ay = (orb_vb > tg_cy) ? orb_vb - tg_cy : tg_cy - orb_vb;
     wire        tg_in = tgt_on && (tg_ax >= 11'd8) && (tg_ax <= 11'd11) && (tg_ay >= 11'd8) && (tg_ay <= 11'd11) && ((tg_ax >= 11'd10) || (tg_ay >= 11'd10));
     reg         r1_tgt = 0, r2_tgt = 0; reg [11:0] r1_tgtc = 0, r2_tgtc = 0;
+    // ----- W43 hitbox overlay: the real boxes used by objects.v: hero hurt box 16 x 16 in the middle of its cell, monsters 24 x 24 (pixels 4..27), boss 48 x 48 (8..55), bullets 8 x 8 (big ball 16 x 16) -----
+    function box_edge(input [9:0] x, input [9:0] y, input [9:0] bx, input [9:0] by, input [9:0] bw, input [9:0] bh);
+        reg inside;
+        begin
+            inside = (x >= bx) && (x < bx + bw) && (y >= by) && (y < by + bh);
+            box_edge = inside && ((x == bx) || (x == bx + bw - 10'd1) || (y == by) || (y == by + bh - 10'd1));
+        end
+    endfunction
+    reg         hb_hit; reg [11:0] hb_col; integer hbk;
+    always @* begin
+        hb_hit = 1'b0; hb_col = 12'h000;
+        if (box_edge(hs_r, vs_r, px + 10'd8, py + 10'd8, 10'd16, 10'd16)) begin hb_hit = 1'b1; hb_col = 12'h0F0; end
+        for (hbk = 0; hbk < 6; hbk = hbk + 1) begin
+            if (mon_act[hbk] && box_edge(hs_r, vs_r, mon_x[hbk*10 +: 10] + 10'd4, mon_y[hbk*10 +: 10] + 10'd4, 10'd24, 10'd24)) begin hb_hit = 1'b1; hb_col = 12'hF00; end
+            if (pb_act[hbk]  && box_edge(hs_r, vs_r, pb_x[hbk*10 +: 10], pb_y[hbk*10 +: 10], (pb_kind[hbk*2 +: 2] == 2'd3) ? 10'd16 : 10'd8, (pb_kind[hbk*2 +: 2] == 2'd3) ? 10'd16 : 10'd8)) begin hb_hit = 1'b1; hb_col = 12'hFF0; end
+        end
+        for (hbk = 0; hbk < 16; hbk = hbk + 1)
+            if (eb_act[hbk] && box_edge(hs_r, vs_r, eb_x[hbk*10 +: 10], eb_y[hbk*10 +: 10], 10'd8, 10'd8)) begin hb_hit = 1'b1; hb_col = 12'hFB0; end
+        if (boss_act && box_edge(hs_r, vs_r, boss_x + 10'd8, boss_y + 10'd8, 10'd48, 10'd48)) begin hb_hit = 1'b1; hb_col = 12'hF80; end
+    end
+    reg         r1_hb = 0, r2_hb = 0; reg [11:0] r1_hbc = 0, r2_hbc = 0;
     reg         r1_orb = 0, r2_orb = 0; reg [11:0] r1_orbc = 0, r2_orbc = 0;
     reg        r1_hurt = 0, r2_hurt = 0, r1_band = 0, r2_band = 0, r1_arr = 0, r2_arr = 0;
     reg [2:0]  r1_scr = 0;
@@ -230,6 +252,7 @@ module renderer (
         r1_tint  <= p_tint;
         r1_hurt  <= p_hurt;
         r1_orb   <= orb_in;
+        r1_hb    <= hbox_on && hb_hit && (screen == 3'd0); r1_hbc <= hb_col;
         r1_tgt   <= tg_in; r1_tgtc <= ov_phase[1] ? 12'hFF4 : 12'hF44;
         r1_orbc  <= orb_core ? orb_c : {1'b0, orb_c[11:9], 1'b0, orb_c[7:5], 1'b0, orb_c[3:1]};   // bright core, darker rim
         r1_band  <= (dlg_on && (dlg_top ? ((vs_r >= 10'd32) && (vs_r < 10'd96)) : ((vs_r >= 10'd384) && (vs_r < 10'd448)))) ||
@@ -311,7 +334,7 @@ module renderer (
     reg [2:0] r2_gx = 0;
     reg [7:0] r2_font = 0;
     always @(posedge clk) begin
-        r2_p <= r1_p; r2_tgt <= r1_tgt; r2_tgtc <= r1_tgtc; r2_orb <= r1_orb; r2_orbc <= r1_orbc; r2_tint <= r1_tint; r2_scr <= r1_scr; r2_vb <= r1_vb; r2_dth <= r1_dth; r2_hurt <= r1_hurt; r2_band <= r1_band; r2_arr <= r1_arr; r2_vig <= r1_vig; r2_ovl <= r1_ovl; r2_ovs <= r1_ovs; r2_lit <= r1_lit; r2_red <= r1_red; r2_out <= r1_out;
+        r2_p <= r1_p; r2_hb <= r1_hb; r2_hbc <= r1_hbc; r2_tgt <= r1_tgt; r2_tgtc <= r1_tgtc; r2_orb <= r1_orb; r2_orbc <= r1_orbc; r2_tint <= r1_tint; r2_scr <= r1_scr; r2_vb <= r1_vb; r2_dth <= r1_dth; r2_hurt <= r1_hurt; r2_band <= r1_band; r2_arr <= r1_arr; r2_vig <= r1_vig; r2_ovl <= r1_ovl; r2_ovs <= r1_ovs; r2_lit <= r1_lit; r2_red <= r1_red; r2_out <= r1_out;
         r2_txt <= r1_txt; r2_gx <= r1_gx;
         r2_font <= fontmem[r1_faddr];
     end
@@ -330,6 +353,7 @@ module renderer (
         else if (r2_scr == 3'd4)                     color <= 12'h000;    // prologue: black screen
         else if (r2_scr == 3'd2)                     color <= C_OVER;
         else if (r2_scr == 3'd3)                     color <= C_WIN;
+        else if (r2_hb)                              color <= r2_hbc;     // W43: hitbox overlay
         else if (r2_tgt)                             color <= r2_tgtc;    // W18 level 3: target marker
         else if (r2_orb)                             color <= r2_orbc;    // W25: the charge ball is drawn over the hero
         else if (r2_p && spr_fin != C_T)             color <= r2_hurt ? {4'hF, 1'b0, spr_fin[7:5], 1'b0, spr_fin[3:1]} : r2_tint ? (spr_fin | 12'hCCC) : spr_fin;   // W14: hit = red   // ชาร์จเต็ม: สว่าง

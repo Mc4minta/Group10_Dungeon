@@ -37,9 +37,10 @@ module tb_boss;
                  .floor(floor), .room(room), .play(state == 3'd1), .vis(key_vis), .kx(key_x), .ky(key_y), .pick(key_pick));       // W7: door E with the key starts the maze
     wire run = (state == 3'd1) || (state == 3'd4);
 
-    world wld (.clk(clk), .rst(rst), .restart(restart), .next_floor(next_floor), .door_evt(door_evt), .door_dir(door_dir),
+    wire retry_w;
+    world wld (.clk(clk), .rst(rst), .restart(restart), .retry(retry_w), .next_floor(next_floor), .door_evt(door_evt), .door_dir(door_dir),
                .floor(floor), .room(room), .grid(grid), .load(w_load), .load_x(w_lx), .load_y(w_ly), .exit_evt(exit_evt));
-    game_fsm #(.PROLOGUE(0)) fsm (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(fsm_btnc), .got_item(1'b0),
+    game_fsm #(.PROLOGUE(0)) fsm (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(fsm_btnc), .btnl_rise(1'b0), .floor_in(floor), .retry(retry_w), .got_item(1'b0),
                   .take_hit(obj_hit), .floor_done(b_died && b_kind != 2), .exit_evt(exit_evt),
                   .exit_direct(1'b0), .sprint(1'b0), .key_get(key_pick), .goal(goal_t), .escape_start(esc_t), .has_key(), .kill(b_kill),
                   .state(state), .restart(restart), .next_floor(next_floor), .form(form), .hp(hp),
@@ -287,9 +288,8 @@ module tb_boss;
         check(b_hp == hp0, "armour is back: a normal hit does nothing again");
         while (obj_busy || b_busy) @(posedge clk);
         fsm.state = 3'd6; frames(2);                      // game over (forced) to test the restart
-        @(posedge clk) fsm_btnc <= 1; @(posedge clk) fsm_btnc <= 0; frames(2);
         @(posedge clk) fsm_btnc <= 1; @(posedge clk) fsm_btnc <= 0; frames(3);
-        check(b_dead == 0 && floor == 0 && state == 1, "restart: all bosses alive again");
+        check(b_dead == 0 && floor == 2 && state == 1, "W43: BTNC after GAME OVER retries the CURRENT floor (floor 3): all bosses alive again");
         go_room(2, 4, 40, 240);
         while (b_busy) @(posedge clk);
         bs.hp = 5'd3; frames(1);                                // W44: boss 3 has 9 HP now; start the kill sequence from 3

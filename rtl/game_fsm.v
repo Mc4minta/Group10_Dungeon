@@ -26,6 +26,8 @@ module game_fsm #(
     input  wire       rst,
     input  wire       frame_tick,
     input  wire       btnc_rise,
+    input  wire       btnl_rise,             // W43: on the GAME OVER screen BTNL = back to the title (BTNC = retry the current floor)
+    input  wire [1:0] floor_in,              // W43: the floor the hero died on (for the retry)
     input  wire       got_item,
     input  wire       take_hit,
     input  wire       floor_done,
@@ -41,6 +43,7 @@ module game_fsm #(
     output reg        has_key = 1'b0,        // W7: มีกุญแจแล้ว -> ประตู E (START ชั้น 3) เปิด; เดินเข้า = เริ่มเขาวงกต
     output reg  [1:0] page = 2'd0,           // หน้า prologue 0..3 (ใช้ตอน state = S_PROLOGUE)
     output reg        restart = 1'b0,
+    output reg        retry = 1'b0,          // W43: pulse together with restart: keep the current floor (world.v)
     output reg        next_floor = 1'b0,
     output reg  [1:0] form = 2'd0,
     output reg  [2:0] hp = 3'd3,
@@ -95,6 +98,7 @@ module game_fsm #(
 
     always @(posedge clk) begin
         restart    <= 1'b0;
+        retry      <= 1'b0;
         next_floor <= 1'b0;
         timer_clr = 1'b0;
 
@@ -171,7 +175,14 @@ module game_fsm #(
                 end
             end
 
-            S_WIN, S_GAME_OVER: if (btnc_rise) state <= S_TITLE;
+            S_WIN: if (btnc_rise) state <= S_TITLE;
+            S_GAME_OVER: begin                              // W43: BTNC = retry the CURRENT floor with full hearts, BTNL = title
+                if (btnc_rise) begin
+                    state <= S_PLAY; restart <= 1'b1; retry <= 1'b1;
+                    form <= (floor_in == 2'd3) ? 2'd2 : floor_in; hp <= f_hp((floor_in == 2'd3) ? 2'd2 : floor_in);
+                    cnt <= 0; has_key <= 1'b0; timeout <= 1'b0;
+                end else if (btnl_rise) state <= S_TITLE;
+            end
 
             default: state <= S_TITLE;
             endcase

@@ -48,8 +48,9 @@ OVL_ROOMS = {0, 1, 4, 5, 7, 8, 10, 11}
 # NOT allowed: 1 (floor 3), 2 (boss, floors 1+3), 9 (Sokoban: boxes only move onto tile 1/7), 10-12 (floor 3: C-F = Simon plate art)
 DECOR_ROOMS = {0, 3, 4, 5, 6, 7, 8}
 # object -> tile ใต้ object (object เองเก็บแยกใน objects.txt)
-OBJ_FLOOR = set('PSTBabcd1234KGIN')
-MONSTER = {'S': 0, 'T': 1}   # ตัวอักษรในแมพ -> ชนิดมอน (0 = A ไล่, 1 = B ป้อม)
+OBJ_FLOOR = set('PSTBabcd1234KGINmnop')
+MONSTER = {'S': 0, 'T': 1, 'm': 0, 'n': 1, 'o': 0, 'p': 1}   # map char -> monster type (0 = A chaser, 1 = B turret); S T = wave 1, m n = wave 2, o p = wave 3 (W43)
+WAVE = {'S': 0, 'T': 0, 'm': 1, 'n': 1, 'o': 2, 'p': 2}
 MAX_MON = 6                  # slot มอนใน objects.v
 
 maps = sorted(glob.glob(os.path.join(ROOT, 'maps', '[0-9][0-9]_*.txt')))
@@ -58,7 +59,8 @@ assert len(maps) == 13, f'expected 13 maps, found {len(maps)}'
 mem = []
 ovl = []
 objs = []
-mons = [[] for _ in range(16)]
+mons = [[] for _ in range(16)]                 # wave 1 (the first monsters of a room)
+mons_w = [[[] for _ in range(16)] for _ in range(4)]   # mons_w[wave][grid]
 for g, path in enumerate(maps):
     rows = open(path, encoding='utf-8').read().rstrip('\n').split('\n')
     assert len(rows) == 15, f'{path}: {len(rows)} rows'
@@ -90,7 +92,7 @@ for g, path in enumerate(maps):
                 mem.append(TILE['.'])
                 objs.append(f'{g:2d} {os.path.basename(path):32s} {ch} x={tx:2d} y={ty:2d}')
                 if ch in MONSTER:
-                    mons[g].append(0x8000 | (MONSTER[ch] << 12) | (ty << 8) | tx)
+                    mons_w[WAVE[ch]][g].append(0x8000 | (MONSTER[ch] << 12) | (ty << 8) | tx)
             else:
                 raise ValueError(f'{path} ({tx},{ty}): unknown char {ch!r}')
             ovl.append(0)
@@ -104,10 +106,12 @@ with open(os.path.join(ROOT, 'mem', 'tilemap.mem'), 'w') as f:
 with open(os.path.join(ROOT, 'mem', 'objects.txt'), 'w') as f:
     f.write('# grid file char x y\n' + '\n'.join(objs) + '\n')
 
+mons = mons_w[0]
 rom = []
-for g, m in enumerate(mons):
-    assert len(m) <= MAX_MON, f'grid {g}: {len(m)} monsters > {MAX_MON} slots'
-    rom += m + [0] * (8 - len(m))
+for w in range(4):                                # W43: 4 blocks of 16 rooms x 8 words: wave 1 first (the old layout), then waves 2, 3, spare
+    for g, m in enumerate(mons_w[w]):
+        assert len(m) <= MAX_MON, f'grid {g} wave {w + 1}: {len(m)} monsters > {MAX_MON} slots'
+        rom += m + [0] * (8 - len(m))
 with open(os.path.join(ROOT, 'mem', 'monsters.mem'), 'w') as f:
     f.write('\n'.join(f'{v:04x}' for v in rom) + '\n')
 
@@ -157,4 +161,4 @@ with open(os.path.join(ROOT, 'rtl', 'puzzle_layout.vh'), 'w', encoding='utf-8') 
     f.write('\n'.join(lay) + '\n')
 
 print(f'tilemap.mem: {len(maps)} rooms, objects: {len(objs)}, '
-      f'monsters.mem: {sum(len(m) for m in mons)} monsters')
+      f'monsters.mem: {sum(len(m) for m in mons)} monsters (+ {sum(len(m) for w in mons_w[1:] for m in w)} in later waves)')
