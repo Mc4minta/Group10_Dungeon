@@ -586,7 +586,7 @@ module tb_objects;
             while (busy) @(posedge clk); fsm.form = 2'd2;
             place(0, 288, 224); clear_all; heal; dut.hurt_cnt = 7'd0;
             hits0 = hits; frames(4);
-            check(hits == hits0, "W5: form 3 (Angel) flies over spike traps");
+            check(hits == hits0 + 1, "W39b: every form is hurt by a spike trap (form 3 included)");
             set_ov(7 * 20 + 9, 8'h00);
             clear_all; heal;
         end
@@ -626,7 +626,7 @@ module tb_objects;
             // form 3 flies over
             while (busy) @(posedge clk); fsm.form = 2'd2;
             clear_all; heal; place(0, 288, 224); dut.trap_t = 8'd40; hits0 = hits; frames(3);
-            check(hits == hits0, "W19: form 3 (Angel) flies over timed spikes");
+            check(hits == hits0 + 2, "W39b: form 3 is hurt by timed spikes too (2 HP)");
             while (busy) @(posedge clk); fsm.form = 2'd0;
             set_ov(7 * 20 + 9, 8'h00);
             clear_all; heal;
@@ -648,6 +648,9 @@ module tb_objects;
             auto_t = 1; put_mon(0, 1, 200, 150, 7); dut.hurt_cnt = 7'd100;
             press; frames(1); dmask = 0; for (nn = 0; nn < 6; nn = nn + 1) if (pb_act[nn]) dmask = dmask | (1 << dut.p_dirv[nn*3 +: 3]);
             check(lock_use_w && dmask == (1 << 6), "W18 on: enemy up-left -> the shot flies up-left (diagonal)");
+            check(dut.p_free[0] && $signed(dut.p_vxv[3:0]) == -4 && $signed(dut.p_vyv[3:0]) == -3, "W18 level 2: free angle: the shot toward (-88, -74) flies (-4, -3) px per frame");
+            frames(3);
+            check(pb_act != 0 && pb_x[9:0] < 10'd300 && pb_y[9:0] < 10'd236, "W18 level 2: the free-angle shot is moving up-left");
             clear_all; heal;
             // C) enemy straight above, hero faces right -> shot goes up
             put_mon(0, 1, 288, 120, 7); dut.hurt_cnt = 7'd100;

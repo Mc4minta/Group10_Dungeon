@@ -12,7 +12,7 @@ module objline (
     input  wire         clk,
     input  wire         ce,
     input  wire [9:0]   hcount, vcount,
-    input  wire [5:0]   mon_act, mon_type, mon_flash,
+    input  wire [5:0]   mon_act, mon_type, mon_flash, mon_face,
     input  wire [59:0]  mon_x, mon_y,
     input  wire         mon_anim,
     input  wire [5:0]   pb_act,
@@ -78,9 +78,10 @@ module objline (
     reg [6:0]  s_size;
     reg [2:0]  s_kind;
     reg [3:0]  s_frame;
-    reg        s_flash;
+    reg        s_flash, s_flip;
     reg [9:0] s_row;                         // คิดเฉพาะตอนสแกน (ไม่เป็น logic ทุก clock)
     reg       sel_v = 1'b0;                  // 1 = เลือก object แล้ว รอเทียบแถว
+    reg       q_flip = 1'b0, oflip = 1'b0;
     reg       q_act = 1'b0, q_flash = 1'b0; reg [9:0] q_x = 0, q_y = 0; reg [6:0] q_size = 0; reg [2:0] q_kind = 0; reg [3:0] q_frame = 0;
 
     // บรรทัดใหม่เริ่ม (ขอบที่ hcount 799 -> 0): วาดบรรทัด vcount + 2
@@ -117,13 +118,13 @@ module objline (
         end else if (drawing) begin
             if (!inobj && !sel_v) begin
                 // state A: เลือก object o (mux 39 ทาง) -> register (ยังไม่เทียบแถว)
-                s_act = 1'b0; s_x = 0; s_y = 0; s_size = 7'd32; s_kind = 3'd0; s_frame = 0; s_flash = 1'b0;
+                s_act = 1'b0; s_x = 0; s_y = 0; s_size = 7'd32; s_kind = 3'd0; s_frame = 0; s_flash = 1'b0; s_flip = 1'b0;
                 if (o < 6'd9) begin
                     s_act = pz_act[o]; s_x = pz_x[o*10 +: 10]; s_y = pz_y[o*10 +: 10];
                     s_kind = 3'd3; s_frame = pz_frame[o*4 +: 4];
                 end else if (o < 6'd15) begin
                     s_act = mon_act[o - 6'd9]; s_x = mon_x[(o - 6'd9)*10 +: 10]; s_y = mon_y[(o - 6'd9)*10 +: 10];
-                    s_frame = {2'b00, mon_type[o - 6'd9], mon_anim}; s_flash = mon_flash[o - 6'd9];
+                    s_frame = {2'b00, mon_type[o - 6'd9], mon_anim}; s_flash = mon_flash[o - 6'd9]; s_flip = mon_face[o - 6'd9];
                 end else if (o == 6'd15) begin
                     s_act = boss_act; s_x = boss_x; s_y = boss_y; s_size = 7'd64; s_kind = 3'd4;
                     s_frame = {1'b0, boss_frame}; s_flash = boss_flash;
@@ -144,7 +145,7 @@ module objline (
                     s_x = (melee_dir == 2'd2) ? px - 10'd24 : (melee_dir == 2'd3) ? px + 10'd24 : px;
                     s_y = (melee_dir == 2'd0) ? py + 10'd24 : (melee_dir == 2'd1) ? py - 10'd24 : py;
                 end
-                q_act <= s_act; q_x <= s_x; q_y <= s_y; q_size <= s_size; q_kind <= s_kind; q_frame <= s_frame; q_flash <= s_flash;
+                q_act <= s_act; q_x <= s_x; q_y <= s_y; q_size <= s_size; q_kind <= s_kind; q_frame <= s_frame; q_flash <= s_flash; q_flip <= s_flip;
                 sel_v <= 1'b1;
             end else if (!inobj) begin
                 // state B: เทียบแถวของ object ที่เลือกไว้ (ลบ + compare)
@@ -153,14 +154,14 @@ module objline (
                 if (q_act && s_row < {3'd0, q_size}) begin
                     inobj <= 1'b1; col <= 0;
                     ox <= q_x; orow <= s_row[5:0]; osize <= q_size;
-                    okind <= q_kind; oframe <= q_frame; oflash <= q_flash;
+                    okind <= q_kind; oframe <= q_frame; oflash <= q_flash; oflip <= q_flip;
                 end else begin
                     if (o == NOBJ - 1) drawing <= 1'b0;
                     o <= o + 1'b1;
                 end
             end else begin
                 // อ่าน ROM คอลัมน์ col, เขียนใน clock ถัดไป
-                maddr <= {oframe[1:0], orow[4:0], col[4:0]};
+                maddr <= {oframe[1:0], orow[4:0], oflip ? ~col[4:0] : col[4:0]};      // W40: mirrored monster
                 eaddr <= {oframe[1:0], orow[4:0], col[4:0]};
                 baddr <= {oframe[2:0], orow[3:0], col[3:0]};
                 paddr <= {oframe, orow[4:0], col[4:0]};

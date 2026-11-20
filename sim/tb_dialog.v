@@ -39,40 +39,43 @@ module tb_dialog;
         ticks(400);
         check(show && block, "a blocking message waits for BTNC (no timeout)");
         press;
-        check(!show && !block, "BTNC closes it");
+        check(show && block, "BTNC closes F1-01, its chain continues");
         pulse(EV_START);
-        check(!show, "each message is shown once per game");
-        // ---- timed message, then a blocking chain ----
-        pulse(EV_FIRST_ATTACK);
         read0;
-        check(show && !block && s0 >> (8 * (20 - 18)) == "I DONT GET IT YET.", "first_attack -> F1-02, timed (not blocking)");
-        ticks(DLG_FRAMES - 3);
-        check(show, "still shown just before DLG_FRAMES");
-        ticks(6);
+        check(s0 >> (8 * (20 - 18)) == "I DONT GET IT YET.", "each message is shown once per game (start again does not reopen F1-01)");
+        // ---- the intro chain F1-02 .. F1-12 follows F1-01 at once (W31 / 20.11: the intro plays at the start, then the hero can move) ----
         read0;
-        check(show && block && s0 >> (8 * (20 - 11)) == "BRAVE HERO!" && spk == 2'd1, "F1-02 ends -> its chain F1-03 (after:F1-02!) appears, blocking, speaker Voice");
+        check(show && block && s0 >> (8 * (20 - 18)) == "I DONT GET IT YET.", "F1-01 ends -> F1-02 (after:F1-01!) appears at once, blocking");
+        press; read0;
+        check(show && block && s0 >> (8 * (20 - 11)) == "BRAVE HERO!" && spk == 2'd1, "BTNC -> F1-03 (Voice)");
         press; read0;
         check(show && block && s0 >> (8 * (20 - 15)) == "YOU MEAN... ME!", "BTNC -> F1-04 (Player)");
         press; press; press; press; press; press; press; press;
         read0;
         check(show && block && s0 >> (8 * (20 - 18)) == "FIGHT. SOLVE. WIN." , "the chain reaches F1-12");
         press;
-        check(!show, "chain finished");
+        check(!show && !block, "chain finished: the game is free again");
         // ---- en = 0: pending messages wait ----
         en = 0;
         pulse(EV_LOCK_F1C1);
         check(!show, "en = 0: nothing is shown");
         ticks(5);
         en = 1; repeat (NDLG + 6) @(posedge clk); read0;
-        check(show && !block && s0 >> (8 * (20 - 12)) == "SPIKES ROSE!" && spk == 2'd2, "en = 1: the waiting F1-13 appears (System = cyan code 2)");
-        ticks(DLG_FRAMES + 3);
-        check(!show, "timed message gone");
+        check(show && block && s0 >> (8 * (20 - 12)) == "SPIKES ROSE!" && spk == 2'd2, "en = 1: the waiting F1-13 appears and freezes the game (W31), System = cyan");
+        ticks(DLG_FRAMES - 3);
+        check(show && block, "a timed box still freezes the game just before DLG_FRAMES");
+        ticks(6);
+        check(!show && !block, "timed message closes by itself after DLG_FRAMES");
+        pulse(EV_ENTER_F1PUZ);
+        check(show && block, "W31: another timed box (F1-17) appears");
+        press;
+        check(!show && !block, "W31: a press closes a timed box at once");
         // ---- two events at once are queued, shown one after the other ----
         @(posedge clk) begin ev[EV_CLEAR_F1C1] <= 1; ev[EV_LOCK_F1C2] <= 1; end @(posedge clk) ev <= 64'd0;
         repeat (NDLG + 6) @(posedge clk);
         check(show, "a message appears");
         ticks(DLG_FRAMES + 3);
-        check(show, "the second queued message follows the first");
+        check(show, "the second queued message follows the first (arrival order, W31)");
         ticks(DLG_FRAMES + 3);
         check(!show, "queue empty");
         // ---- new game forgets ----

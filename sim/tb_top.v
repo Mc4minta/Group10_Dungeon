@@ -84,10 +84,13 @@ module tb_top;
         grab("../sim/frame_start_f1.ppm");
         // W16: the first story message (F1-01, blocking) appears at the start of a game and freezes it until BTNC
         repeat (2000) @(posedge clk);
-        dchk(dut.dlg_block && dut.txt_scr == 4'd14, "start: the blocking story box F1-01 is shown (game frozen)");
+        dchk(dut.dlg_block && dut.txt_scr == 5'd14, "start: the blocking story box F1-01 is shown (game frozen)");
         grab("../sim/frame_dialog_f1.ppm");
-        BTNC = 1; repeat (40) @(posedge clk); BTNC = 0; repeat (40) @(posedge clk);
-        dchk(!dut.dlg_block && dut.txt_scr == 4'd0, "BTNC closes the box, the game runs");
+        BTNC = 1; repeat (40) @(posedge clk); BTNC = 0; repeat (400) @(posedge clk);
+        dchk(dut.dlg_block && dut.txt_scr == 5'd14, "W31: BTNC closes F1-01 and the intro chain continues with F1-02 (still frozen)");
+        // the other 11 boxes of the intro (F1-02 .. F1-12): one press each, then the game is free and the hint strip shows the tutorial
+        repeat (11) begin BTNC = 1; repeat (40) @(posedge clk); BTNC = 0; repeat (400) @(posedge clk); end
+        dchk(!dut.dlg_block && dut.txt_scr == 5'd24, "W31 / W32: the intro is over, the game runs and the hint strip (tutorial) is shown");
         // ---------- ตรวจ 7-seg / LED / เสียง จากขา output จริง (ต้องแตะ scan ครบทุกหลัก: 1 รอบ ~ 1M clock) ----------
         repeat (1_200_000) @(posedge clk);
         dchk(shown[7] == "1" && shown[6] == "-" && shown[5] == HP_CH && shown[4] == "-" &&
@@ -110,7 +113,7 @@ module tb_top;
             BTNR = 1; repeat (3_000_000) @(posedge clk); BTNR = 0;       // ~ 3 เฟรม+ ระหว่างหยุด: เดินไม่ได้, timer ไม่เดิน
             dchk(dut.px == px0 && dut.fsm.tick60 == fsm_t, "paused: player does not move and the timer does not advance");
             SW[15] = 0; repeat (200) @(posedge clk);
-            dchk(!dut.paused && dut.txt_scr == 3'd0, "SW15 off -> running again, no text");
+            dchk(!dut.paused && dut.txt_scr != 5'd6, "SW15 off -> running again, no PAUSED text");
             BTNR = 1; repeat (3_000_000) @(posedge clk); BTNR = 0;
             dchk(dut.px != px0, "after pause the player moves again");
         end

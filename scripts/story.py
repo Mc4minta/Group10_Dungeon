@@ -26,9 +26,9 @@ EVENTS = ["start", "first_attack",
           "lock_f1c1", "clear_f1c1", "lock_f1c2", "clear_f1c2", "enter_f1puz", "item_f1", "got_f1", "evolved_f1", "enter_f1boss", "bossdead_f1",
           "enter_f2start", "lock_f2c1", "enter_f2c1", "lock_f2c2", "clear_f2c2", "enter_f2puz", "item_f2", "evolved_f2", "enter_f2boss", "vuln_f2", "bossdead_f2",
           "enter_f3start", "lock_f3c1", "lock_f3c2", "clear_f3c2", "enter_f3puz", "item_f3", "evolved_f3", "enter_f3boss", "charge_f3", "interrupt_f3",
-          "key_drop", "enter_f3start_key", "maze_banner_end"]
+          "key_drop", "enter_f3start_key", "maze_banner_end", "start_again"]
 
-SCREENS = ["title", "prologue1", "prologue2", "prologue3", "prologue4", "evolve2", "evolve3", "evolve4",
+SCREENS = ["settings1", "settings2", "settings3", "settings4", "settings5", "controls1", "controls2", "controls3", "controls4", "controls5", "credits1", "credits2", "credits3", "title", "prologue1", "prologue2", "prologue3", "prologue4", "evolve2", "evolve3", "evolve4",
            "floorclear", "maze", "win", "timeout", "gameover"]
 
 # Rule 1 fallback texts (the screens exist even without STORY.md)
@@ -39,6 +39,12 @@ DEFAULT_SCREENS = {
     "evolve3": ("NEW FORM: ANGEL!", "SHOTS SPLIT ON HIT!"), "evolve4": ("NEW FORM: FORM 4!", "HOLD ATTACK: CHARGE!"),
     "floorclear": ("FLOOR 1 CLEAR!", ""), "maze": ("TILT THE BOARD TO", "ROLL THE BALL OUT!"), "win": ("YOU ESCAPED!", "YOU WIN!"),
     "timeout": ("TIME IS UP!", "TRAPPED FOREVER."), "gameover": ("GAME OVER", "PRESS BTNC"),
+    "settings1": ("CLAP LEVEL", "VERY LOW - EASY"), "settings2": ("CLAP LEVEL", "LOW"), "settings3": ("CLAP LEVEL", "MID"),
+    "settings4": ("CLAP LEVEL", "HIGH"), "settings5": ("CLAP LEVEL", "VERY HIGH - HARD"),
+    "controls1": ("MOVE", "ARROWS WASD OR BTNS"), "controls2": ("ATTACK", "SPACE J ENTER BTNC"),
+    "controls3": ("SPRINT AND PAUSE", "SHIFT SW14  P SW15"), "controls4": ("AUTO AIM", "L OR SW9  FACE SW12"),
+    "controls5": ("OTHER KEYS", "R BOXES  C CLAP SW11"), "credits1": ("THE CHOSEN ONE", "GROUP 10"),
+    "credits2": ("DESIGN AND CODE", "NAMES HERE"), "credits3": ("ART AND SOUND", "SEE ASSET PACKS"),
 }
 
 
@@ -51,6 +57,7 @@ class Entry:
         self.id, self.tier, self.trigger, self.speaker, self.l1, self.l2, self.line_no = id_, tier, trigger, speaker, l1, l2, line_no
         self.screen = None       # name for screen:<name>
         self.event = None        # event index for a plain event trigger
+        self.hint = None         # W32: name of a hint-strip text (trigger hint:<name>)
         self.after = None        # ID of the entry it follows
         self.block = False       # trailing "!" = freezes the game until BTNC
         self.index = None        # dialogue index (0..NDLG-1) for dialogue entries
@@ -100,7 +107,8 @@ def validate(entries):
         if e.id in ids:
             errs.append(f"line {e.line_no}: duplicate ID {e.id}")
         ids[e.id] = e
-        for k, t in (("line 1", e.l1), ("line 2", e.l2)):
+        for k, t0 in (("line 1", e.l1), ("line 2", e.l2)):
+            t = t0.replace("{F}", "0")                                    # W32: {F} = one live digit (the enemies left)
             bad = sorted(set(t) - CHARS)
             if bad:
                 errs.append(f"{e.id} {k}: characters not in the font: {' '.join(repr(c) for c in bad)} (allowed: A-Z 0-9 space - : ! .)")
@@ -111,6 +119,7 @@ def validate(entries):
         if e.speaker and e.speaker.upper() not in SPEAKERS:
             errs.append(f"{e.id}: speaker {e.speaker!r} must be Player, Voice or System")
     seen_screens = {}
+    hints_seen = set()
     for e in entries:
         t = e.trigger.strip()
         if t.startswith("screen:"):
@@ -125,6 +134,12 @@ def validate(entries):
             continue
         if t in ("none", "", "-"):
             continue
+        if t.startswith("hint:"):
+            e.hint = t[5:].strip()
+            if not e.hint or e.hint in hints_seen:
+                errs.append(f"{e.id}: hint name {e.hint!r} is empty or used twice")
+            hints_seen.add(e.hint)
+            continue
         e.block = t.endswith("!")
         t = t.rstrip("!").strip()
         if t.startswith("after:"):
@@ -137,7 +152,7 @@ def validate(entries):
             e.event = EVENTS.index(t)
         else:
             errs.append(f"{e.id}: unknown trigger {e.trigger!r} (events: {', '.join(EVENTS)})")
-    dlg = [e for e in entries if e.screen is None and (e.event is not None or e.after is not None)]
+    dlg = [e for e in entries if e.screen is None and (e.event is not None or e.after is not None or e.hint)]
     for i, e in enumerate(dlg):
         e.index = i
     if len(dlg) > MAX_DLG:
@@ -162,7 +177,7 @@ def validate(entries):
 class Story:
     def __init__(self):
         self.screens = {}      # name -> (line1, line2)
-        self.dialogs = []      # Entry list with .index
+        self.dialogs = []      # Entry list with .index (hint entries are in the list too: they have .hint and are never triggered)
         self.warnings = []
         self.source = None
 
@@ -187,7 +202,7 @@ def load(path=None):
             st.warnings.append(f"screen {name!r} is not in docs/STORY.md -> default text")
             st.screens[name] = DEFAULT_SCREENS[name]
     for e in entries:
-        if e.screen is None and e.event is None and e.after is None:
+        if e.screen is None and e.event is None and e.after is None and not e.hint:
             st.warnings.append(f"{e.id} has no trigger (none) -> not shown")
     st.dialogs = dlg
     # floor clear: "FLOOR 1 CLEAR!" -> the digit becomes the live floor number {F}

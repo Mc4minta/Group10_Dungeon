@@ -105,7 +105,7 @@ class RealProject(unittest.TestCase):
         self.assertEqual(self.mem, self.b.out, "mem/puzzle.mem is stale: run python scripts/build_puzzle_mem.py")
 
     def test_spare_frames_unchanged(self):
-        self.assertEqual(self.mem[15 * N:], self.v1[15 * N:])        # frames 10-13 = maze ball, 14 = key (W7)
+        self.assertNotEqual(self.mem[15 * N:], self.v1[15 * N:])     # 15 = the second flame picture of a lit bulb (torch animation, 20/11); 10-13 = maze ball, 14 = key (W7)
 
     def test_fallback_identical_to_v1(self):
         for r in self.b.result:

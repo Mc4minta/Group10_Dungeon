@@ -8,7 +8,8 @@
 //   pulses: pause_p = P (4D) or Esc (76)   lock_p = L (4B)   reset_p = R (2D)   clap_p = C (21)
 // A frame with a wrong start / parity / stop bit is dropped; a frame that stalls for TIMEOUT clocks is abandoned. Everything is cleared on rst.
 module ps2_kbd #(
-    parameter TIMEOUT = 200_000               // 2 ms at 100 MHz: longer than one PS/2 bit (~100 us), so a half frame is dropped
+    parameter TIMEOUT = 200_000,              // 2 ms at 100 MHz: longer than one PS/2 bit (~100 us), so a half frame is dropped
+    parameter IDLE_CLR = 200_000_000          // W34: 2 s of silence on the clock while a key is flagged down = released / unplugged -> clear all keys
 ) (
     input  wire clk,
     input  wire rst,
@@ -60,6 +61,17 @@ module ps2_kbd #(
         end
     end
 
+    // ---- W34: stuck key guard (a keyboard repeats a held key every 30-100 ms, so a long silence means it was released or unplugged) ----
+    reg [27:0] idle = 28'd0;
+    reg        clr_all = 1'b0;
+    wire       any_down = up | down | left | right | atk | sprint;
+    always @(posedge clk) begin
+        clr_all <= 1'b0;
+        if (rst || fall || !any_down) idle <= 28'd0;
+        else if (idle >= IDLE_CLR) begin clr_all <= 1'b1; idle <= 28'd0; end
+        else idle <= idle + 1'b1;
+    end
+
     // ---- scan code decoder ----
     reg ext = 1'b0, brk = 1'b0;
     reg k_up_a = 0, k_dn_a = 0, k_lf_a = 0, k_rt_a = 0;       // arrows
@@ -75,7 +87,7 @@ module ps2_kbd #(
     wire mk = ~brk;                                           // this code is a make (1) or a break (0)
     always @(posedge clk) begin
         pause_p <= 1'b0; lock_p <= 1'b0; reset_p <= 1'b0; clap_p <= 1'b0; got_key <= 1'b0;
-        if (rst) begin
+        if (rst || clr_all) begin
             ext <= 1'b0; brk <= 1'b0;
             {k_up_a, k_dn_a, k_lf_a, k_rt_a, k_up_w, k_dn_w, k_lf_w, k_rt_w} <= 8'd0;
             {k_sp, k_j, k_en, k_sh, k_p, k_esc, k_l, k_r, k_c} <= 9'd0;

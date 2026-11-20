@@ -189,29 +189,31 @@ module tb_boss;
         // ================= W11 / W17 boss 2: summons waves of minions, can ALWAYS be hit =================
         go_room(1, 4, 40, 240);
         check(b_act && b_kind == 1 && b_hp == BOSS2_HP && grid == 3, "boss 2 spawns in the fence room with HP 16");
-        check(bs.bs2 == 0 && !b_shield, "boss 2 has no shield (W17)");
+        check(bs.bs2 == 0 && b_shield, "W42: boss 2 is immune (shield blink) before the first summon");
         hp0 = b_hp; poke(3'd2, 1'b0);
-        check(b_hp == hp0 - 2 && (b_flash || bs.fl != 0), "W17: damage accepted before the first summon (IDLE)");
+        check(b_hp == hp0, "W42: damage rejected before the first summon");
         x0 = b_x; y0 = b_y; fires = 0;
         for (n = 0; n < 40; n = n + 1) begin safe; frames(1); end
         check(b_x == x0 && b_y == y0 && fires == 0 && alive == 0, "boss 2 is stationary, no volley yet, no minions yet");
-        for (n = 0; n < 40 && alive == 0; n = n + 1) begin safe; frames(1); end
+        for (n = 0; n < 80 && alive == 0; n = n + 1) begin safe; frames(1); end
         check(alive == BOSS2_MINIONS && bs.bs2 == 1, "SUMMON: 3 minions appear");
         $display("      first summon after ~%0d frames", 40 + n);
         hp0 = b_hp; poke(3'd2, 1'b0);
-        check(b_hp == hp0 - 2, "W17: damage accepted while the minions are alive");
+        check(b_hp == hp0 && b_shield, "W42: damage rejected while the minions live (shield)");
         hp0 = b_hp; poke(3'd4, 1'b1);
-        check(b_hp == hp0 - 4, "W17: a charged shot hurts it too");
+        check(b_hp == hp0, "W42: a charged shot is rejected too while the minions live");
         for (n = 0; n < 20; n = n + 1) begin safe; frames(1); end
         check(alive == BOSS2_MINIONS && bs.bs2 == 1, "the minions stay (boss waits for them)");
         for (n = 0; n < BOSS2_FIRE && fires == 0 && bs.bs2 == 1; n = n + 1) begin safe; frames(1); end
         check(fires >= 1 && first_pat == 2'd0 && b_x == x0 && b_y == y0, "W20: boss 2 shoots a cross pattern while it summons, and stays put");
         ob.m_act = 6'd0; frames(4);
-        check(bs.bs2 == 2 && b_vuln, "all minions dead -> the vuln event state (new wave in BOSS2_VULN_FRAMES)");
+        check(bs.bs2 == 2 && b_vuln && !b_shield, "all minions dead -> vulnerable window (BOSS2_VULN_FRAMES), shield off");
         hp0 = b_hp; poke(3'd2, 1'b0);
         check(b_hp == hp0 - 2, "damage accepted in that state too");
-        for (n = 0; n < 140 && bs.bs2 == 2; n = n + 1) begin safe; frames(1); end
-        check(bs.bs2 == 1 && n >= 116 && n <= 124, "after BOSS2_VULN_FRAMES the next wave is summoned");
+        for (n = 0; n < 300 && bs.bs2 == 2; n = n + 1) begin safe; frames(1); end
+        check(bs.bs2 == 0 && n >= 232 && n <= 244 && b_shield, "after BOSS2_VULN_FRAMES the shield is back (breather)");
+        for (n = 0; n < 120 && bs.bs2 == 0; n = n + 1) begin safe; frames(1); end
+        check(bs.bs2 == 1 && n >= 68 && n <= 80, "after BOSS2_REST the next wave is summoned");
         frames(4);
         check(alive == BOSS2_MINIONS, "new wave: 3 more minions");
         ob.m_act = 6'd0; frames(4);
@@ -225,7 +227,7 @@ module tb_boss;
 
         // ================= W12 boss 3: armour, charge, big attack, interrupt =================
         go_room(2, 4, 40, 240);
-        check(b_act && b_kind == 2 && b_hp == BOSS3_HP && grid == 2, "boss 3 spawns with HP 3 (floor 3 boss room)");
+        check(b_act && b_kind == 2 && b_hp == BOSS3_HP && grid == 2, "boss 3 spawns with its full HP (floor 3 boss room)");
         do_clap; frames(2);
         check(!b_stun, "clap does nothing to boss 3");
         hp0 = b_hp; poke(3'd4, 1'b0); poke(3'd1, 1'b0);
@@ -290,6 +292,7 @@ module tb_boss;
         check(b_dead == 0 && floor == 0 && state == 1, "restart: all bosses alive again");
         go_room(2, 4, 40, 240);
         while (b_busy) @(posedge clk);
+        bs.hp = 5'd3; frames(1);                                // W44: boss 3 has 9 HP now; start the kill sequence from 3
         poke(3'd4, 1'b1); poke(3'd4, 1'b1);
         check(b_act && b_hp == 1, "two charged hits: HP 1");
         poke(3'd4, 1'b1);
