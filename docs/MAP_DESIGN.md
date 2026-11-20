@@ -1,6 +1,6 @@
 # Map design (W23) - every object has a purpose
 
-Rule from the owner (20/11): nothing is placed only to fill space. Redrawn 20/11: combat rooms 4, 5, 7, 8, 10, 11, start room 1, boss rooms 2 and 3. Deliberately NOT redrawn: start room 0 (the `tb_objects` tests use its exact tiles:
+Rule from the owner (20/11): nothing is placed only to fill space. Redrawn 20/11-21/11: combat rooms 4, 5, 7, 8, 10, 11, start room 1, boss rooms 2 and 3, and the light-bulb puzzle room 6 (levers and bulbs moved to the bottom rows 11 / 13). Deliberately NOT redrawn: start room 0 (the `tb_objects` tests use its exact tiles:
 pillars, fences, row 7), and the puzzle rooms 6 (light bulbs), 9 (Sokoban, solved by `solve_sokoban.py`, the walls are the puzzle) and 12 (Simon): every wall there already serves the puzzle and the tests pin the geometry.
 Source: `maps/*.txt` (generated for this pass by a one-off script, now edited by hand), `maps_v1/` stays as the first version.
 
@@ -18,7 +18,10 @@ Legend: `#` wall, `F` fence (bullets pass, feet do not), `H` pit (only form 3 fl
 
 | 1 (floor 3, start) | maze-door nook | the two short wall pieces frame the maze door E in a torch-lit nook (the door the whole game leads to); everything else is open ground so the hero can walk straight from the start tile to either door |
 | 2 (boss, floors 1 + 3) | cover arena | boss spawn and the lane rows 6-8 to the left stay clear (the boss approaches along it); wall clusters of 1 / 2 / 3 tiles (top left L, top right single, bottom right L, bottom left single) = the hero's cover from the W20 bullet patterns and the boss-3 storm; they also block the boss so it has to go round |
-| 3 (boss, floor 2) | fenced priest | the fence ring keeps the stationary priest and his 3 summon tiles inside (fences stop him and the minions, not bullets); cover pillars outside (top left pair, right L, bottom pair) = where the hero hides from his cross / X patterns; cracks / bones / skull are the story dressing |
+| 3 (boss, floor 2) | priest in a fence box | a 6 x 5 fence box in the middle of the room around the stationary priest (bullets pass, feet and minions do not); the minions appear on the 3 summon tiles OUTSIDE the box and chase the hero across the open room; the boss is immune until all of them are dead (W42); cover pillars around the room are where the hero hides from his cross / X bullets |
+| 6 (floor 1, light bulbs) | bottom puzzle | the 4 levers (row 11) and the 4 bulbs (row 13) are at the BOTTOM so the hint strip and the story box (drawn at the top in this room) never hide them; the hero stands on row 12 between them and hits a lever facing up |
+
+**Waves (W43):** map chars `m n` = second wave, `o p` = third wave (chaser / turret), stored in `mem/monsters.mem` (4 blocks of 16 rooms x 8); rooms 4, 5, 8 have 2 waves, rooms 10 and 11 have 3, room 7 stays one wave (`tb_objects` pins it). The doors stay shut between waves and the next wave appears 1 s after the last monster dies.
 
 Checks (`tests/test_maps.py` `test_redesigned_rooms`): door tiles unchanged, the spawn pockets next to the doors are free of walls / traps / crates,
 at most 6 monsters, every monster can be reached or shot (fences let bullets through) once the crates are broken, every door can be reached,

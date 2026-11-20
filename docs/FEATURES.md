@@ -115,7 +115,9 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 | BTNU / D / L / R | walk (two together = diagonal) |
 | BTNC | start (TITLE) / attack (PLAY) / back to TITLE (WIN, GAME OVER) |
 | **USB keyboard (W22)** | plugged into the Nexys USB-HID port (arrives as PS/2 on `PS2_CLK` F4 / `PS2_DATA` B2; `rtl/ps2_kbd.v`, `tb_ps2`), works together with the buttons (logical OR): arrows or **W A S D** = walk, **Space / J / Enter** = attack / start (= BTNC), **Shift** = sprint (= SW14), **P or Esc** = pause toggle (= SW15), **L** = auto-lock toggle (= SW9), **R** = Sokoban box reset (= SW13), **C** = clap fallback (= SW11) |
-| SW9 | **auto-lock (W18)**: up = attacks aim at the nearest enemy within 240 px (8 directions, the hero turns that way for a moment); form 3's spread is centred on it, melee swings turn toward it; down = old behaviour (aim = facing) |
+| SW9 | **auto aim (W18 / W46) is ON by default**: SW9 up = OFF (down = on). On: attacks aim at the nearest enemy within 240 px (form 2 / 4 shots and the big ball at a free angle, form 3's spread in 8 directions, melee swings turn toward it), with a target marker; also key L toggles |
+| SW5-SW7 | clap level override (0 = the title SETTINGS value, otherwise 128 x the 3 bit number) |
+| SW8 | hitbox overlay (also key H) |
 | SW10 | maze: use the 4 direction buttons instead of the accelerometer (also automatic when the sensor does not answer) |
 | SW15 | **PAUSE** (game frozen, PAUSED text, music + sfx muted; PLAY / ESCAPE only) |
 | SW14 | sprint (+1 px/frame) |

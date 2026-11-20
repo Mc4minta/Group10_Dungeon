@@ -2,7 +2,7 @@
 
 อัปเดต: 2026-11-18 23:57
 
-> **Newer status (art, sound, map, difficulty, branches): see `docs/README.md` and `docs/NEXT_STEPS.md`.** This file is the original Thai phase checklist (P0-P6).
+> **Newer status (21/11): see `docs/README.md`, `docs/DESIGN_PLAN.md` (W1-W46 + FUTURE BACKLOG) and `docs/CHANGE_REVIEW.md`.** Phases P0-P6 are complete; the work after them is tracked as W-items in the design plan. This file is the original Thai phase checklist (P0-P6).
 
 ## วิธีใช้
 ติ๊กเมื่อโค้ดเสร็จและผ่าน test ส่วนการเช็คบนบอร์ดจริงมีข้อแยกท้ายทุก phase

@@ -3,7 +3,11 @@
 Branch: `sprite-zip` (it contains everything merged: art, difficulty, sound, animations OFF). Tag of THIS build: `board-test-2`. Tag of the previous known-good build: `board-test-1`.
 Before building, `scripts/check_all.sh --fast` should print `CHECK_ALL: PASS` (it proves the generated files are current).
 
-## 1. What is new in this build (compared with the bitstream you programmed before)
+## 1a. What is new since 20/11 (W19-W46) - the short list
+
+Keyboard (confirmed), clap meter + settings page, story boxes that freeze the game + hint strip + tutorial, title pages, bosses (patterns, charge bar, storm, boss 2 box, second phases), timed spikes, waves, smarter skeletons / aimed turrets, auto aim default + marker, hitbox overlay (SW8 / H), retry current floor, maze axes flipped, redrawn rooms, Human attack animation. The numbered checks are items 6b-6f in section 3. After every Vivado build look at the **critical warnings** (multi-driven nets) and the Block RAM line (last build 103.5 / 135).
+
+## 1. What is new in this build (compared with the bitstream you programmed before; older text)
 
 | Area | What you will notice |
 |---|---|

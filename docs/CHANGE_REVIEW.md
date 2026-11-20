@@ -1,4 +1,28 @@
-# Change review - everything on branch `sprite-zip` compared with `main`
+# Change review
+
+## Update 20-21/11/2026 (branches `dev` = `main`)
+
+Everything below is committed on `dev` and merged into `main`. "sim" = verified with a testbench / Python test, "board" = not yet tried on the board.
+
+| Area | What changed (design item) | Verified |
+|---|---|---|
+| Traps | timed floor-2 spikes (W19), every form is hurt, 5-tile hurt-box check (W39) | `tb_objects` sim, board open |
+| Bosses | bullet patterns + slow chase (W20), boss 3 charge bar / colour / beep (W21), storm instead of instant death (W24), boss 2 rework (W42), boss 3 HP 9 (W44), second phase (W43) | `tb_boss` sim, board open |
+| Input | USB keyboard (W22, **board confirmed**), edge cases (W34), SW8 / H hitbox overlay | `tb_ps2` sim |
+| Combat | charge ball (W25), auto aim on by default + free angle + marker (W18 / W46), smarter chasers and aimed turret (W45), waves (W43), retry current floor (W43) | `tb_objects`, `tb_game_fsm` sim |
+| Microphone | detector rewritten for an AC signal (W4), meter + title SETTINGS page (W27 / W30 / W36) | `tb_pdm_mic`, `tb_hud` sim, board open |
+| Story / help | story boxes freeze the game (W31), hint strip + tutorial (W28 / W32), title pages (W29), intro once (W33), text never covers doors (W38) | `tb_dialog`, `tb_top` (older run), `test_story` |
+| Maps | combat / start 1 / boss rooms redrawn with a purpose per object (W23), light puzzle at the bottom (W26-related), Sokoban reset hint (W41) | `test_maps` |
+| Art | plate with box (W26), Human attack animation ON (W35), clearer lever art, flickering torch bulbs | `test_tileset_pipeline`, `test_sprite_pipeline` |
+| Fixed in synthesis | `ORB_DIST` wiped from a generated file; `dlg_ev` bit bound and `lock_seen` multi-driver (Vivado kept constant 0: the intro-again box and the room-cleared boxes never fired) | Vivado synth warnings, rerun pending |
+
+Known gaps: `tb_puzzles` lever-XOR check fails (unexplained, same before the changes); the full-system `tb_top` was not rerun on the last commit; nothing from W19 onwards is board-tested.
+
+---
+
+# Change review (older text, 19/11)
+
+## Everything on branch `sprite-zip` compared with `main` (19/11)
 
 Branch `sprite-zip`, tag `board-test-2`. Nothing of this is in `main` yet (main waits for an explicit "merge"). All feature branches that existed during development are merged into `sprite-zip` and deleted
 (history is kept in `sprite-zip`; the old phase branches are kept as tags `archive/p2-game-fsm` ... `archive/p6-tweaks`; unfinished work is on `wip/wall-variants`).

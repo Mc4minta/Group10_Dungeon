@@ -1,6 +1,6 @@
 # Sprite status - what is final, what is a placeholder, what you still need to find or edit
 
-**Updated every time a sprite, ROM or map changes.** Last update: on-screen health display added (section 5b: hearts for the player, health bar for the boss). Human animations are built but OFF, see section 2b.
+**Updated every time a sprite, ROM or map changes.** Last update 21/11: Human melee attack animation ON (`attack_anim` true), new lever art (`lever_off.png` / `lever_on.png`, generated), lit torch bulbs flicker (puzzle frame 15 = second flame), plate with box (`plate_box.png`), procedural charge ball / hitbox overlay (no art). Earlier: on-screen health display added (section 5b: hearts for the player, health bar for the boss). Human attack animation is ON, the other Human animations are built but OFF, see section 2b.
 Legend: **FINAL** = real art you are happy with. **PLACEHOLDER** = real art but a stand-in (wrong meaning, recoloured, borrowed). **OLD ART** = the original programmer placeholder from the first version (`*_v1.mem`), nothing new yet.
 
 How to change any sprite: see `sprites/README.md`. One command for everything: `scripts/update_sprites.sh` (Windows: `scripts\update_sprites.bat`).
@@ -38,7 +38,7 @@ The Human (form 1) has extra pictures that the game does not show yet unless you
 | Animation | Source sheet | Flag | Block RAM (estimate) | State |
 |---|---|---|---|---|
 | idle loop (16 pictures x 4 directions) | `Human/Idle.png` | `idle_anim` | about 22 RAMB36 | built, tested, OFF |
-| melee attack (4 x 4) | `Human/Attack.png` | `attack_anim` | about 6 | built, tested, OFF (W35: waiting for approval to switch it ON; the owner's 20/11 zip of the Human sheets is identical to the files already in the repo) |
+| melee attack (4 x 4) | `Human/Attack.png` | `attack_anim` | about 6 | **ON since 21/11 (W35)**; the owner's 20/11 zip of the Human sheets is identical to the files in the repo |
 | hurt (4 x 4) | `Human/Dmg.png` | `hurt_anim` | about 6 | built, tested, OFF |
 | death (12 pictures, last held; the last one is empty on purpose) | `Human/SoulDie.png` or `SpinDie.png` (`death_sheet`) | `death_anim` | about 6 | built, tested, OFF |
 

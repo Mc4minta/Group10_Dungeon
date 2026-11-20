@@ -4,6 +4,20 @@
 
 สถานะ: **P0–P5 เสร็จใน simulation — เล่นจบเกมได้ใน sim** — ภาพขึ้นจอ, เดิน 8 ทิศ, ชนกำแพง + ไถล + corner slide, เปลี่ยนห้อง flip-screen ครบ 3 ชั้น × 5 ห้อง, หลุม/ประตูบอส/ประตูทางออกเช็คตามร่าง, Game FSM (TITLE / PLAY / EVOLVE / FLOOR_CLEAR / WIN / GAME_OVER), 4 ร่าง + HP + เวลา mm.ss + sprint, การต่อสู้ (ฟัน/ยิง, มอน A ไล่ + มอน B ป้อมยิง 4 ทิศ, โดนตี knockback + อมตะ, ห้อง Combat ล็อกจนมอนตายหมด), ปริศนา 3 ห้อง (Light Bulb, Sokoban + ดันกล่อง, Simon) + ไอเทมจริง (EVOLVE + เปิดประตูบอส L), บอส 3 ตัว + FLOOR_CLEAR จริง, ฉากหนี ESCAPE 30 วิ, ข้อความบนจอ, ไมค์ PDM (ตบมือ = บอส 2 มึน) (ยังไม่ได้ลงบอร์ดจริง) — ดูความคืบหน้าที่ `docs/PROGRESS.md`
 
+## Current status (21/11/2026) - read this first
+
+The game is playable from the title screen to the win screen **in simulation, and the first batches were tested on the Nexys A7 board** (the USB keyboard works, the build synthesises: 103.5 of 135 Block RAM tiles). Everything added on 20-21/11 is committed on `dev` and merged into `main`, and is **not yet tested on the board**: see `docs/BOARD_TEST_STEPS.md` (items 6b-6f).
+
+What exists (details: `docs/FEATURES.md`, controls for the player: **`docs/CONTROLS.md`**):
+
+* 3 floors x (safe room, 2 combat rooms with 2-3 waves, 1 puzzle room, 1 boss room), forms 1-4, melee / shot / spread / charge, auto aim (on by default, free angle, target marker), timed spikes, breakable crates, pits, hint strip + tutorial, story boxes that freeze the game, title pages (settings, controls, credits).
+* 3 bosses with second phases: boss 1 (clap, microphone meter on the screen), boss 2 (fence box, minions, hit only when they are dead), boss 3 (armour, 4 s charge, bullet storm).
+* Key + Ball in a Maze ending (accelerometer; axes flipped 20/11), GAME OVER = retry the current floor.
+* Inputs: board buttons / switches **and** a USB keyboard at the same time. SW8 / H = hitbox overlay.
+* Docs: `docs/README.md` (index), `docs/DESIGN_PLAN.md` (every item W1-W46 and the **FUTURE BACKLOG** table), `docs/GAMEPLAY_REVIEW.md`, `docs/MAP_DESIGN.md`, `docs/STORY.md` (all on-screen text), `docs/SPRITE_STATUS.md`.
+
+Branches: `main` and `dev` are the same commit; new work goes on `dev` first, `main` only when the owner says "merge".
+
 ## Quick start for the art / map / sound pipelines (English)
 
 The sprites, tiles, enemies, bosses, puzzle objects, maps and music are generated from files you edit (`my_asset/`, `my_audio/`, `sprites/*.json`, `maps/*.txt`).
@@ -18,7 +32,7 @@ The sprites, tiles, enemies, bosses, puzzle objects, maps and music are generate
 | Sounds and music | `docs/SOUND_PLAN.md` |
 | What to do next | `docs/NEXT_STEPS.md` |
 
-Development line: branch `sprite-zip` (tag `board-test-2` = the build for the board). `main` is the older version.
+Development line: branch `dev` (`main` = the same code, merged 21/11; tag `board-test-2` = an older board build).
 
 ## เริ่มใช้
 
