@@ -56,10 +56,10 @@ endmodule
 // มอนต่อห้อง (จาก scripts/build_maps.py): 16 grid x 8 entry x 16 bit, อ่าน async (ROM เล็ก)
 // {valid, type[2:0], ty[3:0], 3'b0, tx[4:0]}, address = grid*8 + i
 module spawn_rom (
-    input  wire [6:0]  addr,
+    input  wire [8:0]  addr,           // {wave (0..3), grid, slot}   (W43: waves)
     output wire [15:0] data
 );
-    reg [15:0] mem [0:127];
+    reg [15:0] mem [0:511];
     initial $readmemh("monsters.mem", mem);
     assign data = mem[addr];
 endmodule

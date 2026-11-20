@@ -34,7 +34,7 @@ module tb_objects;
     wire [5:0] mon_act, mon_type, mon_flash; wire [59:0] mon_x, mon_y;
     wire [59:0] pb_x, pb_y; wire [15:0] eb_act; wire [159:0] eb_x, eb_y;
 
-    game_fsm #(.PROLOGUE(0)) fsm (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(fsm_btnc), .got_item(item),
+    game_fsm #(.PROLOGUE(0)) fsm (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(fsm_btnc), .btnl_rise(1'b0), .floor_in(floor), .got_item(item),
                   .take_hit(hit), .floor_done(1'b0), .exit_evt(1'b0), .escape_start(1'b0), .exit_direct(1'b1), .sprint(1'b0), .key_get(1'b0), .goal(1'b0), .kill(1'b0),
                   .state(state), .restart(restart), .next_floor(next_floor), .form(form), .hp(hp),
                   .hp_max(hp_max), .speed(speed), .damage(damage), .rgb(rgb), .freeze(freeze),
@@ -326,7 +326,7 @@ module tb_objects;
             frames(1);
             if (dut.m_xv[(0)*10 +: 10] + 4 < 192 && dut.m_xv[(0)*10 +: 10] + 28 > 128 && dut.m_yv[(0)*10 +: 10] + 4 < 160 && dut.m_yv[(0)*10 +: 10] + 28 > 96) ok = 0;
         end
-        check(ok && dut.m_yv[(0)*10 +: 10] == 156, "monster A stops under pillar (never overlaps wall)");
+        check(ok, "W45: monster A slides along the pillar instead of freezing, and never overlaps the wall");
         // มอนทแยง: ผู้เล่นขวาบน มอนซ้ายล่างของเสา
         clear_all;
         put_mon(0, 0, 60, 200, 2);
@@ -358,7 +358,7 @@ module tb_objects;
               fire_frame[5][0] - fire_frame[4][0] == 30, "turrets phase-shifted by 30 frames");
         check(fire_frame[0][1] - fire_frame[0][0] == 120 && fire_frame[0][2] - fire_frame[0][1] == 120 &&
               fire_frame[5][1] - fire_frame[5][0] == 120, "each turret fires every 120 frames");
-        check(fire_bul[0] == 4 * fire_cnt[0] && fire_bul[1] == 4 * fire_cnt[1], "each shot = 4 bullets");
+        check(fire_bul[0] == 5 * fire_cnt[0] && fire_bul[1] == 5 * fire_cnt[1], "W45: each shot = 4 cross bullets + 1 aimed bullet");
         $display("      turret first shots (frames after entry): %0d %0d %0d %0d",
                  fire_frame[0][0] - d0, fire_frame[1][0] - d0, fire_frame[4][0] - d0, fire_frame[5][0] - d0);
         check(!doors_open && alive == 4, "still locked while turrets alive");
@@ -394,6 +394,17 @@ module tb_objects;
         @(posedge clk) restart_tb <= 1; @(posedge clk) restart_tb <= 0;
         enter(7, 1, 1, 40, 240);
         check(alive == 6 && !doors_open && dut.cleared == 0, "restart clears cleared bits: monsters respawn");
+
+        // ================= 7b. W43 waves: room 4 (floor 1 combat 1) has a second wave of 2 chasers =================
+        @(posedge clk) restart_tb <= 1; @(posedge clk) restart_tb <= 0;
+        enter(4, 0, 1, 40, 240);
+        check(alive == 4 && !doors_open, "W43: room 4 wave 1 = 4 monsters, doors locked");
+        while (busy) @(posedge clk); dut.m_act = 6'd0; frames(3);
+        check(alive == 0 && !doors_open, "W43: wave 1 dead but the doors stay shut (another wave is coming)");
+        frames(75);
+        check(alive == 2 && !doors_open, "W43: wave 2 appears about 1 s later: 2 chasers, doors still locked");
+        while (busy) @(posedge clk); dut.m_act = 6'd0; frames(3);
+        check(alive == 0 && doors_open, "W43: last wave dead -> doors open");
 
         // ================= 8. อาวุธต่อร่าง / ฟันทุกร่าง / กระสุนชนกัน (P6) =================
         enter(0, 0, 0, 288, 224); clear_all; heal; frames(2);

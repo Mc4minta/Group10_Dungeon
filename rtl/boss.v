@@ -78,6 +78,7 @@ module boss (
     `include "puzzle_layout.vh"
     localparam R_BOSS = 3'd4;
 
+    wire rage_hp;                                    // W43: second phase flag (see below)
     wire [4:0] p_hp; wire [1:0] p_speed, p_every; wire p_bounce, p_stun, p_fence; wire [6:0] p_fire;
     boss_rom prm (.kind(kind), .hp(p_hp), .speed(p_speed), .every(p_every), .bounce(p_bounce),
                   .fire(p_fire), .stunnable(p_stun), .fence(p_fence));
@@ -99,6 +100,12 @@ module boss (
     reg [3:0]  fl = 0;                       // เฟรมกะพริบ
     reg [8:0]  stn = 0;                      // STUN + COOLDOWN นับถอยหลัง (> COOLDOWN = กำลังมึน)
     reg [6:0]  ftmr = 0;
+    // W43 second phase: boss 1 / 2 below half HP, boss 3 below a third; the boss flashes once when it starts
+    wire [7:0] hp2 = {hp, 1'b0}, hp3 = {1'b0, hp, 1'b0} + {3'b000, hp};
+    wire rage = act && ((kind == 2'd2) ? (hp3 <= {3'b000, p_hp}) : (hp2 <= {3'b000, p_hp}));
+    assign rage_hp = rage;
+    reg  rage_d = 1'b0;
+    wire [6:0] fire_per = rage ? ((kind == 2'd0) ? BOSS1_FIRE_RAGE : (kind == 2'd1) ? BOSS2_FIRE_RAGE : BOSS3_FIRE_RAGE) : p_fire;
     reg [1:0]  ecnt = 0;
     reg        sx = 1'b0, sy = 1'b0;         // ทิศเด้ง: 1 = ลบ
     reg        clap_req = 1'b0, spawn_req = 1'b0;
@@ -188,7 +195,9 @@ module boss (
                 dly <= dly - 1'b1;
                 if (dly <= 1) begin
                     fcnt <= fcnt + 1'b1;
-                    if (fl != 0) fl <= fl - 1'b1;
+                    rage_d <= rage;
+                    if (rage && !rage_d) fl <= 4'd15;                          // W43: the boss flashes once when its second phase starts
+                    else if (fl != 0) fl <= fl - 1'b1;
                     // ตบมือ: เฉพาะบอส 1 และไม่อยู่ใน cooldown
                     if (clap_req && p_stun && stn == 0) stn <= STUN_FRAMES + STUN_COOLDOWN;
                     else if (stn != 0) stn <= stn - 1'b1;
@@ -197,9 +206,9 @@ module boss (
                     if (kind == 2'd1) begin
                         if (bs2 == 2'd1) begin
                             if (phase_t < 9'd3) phase_t <= phase_t + 1'b1;            // รอให้ objects spawn ลูกน้องเสร็จก่อนเช็ค minions
-                            else if (minions == 0) begin bs2 <= 2'd2; phase_t <= BOSS2_VULN_FRAMES; end
+                            else if (minions == 0) begin bs2 <= 2'd2; phase_t <= rage ? BOSS2_VULN_RAGE : BOSS2_VULN_FRAMES; end
                         end else if (phase_t == 0) begin
-                            if (bs2 == 2'd2) begin bs2 <= 2'd0; phase_t <= BOSS2_REST; end    // W42: vulnerable window over -> a breather before the next wave
+                            if (bs2 == 2'd2) begin bs2 <= 2'd0; phase_t <= rage ? BOSS2_REST_RAGE : BOSS2_REST; end    // W42: vulnerable window over -> a breather before the next wave
                             else begin summon <= 1'b1; bs2 <= 2'd1; end
                         end else phase_t <= phase_t - 1'b1;                                   // bs2 0 (first wait / breather) / bs2 2 (vulnerable window)
                     end
@@ -207,15 +216,15 @@ module boss (
                     if (kind == 2'd2) begin
                         if (phase_t == 0) begin
                             if (b3) begin b3 <= 1'b0; s3 <= 2'd1; phase_t <= BOSS3_STORM; stf <= 0; sn <= 0; end     // W24: charge done -> storm (no instant kill)
-                            else if (s3 == 2'd1) begin s3 <= 2'd2; phase_t <= BOSS3_REST; end                       // storm done -> rest
-                            else if (s3 == 2'd2) begin s3 <= 2'd0; phase_t <= BOSS3_CHASE; end                      // rest done -> chase again
+                            else if (s3 == 2'd1) begin s3 <= 2'd2; phase_t <= rage ? BOSS3_REST_RAGE : BOSS3_REST; end                       // storm done -> rest
+                            else if (s3 == 2'd2) begin s3 <= 2'd0; phase_t <= rage ? BOSS3_CHASE_RAGE : BOSS3_CHASE; end                      // rest done -> chase again
                             else begin b3 <= 1'b1; phase_t <= BOSS3_CHARGE; end
                         end else phase_t <= phase_t - 1'b1;
                         // W24 storm volleys: cross, X, ring, X, cross ... every BOSS3_STORM_PERIOD frames, heavy bullets
                         if (s3 == 2'd1) begin
                             if (stf == 0) begin
                                 fire <= 1'b1; fire_heavy <= 1'b1; fire_pat <= (sn == 3'd2) ? 2'd1 : sn[0] ? 2'd2 : 2'd0;
-                                sn <= sn + 1'b1; stf <= BOSS3_STORM_PERIOD - 1;
+                                sn <= sn + 1'b1; stf <= (rage ? BOSS3_STORM_PERIOD_RAGE : BOSS3_STORM_PERIOD) - 1;
                             end else stf <= stf - 1'b1;
                         end
                     end
@@ -223,11 +232,11 @@ module boss (
                     else begin
                         // ยิง
                         if (p_fire != 0) begin
-                            if (ftmr == 0) begin fire <= 1'b1; fire_heavy <= 1'b0; fire_pat <= pat_of(kind, pcnt); pcnt <= pcnt + 1'b1; ftmr <= p_fire - 1; end
+                            if (ftmr == 0) begin fire <= 1'b1; fire_heavy <= 1'b0; fire_pat <= pat_of(kind, pcnt); pcnt <= pcnt + 1'b1; ftmr <= fire_per - 1; end
                             else ftmr <= ftmr - 1'b1;
                         end
                         // เดินทุก every เฟรม
-                        if (ecnt >= p_every - 1) begin ecnt <= 0; st <= B_X0; end
+                        if (ecnt >= ((rage && kind == 2'd0) ? 0 : p_every - 1)) begin ecnt <= 0; st <= B_X0; end                       // W43: boss 1 walks twice as fast in its second phase
                         else begin ecnt <= ecnt + 1'b1; st <= B_END; end
                     end
                 end

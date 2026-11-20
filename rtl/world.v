@@ -13,6 +13,7 @@ module world (
     input  wire       clk,
     input  wire       rst,
     input  wire       restart,
+    input  wire       retry,         // W43: with restart: stay on the current floor (retry after GAME OVER)
     input  wire       next_floor,
     input  wire       door_evt,
     input  wire [1:0] door_dir,
@@ -42,7 +43,7 @@ module world (
         load     <= 1'b0;
         exit_evt <= 1'b0;
         if (rst || restart) begin
-            floor <= 0; room <= R_START;
+            floor <= retry ? floor : 2'd0; room <= R_START;
             load <= 1'b1; load_x <= ST_X; load_y <= ST_Y;
         end else if (next_floor) begin
             floor <= (floor == 2'd2) ? 2'd0 : floor + 1'b1;

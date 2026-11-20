@@ -18,7 +18,7 @@ ROOT = os.path.dirname(HERE)
 V1 = os.path.join(ROOT, "maps_v1")
 DECOR_ROOMS = {0, 3, 4, 5, 6, 7, 8}
 # W23: rooms redrawn with a purpose for every object (start room 0, combat rooms 4 5 7 8 10 11); the others still equal maps_v1 apart from decoration
-REDESIGN = {1, 2, 3, 4, 5, 7, 8, 10, 11}
+REDESIGN = {1, 2, 3, 4, 5, 6, 7, 8, 10, 11}
 SIMON_GRID = 12
 
 
@@ -37,7 +37,8 @@ class Maps(unittest.TestCase):
         self.assertEqual(len(glob.glob(os.path.join(V1, "[0-9][0-9]_*.txt"))), 13)
 
     def test_non_tile_outputs_identical_to_v1(self):
-        self.assertEqual(text(os.path.join(ROOT, "rtl/puzzle_layout.vh")), text(os.path.join(V1, "puzzle_layout_v1.vh")))
+        strip_lb = lambda t: [ln for ln in t.split("\n") if "LEVER" not in ln and "BULB" not in ln]        # 20/11: the light puzzle moved to the bottom of room 6
+        self.assertEqual(strip_lb(text(os.path.join(ROOT, "rtl/puzzle_layout.vh"))), strip_lb(text(os.path.join(V1, "puzzle_layout_v1.vh"))))
         # objects.txt: one line per object, first column = room (redesigned rooms are checked by test_redesigned_rooms)
         keep = lambda t: [ln for ln in t.split("\n") if ln.strip() and ln.split()[0].isdigit() and int(ln.split()[0]) not in REDESIGN]
         self.assertEqual(keep(text(os.path.join(ROOT, "mem/objects.txt"))), keep(text(os.path.join(V1, "objects_v1.txt"))))

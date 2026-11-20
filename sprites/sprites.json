@@ -48,7 +48,7 @@
   "animations": {
     "_help": "Extra player animations, each needs Verilog + BRAM. Human idle about 22 RAMB36, death 6, hurt 6. The ATTACK ROM holds 3 forms x 16 pictures (about 16 RAMB36 together): attack_anim = Human melee, attack_anim_form2 / _form3 = Orc / Angel attack picture when they shoot or swing (W14, option C; all three false = no attack ROM at all). hurt_flash = red flash of the sprite after a hit, any form, no BRAM. After changing a flag: rebuild (regenerates rtl/sprite_cfg.vh) and re-synthesise. Out of Block RAM? set attack_anim_form2 / form3 to false.",
     "idle_anim": false,
-    "attack_anim": false,
+    "attack_anim": true,
     "attack_anim_form2": true,
     "attack_anim_form3": true,
     "hurt_flash": true,

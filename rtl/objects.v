@@ -92,6 +92,19 @@ module objects (
 
     // ---------- slot ----------
     reg [5:0]  m_act = 0, m_typ = 0, m_face = 0;
+    reg [5:0]  m_bx = 0, m_by = 0, m_sdx = 0, m_sdy = 0;       // W45: last x / y step was blocked, slide direction (1 = right / down)
+    // W45: each chaser aims at the hero PLUS a personal offset (slot x offset), so a pack surrounds the hero instead of stacking on one point
+    function [9:0] spread(input [2:0] k, input [9:0] p, input axis);          // axis 0 = x, 1 = y
+        reg signed [6:0] off;
+        begin
+            case (k)
+                3'd0: off = 7'sd0;                      3'd1: off = axis ? -7'sd14 : 7'sd14;     // slot 0 = the leader, aims straight at the hero
+                3'd2: off = axis ? 7'sd14 : -7'sd14;   3'd3: off = axis ? 7'sd14 : 7'sd14;
+                3'd4: off = axis ? -7'sd20 : 7'sd0;    default: off = axis ? 7'sd20 : 7'sd0;
+            endcase
+            spread = (off < 0 && p < -off) ? 10'd0 : p + {{3{off[6]}}, off};
+        end
+    endfunction
     assign mon_face = m_face;
     reg [NM*10-1:0] m_xv = 0;
     reg [NM*10-1:0] m_yv = 0;
@@ -196,7 +209,12 @@ module objects (
     // ---------- spawn ROM ----------
     reg  [2:0]  si = 0;
     wire [15:0] sd;
-    spawn_rom srom (.addr({grid, si}), .data(sd));
+    reg [1:0]  wave = 2'd0;                  // W43: the current wave of the combat room (0 = first)
+    reg [6:0]  wave_t = 7'd0;                // frames since the last wave died
+    wire [15:0] sd_next;                     // first monster of the NEXT wave: bit 15 = a next wave exists
+    spawn_rom srom  (.addr({wave, grid, si}), .data(sd));
+    spawn_rom srom2 (.addr({wave + 2'd1, grid, 3'd0}), .data(sd_next));
+    wire more_waves = (wave != 2'd3) && sd_next[15] && cur_combat && !cleared[cur_idx];
 
     // ---------- AABB ----------
     function ovl(input [10:0] ax, input [10:0] ay, input [6:0] aw, input [6:0] ah,
@@ -341,6 +359,19 @@ module objects (
                          (bpat_r == 2'd2) ? {1'b1, fk[1:0]} :
                          (fk == 3'd0) ? b_aim : (fk == 3'd1) ? ring_p(b_aim) : ring_m(b_aim);
 
+    // W45 current chaser (slot i): target point and the step directions (combinational, used in S_MON)
+    wire [9:0] tgx_i = spread(i[2:0], px, 1'b0);
+    wire [9:0] tgy_i = spread(i[2:0], py, 1'b1);
+    wire [9:0] mxi   = m_xv[(i)*10 +: 10], myi = m_yv[(i)*10 +: 10];
+    wire       dx_pos = (tgx_i != mxi) ? (tgx_i > mxi) : m_sdx[i];
+    wire       dy_pos = (tgy_i != myi) ? (tgy_i > myi) : m_sdy[i];
+    // W45 turret aim: direction (8) from the turret centre to the hero centre (same rule as the boss fan)
+    wire [10:0] ta_px = {1'b0, px} + 11'd16, ta_mx = {1'b0, mxi} + 11'd16;
+    wire [10:0] ta_py = {1'b0, py} + 11'd16, ta_my = {1'b0, myi} + 11'd16;
+    wire [10:0] ta_ax = (ta_px > ta_mx) ? ta_px - ta_mx : ta_mx - ta_px, ta_ay = (ta_py > ta_my) ? ta_py - ta_my : ta_my - ta_py;
+    wire        ta_r = (ta_px >= ta_mx), ta_d = (ta_py >= ta_my);
+    wire [2:0]  t_aim = ({ta_ay, 1'b0} < ta_ax) ? (ta_r ? 3'd3 : 3'd2) : ({ta_ax, 1'b0} < ta_ay) ? (ta_d ? 3'd0 : 3'd1) :
+                        ta_d ? (ta_r ? 3'd5 : 3'd4) : (ta_r ? 3'd7 : 3'd6);
     wire [3:0] idx_now = {2'b00, floor} * 4'd5 + {1'b0, room};
 
     always @(posedge clk) begin
@@ -359,7 +390,7 @@ module objects (
         ev_shoot <= 1'b0; ev_melee <= 1'b0; ev_mdmg <= 1'b0; ev_mdie <= 1'b0;
         if (atk_press && run) atk_req <= 1'b1;
         if (!run) atk_req <= 1'b0;
-        if (room_load) begin spawn_req <= 1'b1; trap_t <= 8'd0; trap_grace <= TRAP_GRACE; end
+        if (room_load) begin spawn_req <= 1'b1; wave <= 2'd0; wave_t <= 7'd0; trap_t <= 8'd0; trap_grace <= TRAP_GRACE; end
         boss_dmg <= 1'b0; boss_dmg_big <= 1'b0; brk_set <= 1'b0;
         if (boss_fire) begin bfire_req <= 1'b1; bpat_r <= boss_pat; bheavy_r <= boss_heavy; end
         if (summon) summon_req <= 1'b1;
@@ -602,9 +633,10 @@ module objects (
                         if (i == NM - 1) begin i <= 0; j <= 0; st <= S_CPB; end
                         else i <= i + 1'b1;
                     end
-                end else if (mon_go && px != m_xv[(i)*10 +: 10]) begin           // มอน A แกน x (mon_go: เดินทุก MON_A_MOVE_EVERY เฟรม)
-                    m_face[i] <= (px <= m_xv[(i)*10 +: 10]) ? MON_FACE_LEFT_IS_FLIP[0] : ~MON_FACE_LEFT_IS_FLIP[0];     // W40: turn toward the walking direction
-                    if (px > m_xv[(i)*10 +: 10]) begin
+                end else if (mon_go && (tgx_i != m_xv[(i)*10 +: 10] || m_by[i])) begin           // chaser x axis (mon_go: one step every MON_A_MOVE_EVERY frames)
+                    // W45: toward ITS OWN target point (hero + a personal offset, so the chasers spread out); when the target is level but the y step was blocked it slides sideways
+                    m_face[i] <= (dx_pos ? ~MON_FACE_LEFT_IS_FLIP[0] : MON_FACE_LEFT_IS_FLIP[0]);     // W40: turn toward the walking direction
+                    if (dx_pos) begin
                         nx <= m_xv[(i)*10 +: 10] + MON_A_SPEED;
                         ta <= taddr(grid, m_xv[(i)*10 +: 10] + MON_A_SPEED + 10'd27, m_yv[(i)*10 +: 10] + 10'd4);
                         tb <= taddr(grid, m_xv[(i)*10 +: 10] + MON_A_SPEED + 10'd27, m_yv[(i)*10 +: 10] + 10'd27);
@@ -617,12 +649,13 @@ module objects (
                 end else ph <= 2'd2;
             end
             2'd1: begin
-                if (mpass(tda) && mpass(tdb) && !blocked(ta) && !blocked(tb)) m_xv[(i)*10 +: 10] <= nx;
+                if (mpass(tda) && mpass(tdb) && !blocked(ta) && !blocked(tb)) begin m_xv[(i)*10 +: 10] <= nx; m_bx[i] <= 1'b0; m_by[i] <= 1'b0; end
+                else begin m_bx[i] <= 1'b1; if (tgx_i == m_xv[(i)*10 +: 10]) m_sdx[i] <= ~m_sdx[i]; end        // blocked: the other axis slides along the wall
                 ph <= 2'd2;
             end
-            2'd2: begin                                         // มอน A แกน y
-                if (mon_go && py != m_yv[(i)*10 +: 10]) begin
-                    if (py > m_yv[(i)*10 +: 10]) begin
+            2'd2: begin                                         // chaser y axis
+                if (mon_go && (tgy_i != m_yv[(i)*10 +: 10] || m_bx[i])) begin
+                    if (dy_pos) begin
                         ny <= m_yv[(i)*10 +: 10] + MON_A_SPEED;
                         ta <= taddr(grid, m_xv[(i)*10 +: 10] + 10'd4,  m_yv[(i)*10 +: 10] + MON_A_SPEED + 10'd27);
                         tb <= taddr(grid, m_xv[(i)*10 +: 10] + 10'd27, m_yv[(i)*10 +: 10] + MON_A_SPEED + 10'd27);
@@ -639,7 +672,8 @@ module objects (
                 end
             end
             default: begin
-                if (mpass(tda) && mpass(tdb) && !blocked(ta) && !blocked(tb)) m_yv[(i)*10 +: 10] <= ny;
+                if (mpass(tda) && mpass(tdb) && !blocked(ta) && !blocked(tb)) begin m_yv[(i)*10 +: 10] <= ny; m_by[i] <= 1'b0; m_bx[i] <= 1'b0; end
+                else begin m_by[i] <= 1'b1; if (tgy_i == m_yv[(i)*10 +: 10]) m_sdy[i] <= ~m_sdy[i]; end
                 ph <= 2'd0;
                 if (i == NM - 1) begin i <= 0; j <= 0; st <= S_CPB; end
                 else i <= i + 1'b1;
@@ -648,16 +682,16 @@ module objects (
         end
         // ------------------------------------------------------------------
         S_FIRE: begin                        // มอน B ตัวที่ i ยิง 4 ทิศ ลง slot ว่าง (1 clock / slot)
-            if (!e_act[j] && fk < 4) begin
+            if (!e_act[j] && fk < 5) begin
                 e_act[j] <= 1'b1;
                 e_xv[(j)*10 +: 10]   <= m_xv[(i)*10 +: 10] + 10'd12;
                 e_yv[(j)*10 +: 10]   <= m_yv[(i)*10 +: 10] + 10'd12;
-                e_dirv[(j)*3 +: 3] <= {1'b0, fk[1:0]};
+                e_dirv[(j)*3 +: 3] <= (fk == 3'd4) ? t_aim : {1'b0, fk[1:0]};          // W45: bullets 0..3 = cross, bullet 4 = aimed at the hero (8 directions)
                 e_heavy[j] <= 1'b0;
                 fk <= fk + 1'b1;
             end
             j <= j + 1'b1;
-            if (j == NE - 1 || (fk == 3'd3 && !e_act[j])) begin
+            if (j == NE - 1 || (fk == 3'd4 && !e_act[j])) begin
                 ph <= 0;
                 if (i == NM - 1) begin i <= 0; j <= 0; st <= S_CPB; end
                 else begin i <= i + 1'b1; st <= S_MON; end
@@ -804,7 +838,13 @@ module objects (
         end
         // ------------------------------------------------------------------
         S_END: begin
-            if (cur_combat && m_act == 0) cleared[cur_idx] <= 1'b1;
+            // W43: a combat room can have several waves: when one is dead the doors stay shut, 1 s later the next wave appears; the room is cleared after the last
+            if (cur_combat && m_act == 0 && !cleared[cur_idx]) begin
+                if (more_waves) begin
+                    if (wave_t == 7'd60) begin wave_t <= 7'd0; wave <= wave + 2'd1; spawn_req <= 1'b1; end
+                    else wave_t <= wave_t + 7'd1;
+                end else cleared[cur_idx] <= 1'b1;
+            end else wave_t <= 7'd0;
             st <= S_IDLE;
         end
         default: st <= S_IDLE;
@@ -813,7 +853,7 @@ module objects (
 
     // ---------- outputs ----------
     assign alive = m_act[0] + m_act[1] + m_act[2] + m_act[3] + m_act[4] + m_act[5];
-    assign doors_open = !(cur_combat && m_act != 0) && !boss_act;   // ห้อง Combat ที่มีมอน / ห้องบอสที่บอสยังอยู่ = ประตูปิด
+    assign doors_open = !(cur_combat && (m_act != 0 || more_waves)) && !boss_act;   // ห้อง Combat ที่มีมอน / ห้องบอสที่บอสยังอยู่ = ประตูปิด
     assign invuln = (hurt_cnt != 0);
     assign player_blink = (hurt_cnt != 0) && hurt_cnt[2];
     assign mon_act = m_act;

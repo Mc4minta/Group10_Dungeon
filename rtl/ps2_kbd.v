@@ -22,6 +22,7 @@ module ps2_kbd #(
     output reg  lock_p  = 1'b0,
     output reg  reset_p = 1'b0,
     output reg  clap_p  = 1'b0,
+    output reg  hbox_p  = 1'b0,               // pulse: H = hitbox overlay toggle (W43)
     output reg  got_key = 1'b0,               // pulse: any valid byte was received (debug / LED)
     output wire clk_act                       // pulse: a falling edge on the keyboard clock (the line is alive, even if the frame is bad)
 );
@@ -77,6 +78,7 @@ module ps2_kbd #(
     reg k_up_a = 0, k_dn_a = 0, k_lf_a = 0, k_rt_a = 0;       // arrows
     reg k_up_w = 0, k_dn_w = 0, k_lf_w = 0, k_rt_w = 0;       // W A S D
     reg k_sp = 0, k_j = 0, k_en = 0, k_sh = 0;
+    reg k_h = 0;
     reg k_p = 0, k_esc = 0, k_l = 0, k_r = 0, k_c = 0;        // pulse keys: remember "held" so a repeat does not pulse again
     assign up     = k_up_a | k_up_w;
     assign down   = k_dn_a | k_dn_w;
@@ -86,11 +88,11 @@ module ps2_kbd #(
     assign sprint = k_sh;
     wire mk = ~brk;                                           // this code is a make (1) or a break (0)
     always @(posedge clk) begin
-        pause_p <= 1'b0; lock_p <= 1'b0; reset_p <= 1'b0; clap_p <= 1'b0; got_key <= 1'b0;
+        pause_p <= 1'b0; lock_p <= 1'b0; reset_p <= 1'b0; clap_p <= 1'b0; hbox_p <= 1'b0; got_key <= 1'b0;
         if (rst || clr_all) begin
             ext <= 1'b0; brk <= 1'b0;
             {k_up_a, k_dn_a, k_lf_a, k_rt_a, k_up_w, k_dn_w, k_lf_w, k_rt_w} <= 8'd0;
-            {k_sp, k_j, k_en, k_sh, k_p, k_esc, k_l, k_r, k_c} <= 9'd0;
+            {k_sp, k_j, k_en, k_sh, k_p, k_esc, k_l, k_r, k_c, k_h} <= 10'd0;
         end else if (valid) begin
             got_key <= 1'b1;
             if (sh == 8'hE0) ext <= 1'b1;
@@ -121,6 +123,7 @@ module ps2_kbd #(
                     8'h4B: begin k_l   <= mk; if (mk && !k_l)   lock_p  <= 1'b1; end
                     8'h2D: begin k_r   <= mk; if (mk && !k_r)   reset_p <= 1'b1; end
                     8'h21: begin k_c   <= mk; if (mk && !k_c)   clap_p  <= 1'b1; end
+                    8'h33: begin k_h   <= mk; if (mk && !k_h)   hbox_p  <= 1'b1; end
                     default: ;
                 endcase
             end

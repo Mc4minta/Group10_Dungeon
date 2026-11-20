@@ -1,7 +1,7 @@
 # Next steps (backlog)
 
-Current state: branch `sprite-zip`, tag `board-test-2` (the build for the board). Everything listed under "Done" is merged and tested
-(`scripts/check_all.sh`: all Python tests + the full iverilog suite). Not verified on the real board yet: that is step P1.1 below.
+Current state (21/11): branches `dev` = `main` (everything up to W46 is merged; W1-W46 in `docs/DESIGN_PLAN.md`), tag `board-test-2` (an older board build). Everything listed under "Done" is merged and tested
+(`scripts/check_all.sh`: all Python tests + the full iverilog suite). Board status: the first builds ran on the Nexys A7 (USB keyboard confirmed); everything from W19 onwards still needs the board checks in `docs/BOARD_TEST_STEPS.md` (items 6b-6f). The single list of open work is the **FUTURE BACKLOG** table in `docs/DESIGN_PLAN.md`.
 Tick `[x]` when an item is done and update `docs/SPRITE_STATUS.md` / `docs/SOUND_PLAN.md` in the same commit.
 
 ---

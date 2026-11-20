@@ -147,8 +147,8 @@ Nov 20, 2026 · @min · อนุมัติเรื่องและบท�
 | END-04 | B | screen:maze | เริ่ม Ball in a Maze (ป้ายตอนเริ่ม) | Voice | TILT THE BOARD TO | ROLL THE BALL OUT! |
 | END-05 | B | maze_banner_end | เริ่มจับเวลา | System | YOU HAVE 60 SECONDS! |  |
 | END-06 | A | screen:win | ผ่าน Maze → WIN | System | YOU ESCAPED! | YOU WIN! |
-| END-07 | A | screen:timeout | หมดเวลา → GAME OVER | System | TIME IS UP! | TRAPPED FOREVER. |
-| END-08 | A | screen:gameover | ผู้เล่นตาย → GAME OVER (บรรทัด 2 = PRESS BTNC กะพริบ) | System | GAME OVER | PRESS BTNC |
+| END-07 | A | screen:timeout | หมดเวลา → GAME OVER | System | TIME IS UP! | BTNC RETRY FLOOR {F} |
+| END-08 | A | screen:gameover | ผู้เล่นตาย → GAME OVER (บรรทัด 2 กะพริบ: BTNC = ลองชั้นเดิมใหม่, BTNL = กลับ TITLE) | System | GAME OVER | BTNC RETRY FLOOR {F} |
 
 ## หมายเหตุสำหรับ implement
 

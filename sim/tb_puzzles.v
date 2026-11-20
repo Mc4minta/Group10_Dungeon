@@ -35,7 +35,7 @@ module tb_puzzles;
     wire [8:0] pz_act; wire [89:0] pz_x, pz_y; wire [35:0] pz_frame;
     wire [9:0] dseq; wire [2:0] dsm; wire [1:0] dround;
 
-    game_fsm #(.PROLOGUE(0)) fsm (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(fsm_btnc), .got_item(pz_got | item_dbg),
+    game_fsm #(.PROLOGUE(0)) fsm (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(fsm_btnc), .btnl_rise(1'b0), .floor_in(floor), .got_item(pz_got | item_dbg),
                   .take_hit(obj_hit | pz_hit), .floor_done(1'b0), .exit_evt(1'b0), .escape_start(1'b0), .exit_direct(1'b1), .sprint(1'b0), .key_get(1'b0), .goal(1'b0), .kill(1'b0),
                   .state(state), .restart(restart), .next_floor(next_floor), .form(form), .hp(hp),
                   .hp_max(hp_max), .speed(speed), .damage(damage), .rgb(rgb), .freeze(freeze),
@@ -131,7 +131,7 @@ module tb_puzzles;
     // หันขึ้นแล้วฟันคันโยก k (ยืนแถว 2 ใต้คันโยก)
     task hit_lever(input integer k); reg [4:0] tx; begin
         tx = (k == 0) ? 4 : (k == 1) ? 8 : (k == 2) ? 12 : 16;
-        place({tx, 5'd0}, 10'd70);
+        place({tx, 5'd0}, 10'd396);                  // 20/11: the levers are at the bottom now (row 11); the hero stands on row 12
         up = 1; frames(1); up = 0;
         press; frames(10); frames(12);          // ฟัน 8 เฟรม + cooldown 20
     end endtask
@@ -222,14 +222,14 @@ module tb_puzzles;
         frames(62); wait_play;
         check(form == 1, "form 2 (shooter) for the bullet test");
         before_bulbs = bulbs;
-        place(10'd256, 10'd200); up = 1; frames(1); up = 0;
+        place(10'd256, 10'd400); up = 1; frames(1); up = 0;
         press; frames(40);
         check(bulbs == (before_bulbs ^ 4'b1011), "player bullet through lever b: bulbs ^= 1011 exactly once");
         // แก้ให้ครบ: คำนวณเซตคันโยกที่ต้องตี แล้วยิงทีละคัน
         sel = best(bulbs);
         $display("      bulbs=%b -> hit levers %b", bulbs, sel[3:0]);
         for (n = 0; n < 4; n = n + 1) if (sel[n]) begin
-            place({n == 0 ? 5'd4 : n == 1 ? 5'd8 : n == 2 ? 5'd12 : 5'd16, 5'd0}, 10'd200);
+            place({n == 0 ? 5'd4 : n == 1 ? 5'd8 : n == 2 ? 5'd12 : 5'd16, 5'd0}, 10'd400);
             up = 1; frames(1); up = 0; press; frames(40);
         end
         frames(2);

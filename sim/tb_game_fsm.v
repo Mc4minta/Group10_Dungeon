@@ -6,7 +6,7 @@ module tb_game_fsm;
     reg clk = 0; always #5 clk = ~clk;
     reg rst = 1, btnc = 0, item = 0, hit = 0, fdone = 0, ext = 0, sprint = 0, esc = 0;
     wire [2:0] state, hp, hp_max, speed, rgb; wire [1:0] form, damage;
-    wire restart, next_floor, freeze, hide;
+    wire restart, next_floor, freeze, hide, retry; reg btnl = 0;
     wire [3:0] m_t, m_o, s_t, s_o;
     wire [3:0] es1, es0, ef1, ef0; wire banner;
 
@@ -18,10 +18,10 @@ module tb_game_fsm;
     // second instance with the prologue (W9a): TITLE -> PROLOGUE pages 0..3 -> PLAY
     reg btnc2 = 0; reg kill_t = 0, key_t = 0, goal_t = 0; wire has_key;
     wire [2:0] state2; wire [1:0] page2; wire restart2; wire freeze2;
-    game_fsm #(.PROLOGUE(1)) dut2 (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(btnc2), .got_item(1'b0),
+    game_fsm #(.PROLOGUE(1)) dut2 (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(btnc2), .btnl_rise(1'b0), .floor_in(2'd0), .got_item(1'b0),
                   .take_hit(1'b0), .floor_done(1'b0), .exit_evt(1'b0), .escape_start(1'b0), .exit_direct(1'b1), .sprint(1'b0), .key_get(1'b0), .goal(1'b0), .kill(1'b0),
                   .state(state2), .page(page2), .restart(restart2), .freeze(freeze2));
-    game_fsm #(.PROLOGUE(0)) dut (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(btnc), .got_item(item),
+    game_fsm #(.PROLOGUE(0)) dut (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(btnc), .btnl_rise(btnl), .floor_in(2'd0), .retry(retry), .got_item(item),
                   .take_hit(hit), .floor_done(fdone), .exit_evt(ext), .escape_start(esc), .exit_direct(1'b1), .sprint(sprint), .key_get(key_t), .goal(goal_t), .kill(kill_t), .has_key(has_key),
                   .state(state), .restart(restart), .next_floor(next_floor), .form(form), .hp(hp),
                   .hp_max(hp_max), .speed(speed), .damage(damage), .rgb(rgb), .freeze(freeze),
@@ -42,6 +42,7 @@ module tb_game_fsm;
     end endtask
 
     task pulse_btnc; begin @(posedge clk); btnc <= 1; @(posedge clk); btnc <= 0; repeat (2) @(posedge clk); end endtask
+    task pulse_btnl; begin @(posedge clk); btnl <= 1; @(posedge clk); btnl <= 0; repeat (2) @(posedge clk); end endtask
     task pulse_item; begin @(posedge clk); item <= 1; @(posedge clk); item <= 0; repeat (2) @(posedge clk); end endtask
     task pulse_hit;  begin @(posedge clk); hit  <= 1; @(posedge clk); hit  <= 0; repeat (2) @(posedge clk); end endtask
     task pulse_fdone; begin @(posedge clk); fdone <= 1; @(posedge clk); fdone <= 0; repeat (2) @(posedge clk); end endtask
@@ -157,7 +158,11 @@ module tb_game_fsm;
         wait_ticks(150);
         check(tm(0) == t_snap, "timer stopped in GAME_OVER");
         pulse_btnc;
-        check(state == TITLE, "BTNC in GAME_OVER -> TITLE");
+        check(state == PLAY && form == 0 && hp == HP1, "W43: BTNC in GAME_OVER = retry the current floor (PLAY, full hearts)");
+        repeat (HP1) pulse_hit;
+        check(state == OVER, "dead again");
+        pulse_btnl;
+        check(state == TITLE, "W43: BTNL in GAME_OVER -> TITLE");
 
         // ---------- second game: reset values, EVOLVE white, hits ignored while evolving ----------
         pulse_btnc;

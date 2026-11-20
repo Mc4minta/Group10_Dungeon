@@ -115,7 +115,9 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 | BTNU / D / L / R | walk (two together = diagonal) |
 | BTNC | start (TITLE) / attack (PLAY) / back to TITLE (WIN, GAME OVER) |
 | **USB keyboard (W22)** | plugged into the Nexys USB-HID port (arrives as PS/2 on `PS2_CLK` F4 / `PS2_DATA` B2; `rtl/ps2_kbd.v`, `tb_ps2`), works together with the buttons (logical OR): arrows or **W A S D** = walk, **Space / J / Enter** = attack / start (= BTNC), **Shift** = sprint (= SW14), **P or Esc** = pause toggle (= SW15), **L** = auto-lock toggle (= SW9), **R** = Sokoban box reset (= SW13), **C** = clap fallback (= SW11) |
-| SW9 | **auto-lock (W18)**: up = attacks aim at the nearest enemy within 240 px (8 directions, the hero turns that way for a moment); form 3's spread is centred on it, melee swings turn toward it; down = old behaviour (aim = facing) |
+| SW9 | **auto aim (W18 / W46) is ON by default**: SW9 up = OFF (down = on). On: attacks aim at the nearest enemy within 240 px (form 2 / 4 shots and the big ball at a free angle, form 3's spread in 8 directions, melee swings turn toward it), with a target marker; also key L toggles |
+| SW5-SW7 | clap level override (0 = the title SETTINGS value, otherwise 128 x the 3 bit number) |
+| SW8 | hitbox overlay (also key H) |
 | SW10 | maze: use the 4 direction buttons instead of the accelerometer (also automatic when the sensor does not answer) |
 | SW15 | **PAUSE** (game frozen, PAUSED text, music + sfx muted; PLAY / ESCAPE only) |
 | SW14 | sprint (+1 px/frame) |
@@ -127,6 +129,13 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 | Hint strip (W32 / W28) | top centre, never freezes the game: the objective of the room (defeat all enemies / doors open / puzzle goal / defeat the boss / take the door / go back to the start) and the tutorial prompts in the floor 1 start room (move, attack, sprint, pause, auto aim) with keyboard AND button names; texts `docs/STORY.md` H-01..H-16 | `rtl/top.v`, `rtl/renderer.v`, `rtl/dialog.v` (hint ROM read) |
 | Title pages (W29) | BTNR / right arrow = next page, BTNL / left arrow = previous: TITLE -> CONTROLS 1-5 -> CREDITS 1-3; BTNC starts from any page; credits names are placeholders | `rtl/top.v` (`tpage`), `docs/STORY.md` |
 | Input edge cases (W34) | stuck keyboard keys clear after 2 s of silence, opposite directions cancel, pause = SW15 xor key toggle, PAUSED screen says how to go on | `rtl/ps2_kbd.v`, `rtl/top.v` |
+| Combat waves (W43) | rooms 4, 5, 8 have 2 waves, rooms 10 and 11 have 3: when a wave is dead the doors stay shut and the next one appears 1 s later; map chars `m n` = wave 2, `o p` = wave 3 | `scripts/build_maps.py`, `rtl/objects.v`, `rtl/roms.v` |
+| Boss second phase (W43) | boss 1 / 2 below half HP, boss 3 below a third: faster volleys (55 / 60 / 60 frames), boss 1 walks twice as fast, boss 2 vulnerable window 3 s + breather 0.75 s, boss 3 chase 2 s, rest 1.5 s, storm period 18; the boss flashes once | `rtl/boss.v` (`rage`), `params.vh` |
+| Hitbox overlay (W43) | SW8 up or key H: outlines of the real hit boxes (hero 16 x 16 green, monsters 24 x 24 red, boss 48 x 48 orange, bullets yellow) | `rtl/renderer.v`, `top.v` |
+| Retry current floor (W43) | after GAME OVER: BTNC = retry the floor you died on with full hearts (form = floor), BTNL = title; text `BTNC RETRY FLOOR n` | `rtl/game_fsm.v`, `rtl/world.v` |
+| Smarter enemies (W45) | chasers slide along walls, flank the hero (personal offsets), turrets add an aimed bullet to the cross | `rtl/objects.v` |
+| Human attack animation (W35) | form 1 shows its 4 melee pictures when it swings | `sprites/sprites.json` `attack_anim`, `rtl/sprite_cfg.vh` |
+| Light puzzle at the bottom (floor 1) | levers on row 11, bulbs on row 13 of the light-bulb room; the story box is drawn at the top there so it never hides them | `maps/06_*`, `rtl/top.v` |
 | Auto aim ON by default (W46) | auto aim is on from the start; SW9 up or key L turns it off (the first tutorial hint says so) | `rtl/top.v` |
 | Auto-lock level 2 (W18) | with SW9 / L on, form 2 shots, form 4 tap shots and the big ball fly at the locked enemy at a free angle (velocity per shot); the form 3 spread keeps 8 directions | `rtl/objects.v` (`fvel`, `p_free`) |
 | Clap meter look + title SETTINGS page (W36) | black bar, green level, red vertical trigger line; title page 1 SETTINGS shows the live meter and numbers; BTNU / BTND (up / down arrow) = clap level VERY LOW .. VERY HIGH (default MID 448), kept until reset; SW5-SW8 override | `rtl/hud.v`, `rtl/top.v` (`mic_step`), `docs/STORY.md` |

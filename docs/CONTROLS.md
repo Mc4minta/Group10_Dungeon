@@ -13,6 +13,7 @@ Plug the keyboard in before or after power-on (the board needs about 1 s to dete
 | Pause / resume | **SW15** up = paused, down = running | **P** or **Esc** (press again to go on); with SW15 up, P resumes |
 | Auto aim (**ON by default**): turn it off / on again | **SW9** up = OFF (down = ON) | **L** (press to toggle) |
 | Lock the facing direction (step back while swinging) | **SW12** up | (a tap of the attack key also keeps the facing for 0.4 s) |
+| Show the hit boxes (green hero, red monsters, orange boss, yellow bullets) | **SW8** up | **H** (press to toggle) |
 | Reset the Sokoban boxes (floor 2 puzzle room) | **SW13** up (flick) | **R** |
 | Clap fallback (stun boss 1 without clapping) | **SW11** up (flick) | **C** |
 
@@ -37,6 +38,10 @@ Plug the keyboard in before or after power-on (the board needs about 1 s to dete
 * The first game after power-on tells the whole intro; later games only show one short box.
 * The **hint strip** (small box at the top centre) never stops the game. It tells you the goal of the room: *defeat all enemies*, *doors open*, the puzzle goal, *defeat the boss*, *take the door*, *go back to the start*. In the first room it also teaches the controls one by one: move, attack, sprint, pause, auto aim.
 
+## 3b. After GAME OVER
+
+**BTNC / Space / Enter = retry the floor you died on** (full hearts, the form of that floor), **BTNL / left arrow = back to the title**. Winning the game returns to the title with BTNC.
+
 ## 4. Title screen
 
 | Action | Board | Keyboard |
@@ -51,7 +56,7 @@ Plug the keyboard in before or after power-on (the board needs about 1 s to dete
 
 * Boss 1 is stunned for 3 seconds by a **clap** near the board (then 4 seconds before it can be stunned again). If the microphone does not work, flick **SW11** or press **C**.
 * A **meter** under the boss health bar shows the microphone: a **black bar** with a **green level** (the current sound) and a **red vertical line** (the trigger level). When the green reaches the red line the clap is registered and the green flashes white.
-* You can set the red line **higher or lower** in the SETTINGS page of the title screen (five steps from VERY LOW to VERY HIGH) and test it there with live claps. For tuning on the board **SW5 to SW8** also set it (0 = use the setting; otherwise 128 x the number the four switches show).
+* You can set the red line **higher or lower** in the SETTINGS page of the title screen (five steps from VERY LOW to VERY HIGH) and test it there with live claps. For tuning on the board **SW5 to SW7** also set it (0 = use the setting; otherwise 128 x the number the three switches show).
 
 ## 6. Boss fights in short
 
