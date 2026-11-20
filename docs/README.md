@@ -66,3 +66,6 @@ Rule for new work: `git checkout dev && git checkout -b feature/<name>`, keep it
 - Gameplay changes from the original: HP 4 (forms 1-2), invulnerable 90 frames, chasing monster at half speed, BTNC face lock, SW14 facing lock, screen shake when hit, two new sound effects, Connect melody as BGM on floors 1-3.
 - Built but switched OFF (need Block RAM, flags in `sprites/sprites.json` -> `animations`): Human idle / attack / hurt / death animations.
 - Not built: wall variants (WIP branch), sample playback, story screens, third enemy type, bullet / slash art.
+- `docs/CONTROLS.md` - the player's control guide (board buttons / switches and keyboard)
+- `docs/MAP_DESIGN.md` - what every object of a redrawn room is for
+- `docs/GAMEPLAY_REVIEW.md` - story / gameplay review (W31-W34)

@@ -55,3 +55,16 @@ Reply with one of: **approved** (implement W31, W32, W33, W34 and the W28 / W29 
 1. Timed box auto-close: **2.5 s of frozen time** or press (alternative: 2 s).
 2. Intro after GAME OVER: **one short box + skip by holding BTNC** (alternative: always the full 12 boxes).
 3. Hint strip position: **top centre** (alternative: bottom centre over a thin 24 px band, which does cover a little of the room).
+
+## 6. Requests of 20/11 evening (W38-W44 in DESIGN_PLAN.md)
+
+| Request | Status |
+|---|---|
+| story / hint text hides doors | W38 done: hint strip top-left, story box at the top in rooms with a bottom door |
+| turret must not hurt by touch; traps must hurt | W39 done |
+| skeleton turns when it walks the other way | W40 done |
+| Sokoban: tell the player how to reset / when stuck | W41 done |
+| boss 2 rework (box, minions, hit only when they are dead, cool-downs) | W42 done |
+| boss 3 health too low | W44 done: 3 -> 9 |
+| more waves per room, harder bosses, hitbox clarity, retry panel | **W43 designed, waiting for the owner's choices** (retry the whole game or the current floor? 2 or 3 waves? hitbox overlay yes / no?) |
+

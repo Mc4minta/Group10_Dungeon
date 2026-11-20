@@ -97,7 +97,7 @@ module top #(
     assign sw13_rise = sw13_rise_b | k_reset_p;           // W22: key R = Sokoban box reset
     wire sw9, sw9_b;                          // SW9 = W18 auto-lock: attacks aim at the nearest enemy
     debounce #(DEBOUNCE) d_s9(.clk(clk), .in(SW[9]), .level(sw9_b), .rise());
-    assign sw9 = sw9_b | k_lock_on;                       // W22: key L toggles the auto-lock
+    assign sw9 = ~(sw9_b ^ k_lock_on);                    // W46: auto aim is ON by default; SW9 up or key L turns it OFF (L again = on)
     wire sw10;                         // SW10 = เขาวงกต: ใช้ปุ่มแทนเซนเซอร์เอียง
     debounce #(DEBOUNCE) d_s10(.clk(clk), .in(SW[10]), .level(sw10), .rise());
     wire sw11_rise, sw11_rise_b;       // SW11 = ตบมือสำรอง (ถ้าไมค์ใช้ไม่ได้): ยก = pulse stun บอส 1
@@ -125,8 +125,10 @@ module top #(
     wire [1:0] pro_page;                     // หน้า prologue จาก game_fsm
     wire [2:0] state;                        // จาก game_fsm (ประกาศไว้ตรงนี้เพราะ ft ใช้ก่อน)
     wire paused = sw15 && (state == 3'd1 || state == 3'd4);   // S_PLAY / S_ESCAPE
+    wire soko_stuck;                         // W41: a Sokoban box is in a dead corner (puzzles.v)
     wire dlg_show, dlg_block;                // W16: dialogue box (dialog.v); a blocking message freezes the game like pause until BTNC
     wire ft     = frame_tick & ~paused & ~dlg_block;
+    reg [7:0] fc = 0;                     // frame counter (declared here because the puzzles instance uses fc[3] for the bulb flame animation)
     // W31: after a story box closes the attack input stays ignored until the button has been released once (no accidental shot / charge)
     reg  atk_wait = 1'b0;
     always @(posedge clk) if (dlg_block) atk_wait <= 1'b1; else if (!bc) atk_wait <= 1'b0;
@@ -184,7 +186,7 @@ module top #(
     wire       ev_shoot, ev_melee, ev_mdmg, ev_mdie, ev_ok;
     wire [1:0] ev_shoot_k;
     wire [2:0] alive;
-    wire [5:0] mon_act, mon_type, mon_flash;
+    wire [5:0] mon_act, mon_type, mon_flash, mon_face;       // W40: mon_face = mirrored picture
     wire [59:0] mon_x, mon_y;
     wire [59:0] pb_x, pb_y;
     wire [15:0] eb_act;
@@ -251,14 +253,23 @@ module top #(
     wire open_E   = has_key | sw0_key;             // W7: ประตู E เปิดเมื่อมีกุญแจ (debug SW0 เปิดด้วย)
     wire is_title = (state == S_TITLE);
     // ---- W29 title pages: BTNR / right arrow = next page, BTNL / left arrow = previous; 0 title, 1-5 controls, 6-8 credits ----
+    // W36: page 1 = SETTINGS (clap level), 2-6 = CONTROLS 1-5, 7-9 = CREDITS 1-3
     reg [3:0] tpage = 4'd0;
-    reg       br_d = 1'b0, bl_d = 1'b0;
+    reg       br_d = 1'b0, bl_d = 1'b0, bu_d = 1'b0, bd_d = 1'b0;
+    reg [2:0] mic_step = 3'd2;                      // clap level 0 VERY LOW .. 4 VERY HIGH, 2 = MID (default); kept over new games, reset only by rst
     always @(posedge clk) begin
-        br_d <= br; bl_d <= bl;
+        br_d <= br; bl_d <= bl; bu_d <= bu; bd_d <= bd;
+        if (rst) mic_step <= 3'd2;
+        else if (is_title && tpage == 4'd1) begin
+            if (bu & ~bu_d && mic_step != 3'd4) mic_step <= mic_step + 3'd1;               // BTNU / up / W = higher trigger (louder clap needed)
+            if (bd & ~bd_d && mic_step != 3'd0) mic_step <= mic_step - 3'd1;
+        end
         if (rst || !is_title) tpage <= 4'd0;
-        else if (br & ~br_d) tpage <= (tpage == 4'd8) ? 4'd0 : tpage + 4'd1;
-        else if (bl & ~bl_d) tpage <= (tpage == 4'd0) ? 4'd8 : tpage - 4'd1;
+        else if (br & ~br_d) tpage <= (tpage == 4'd9) ? 4'd0 : tpage + 4'd1;
+        else if (bl & ~bl_d) tpage <= (tpage == 4'd0) ? 4'd9 : tpage - 4'd1;
     end
+    wire [11:0] mic_step_th = (mic_step == 3'd0) ? 12'd192 : (mic_step == 3'd1) ? 12'd320 : (mic_step == 3'd2) ? 12'd448 : (mic_step == 3'd3) ? 12'd704 : 12'd1024;
+    wire [11:0] mic_th_eff = (SW[8:5] != 4'd0) ? {1'b0, SW[8:5], 7'd0} : mic_step_th;      // SW5-SW8 override (0 = the menu value)
     wire is_title0 = is_title && (tpage == 4'd0);          // the hero / vampire scene is only on the first page
     wire is_win   = (state == S_WIN);
     wire is_pro   = (state == S_PROLOGUE);
@@ -283,7 +294,7 @@ module top #(
                  .boss_dmg(b_dmg), .boss_dmg_amt(b_dmg_amt), .boss_dmg_big(b_dmg_big), .summon(b_summon),
                  .doors_open(doors_open), .alive(alive), .hit(obj_hit), .kb_start(kb_start), .kb_dir(kb_dir),
                  .invuln(invuln), .player_blink(obj_blink), .busy(), .trap_a(trap_a), .trap_b(trap_b),
-                 .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
+                 .mon_act(mon_act), .mon_face(mon_face), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
                  .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .pb_kind(pb_kind), .chg_lvl(p_chg_lvl), .charged(charged),
                  .ev_shoot(ev_shoot), .ev_shoot_k(ev_shoot_k), .ev_melee(ev_melee), .ev_mdmg(ev_mdmg), .ev_mdie(ev_mdie),
                  .eb_act(eb_act), .eb_x(eb_x), .eb_y(eb_y), .melee_on(melee_on), .melee_dir(melee_dir));
@@ -299,9 +310,8 @@ module top #(
     pdm_mic #(.CLK_DIV(MIC_CLK_DIV), .WINDOW(MIC_WINDOW), .TH(MIC_TH), .HOLDOFF(MIC_HOLDOFF)) mic (
              .clk(clk), .rst(rst), .m_clk(M_CLK), .m_data(M_DATA), .m_lrsel(M_LRSEL),
              .clap_pulse(clap), .amplitude(mic_amp),
-             .win_pulse(mic_win), .holdoff(), .th_dyn({1'b0, SW[8:5], 7'd0}), .use_dyn(SW[8:5] != 4'd0));
+             .win_pulse(mic_win), .holdoff(), .th_dyn(mic_th_eff), .use_dyn(1'b1));
     // ---- W4 clap meter on the screen (boss 1 fight): SW5-SW8 = threshold (0 = default MIC_TH, else 128 x the 4 bit value) ----
-    wire [11:0] mic_th_eff = (SW[8:5] != 4'd0) ? {1'b0, SW[8:5], 7'd0} : MIC_TH;
     reg  [11:0] mic_lvl = 12'd0;                 // level with a slow fall so the bar can be read
     reg  [4:0]  mic_hit_cnt = 5'd0;              // clap flash (about 0.5 s)
     always @(posedge clk) begin
@@ -313,18 +323,19 @@ module top #(
     wire [15:0] mic_th_bcd, mic_lv_bcd;           // numbers shown under the meter (threshold, live level)
     bin2bcd bcd_th (.clk(clk), .bin({2'b00, mic_th_eff}), .bcd(mic_th_bcd));
     bin2bcd bcd_lv (.clk(clk), .bin({2'b00, mic_lvl}),    .bcd(mic_lv_bcd));
-    wire        mic_on    = b_act && (b_kind == 2'd0);
+    wire        mic_on    = (b_act && (b_kind == 2'd0)) || (is_title && tpage == 4'd1);   // boss 1 fight or the title SETTINGS page
+    wire        mic_nums  = is_title && tpage == 4'd1;
     wire [6:0]  mic_w     = (mic_lvl[11:4] > 8'd120) ? 7'd120 : mic_lvl[10:4];
     wire [6:0]  mic_th_px = (mic_th_eff[11:4] > 8'd120) ? 7'd120 : mic_th_eff[10:4];
 
-    puzzles #(.SEED(SEED)) pz (.clk(clk), .rst(rst), .frame_tick(ft), .run(run), .brk(brk),
+    puzzles #(.SEED(SEED)) pz (.clk(clk), .rst(rst), .frame_tick(ft), .anim(fc[3]), .run(run), .brk(brk),
                  .restart(restart), .room_load(load), .floor(floor), .grid(grid), .px(px), .py(py),
                  .up(bu), .down(bd), .left(bl), .right(br), .melee_on(melee_on), .melee_dir(melee_dir),
                  .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .soko_reset(sw13_rise),
                  .got_item(pz_got), .hit(pz_hit), .ev_ok(ev_ok), .has_item(has_item),
                  .blk0(blk0), .blk1(blk1), .blk2(blk2), .blk_en(blk_en),
                  .pz_act(pz_act), .pz_x(pz_x), .pz_y(pz_y), .pz_frame(pz_frame),
-                 .pbox0(pbox0), .pbox1(pbox1), .pbox_en(pbox_en),
+                 .pbox0(pbox0), .pbox1(pbox1), .pbox_en(pbox_en), .soko_stuck(soko_stuck),
                  .simon_lit_on(simon_lit_on), .simon_lit(simon_lit), .simon_wrong(simon_wrong),
                  .simon_note_on(simon_note_on), .simon_note(simon_note),
                  .room_led(room_led), .room_led_on(room_led_on),
@@ -355,7 +366,7 @@ module top #(
     wire [15:0] dbg_esc   /*verilator public*/ = {e_s_t, e_s_o, e_f_t, e_f_o};
 
     // ---------- เฟรม: กะพริบข้อความ / LED, จอสั่น ----------
-    reg [7:0] fc = 0;                     // นับเฟรม
+    // (fc is declared near the top, see 'frame counter')
     reg [3:0] blk_cnt = 0;                // LED กะพริบ 4 Hz (คาบ LED_BLINK เฟรม)
     reg [3:0] sh_cnt = 0;
     reg [7:0] sh_lfsr = 8'hA5;
@@ -386,7 +397,7 @@ module top #(
     wire led_blink_on = (blk_cnt < (LED_BLINK + 1) / 2);
     wire hint_on;                               // W32: the hint strip is shown (assigned below, next to its logic)
     // ข้อความ: 1 TITLE 2 FLOOR CLEAR 3 ESCAPE! 4 WIN 5 GAME OVER 6 PAUSED
-    wire [4:0] txt_scr = paused ? 5'd6 : is_title ? ((tpage == 4'd0) ? 5'd1 : (5'd15 + {1'b0, tpage})) : is_pro ? (5'd7 + {3'b000, pro_page}) :
+    wire [4:0] txt_scr = paused ? 5'd6 : is_title ? ((tpage == 4'd0) ? 5'd1 : (tpage == 4'd1) ? (5'd25 + {2'b00, mic_step}) : (5'd14 + {1'b0, tpage})) : is_pro ? (5'd7 + {3'b000, pro_page}) :
                          (state == S_EVOLVE) ? (5'd11 + {3'b000, form}) : (state == S_CLEAR) ? 5'd2 : esc_banner ? 5'd3 :
                          is_win ? 5'd4 : (state == S_GAME_OVER) ? (tmo ? 5'd15 : 5'd5) : dlg_show ? 5'd14 : hint_on ? 5'd24 : 5'd0;
     wire [2:0] b_frame = {b_kind, 1'b0} + ((b_kind == 2'd0) ? b_stunned : b_anim);   // บอส 1 เฟรม 1 = ภาพมึน (W10)
@@ -493,6 +504,12 @@ module top #(
     assign dlg_ev[63:EV_MAZE_BANNER_END + 1] = 0;
     wire [11:0] dlg_b0, dlg_b1; wire [4:0] dlg_n0, dlg_n1; wire [1:0] dlg_spk;
     // ---------- W32 hint strip: objective of the room + W28 tutorial prompts (never freezes the game) ----------
+    reg [12:0]  soko_t = 13'd0;                      // W41: frames spent in the unsolved Sokoban room (90 s = probably stuck)
+    always @(posedge clk) begin
+        if (rst || restart || load || gate_open || sw13_rise) soko_t <= 13'd0;
+        else if (frame_tick && state == S_PLAY && floor == 2'd1 && room == R_PUZ && soko_t != 13'd8191) soko_t <= soko_t + 13'd1;
+    end
+    wire        soko_help = soko_stuck || (soko_t >= 13'd5400);
     wire [6:0]  hint_idx;
     wire [11:0] hint_b0, hint_b1; wire [4:0] hint_n0, hint_n1;
     reg  [2:0]  tut_step = 3'd0;                 // 0 start text, 1 move, 2 attack, 3 sprint, 4 pause, 5 auto aim, 6 done
@@ -508,7 +525,7 @@ module top #(
                 3'd1: if (p_moving) begin if (tut_mv == 7'd48) begin tut_step <= 3'd2; tut_mv <= 7'd0; end else tut_mv <= tut_mv + 7'd1; end
                 3'd2: if (fa_done) tut_step <= 3'd3;
                 3'd3: if (sw14 && p_moving) begin if (tut_mv == 7'd20) begin tut_step <= 3'd4; tut_mv <= 7'd0; end else tut_mv <= tut_mv + 7'd1; end
-                3'd5: if (tut_t == 7'd120 || sw9) begin tut_step <= 3'd6; end else tut_t <= tut_t + 7'd1;
+                3'd5: if (tut_t == 7'd120) begin tut_step <= 3'd6; end else tut_t <= tut_t + 7'd1;
                 default: ;
             endcase
         end
@@ -519,7 +536,7 @@ module top #(
     wire [6:0] obj_idx = key_vis || has_key ? HINT_OBJ_KEY[6:0] :
                          in_boss ? ((floor == 2'd0) ? HINT_OBJ_BOSS1[6:0] : (floor == 2'd1) ? HINT_OBJ_BOSS2[6:0] : HINT_OBJ_BOSS3[6:0]) :
                          (room == R_BOSS3) ? HINT_OBJ_BOSSDEAD[6:0] :
-                         (room == R_PUZ && !((floor == 2'd0) ? lb_ok : (floor == 2'd1) ? gate_open : sm_ok)) ? ((floor == 2'd0) ? HINT_OBJ_BULB[6:0] : (floor == 2'd1) ? HINT_OBJ_SOKO[6:0] : HINT_OBJ_SIMON[6:0]) :
+                         (room == R_PUZ && !((floor == 2'd0) ? lb_ok : (floor == 2'd1) ? gate_open : sm_ok)) ? ((floor == 2'd0) ? HINT_OBJ_BULB[6:0] : (floor == 2'd1) ? (soko_help ? HINT_OBJ_STUCK[6:0] : HINT_OBJ_SOKO[6:0]) : HINT_OBJ_SIMON[6:0]) :
                          in_c ? ((alive != 3'd0 && !doors_open) ? HINT_OBJ_COMBAT[6:0] : HINT_OBJ_OPEN[6:0]) :
                          (room == R_PUZ) ? HINT_OBJ_OPEN[6:0] : 7'd127;
     wire [6:0] tut_idx = (tut_step == 3'd0) ? HINT_TUT_START[6:0] : (tut_step == 3'd1) ? HINT_TUT_MOVE[6:0] : (tut_step == 3'd2) ? HINT_TUT_ATTACK[6:0] :
@@ -544,11 +561,11 @@ module top #(
                       .shoot(ev_shoot), .anim_sel(p_anim), .aframe(p_aframe), .hurt_flash(p_hurt));
     wire [2:0]  screen = is_title ? ((tpage == 4'd0) ? 3'd1 : 3'd4) : (state == S_GAME_OVER) ? 3'd2 : is_win ? 3'd3 : is_pro ? 3'd4 : is_esc ? 3'd5 : 3'd0;
     wire [11:0] color;
-    renderer rnd (.brk(brk), .trap_a(trap_a), .trap_b(trap_b), .open_E(open_E), .p_hurt(p_hurt), .ov_phase(fc[4:3]), .fade(fade_lvl), .dlg_on(txt_scr == 5'd14), .dlg_b0(dlg_b0), .dlg_b1(dlg_b1), .dlg_n0(dlg_n0), .dlg_n1(dlg_n1), .dlg_col(dlg_col), .hud_hp(hp), .hud_hp_max(hp_max), .hud_b_hp(b_hp), .chg_w(b_chg_w), .facing(face_vis), .chg_lvl(p_chg_lvl), .tgt_on(sw9 && lock_use && state == S_PLAY && !paused && !dlg_block), .tgt_x(lock_tx), .tgt_y(lock_ty), .boss_fcol(b_fcol), .mic_on(mic_on), .mic_w(mic_w), .mic_th(mic_th_px), .mic_hit(mic_hit_cnt != 5'd0), .mic_th_bcd(mic_th_bcd), .mic_lv_bcd(mic_lv_bcd), .clk(clk), .ce(ce), .hcount(hcount), .vcount(vcount), .grid(grid), .floor(floor),
+    renderer rnd (.brk(brk), .trap_a(trap_a), .trap_b(trap_b), .open_E(open_E), .p_hurt(p_hurt), .ov_phase(fc[4:3]), .fade(fade_lvl), .dlg_on(txt_scr == 5'd14), .dlg_top(room == R_C2), .dlg_b0(dlg_b0), .dlg_b1(dlg_b1), .dlg_n0(dlg_n0), .dlg_n1(dlg_n1), .dlg_col(dlg_col), .hud_hp(hp), .hud_hp_max(is_title ? 3'd0 : hp_max), .hud_b_hp(b_hp), .chg_w(b_chg_w), .facing(face_vis), .chg_lvl(p_chg_lvl), .tgt_on(sw9 && lock_use && state == S_PLAY && !paused && !dlg_block), .tgt_x(lock_tx), .tgt_y(lock_ty), .boss_fcol(b_fcol), .mic_on(mic_on), .mic_w(mic_w), .mic_th(mic_th_px), .mic_hit(mic_hit_cnt != 5'd0), .mic_nums(mic_nums), .mic_th_bcd(mic_th_bcd), .mic_lv_bcd(mic_lv_bcd), .clk(clk), .ce(ce), .hcount(hcount), .vcount(vcount), .grid(grid), .floor(floor),
                   .form(form), .doors_open(doors_open), .open_L(open_L),
                   .screen(screen), .hide_player(fsm_hide | is_pro | is_esc | (is_title && tpage != 4'd0) | (obj_blink && !is_title)),
                   .px(rpx), .py(rpy), .pframe(pframe), .p_anim(p_anim), .p_aframe(p_aframe),
-                  .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
+                  .mon_act(mon_act), .mon_face(mon_face), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
                   .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .pb_kind(pb_kind),
                   .p_tint(charged && fc[2]),
                   .eb_act(eb_act), .eb_x(eb_x), .eb_y(eb_y), .melee_on(melee_on), .melee_dir(melee_dir),
@@ -557,7 +574,7 @@ module top #(
                   .simon_lit_on(simon_lit_on), .simon_lit(simon_lit), .simon_wrong(simon_wrong),
                   .boss_act(b_act | is_title0), .boss_x(is_title0 ? 10'd352 : b_x), .boss_y(is_title0 ? 10'd192 : b_y), .boss_frame(is_title0 ? {2'b10, fc[5]} : b_frame), .boss_flash(b_flash | (b_shield & fc[3]) | (b_tele & ((b_tele_lvl == 2'd0) ? fc[4] : (b_tele_lvl == 2'd1) ? fc[3] : (b_tele_lvl == 2'd2) ? fc[2] : fc[1])) | (b_warn & fc[2])),
                   .sh_dx(sh_dx), .sh_dy(sh_dy), .hint_b0(hint_b0), .hint_b1(hint_b1), .hint_n0(hint_n0), .hint_n1(hint_n1), .txt_scr(txt_scr), .txt_blink(fc[5]),
-                  .t_floor({2'b00, floor} + 4'd1), .t_m1(m_t), .t_m0(m_o), .t_s1(s_t), .t_s0(s_o),
+                  .t_floor((txt_scr == 5'd24) ? {1'b0, alive} : {2'b00, floor} + 4'd1), .t_m1(m_t), .t_m0(m_o), .t_s1(s_t), .t_s0(s_o),
                   .color(color));
 
     // renderer มี latency 4 clock (stage 0 พิกัด/ที่อยู่ tile, 1 ROM tile + เลือกชั้น, 2 BRAM, 3 mix) -> หน่วง sync/active เท่ากัน ภาพตรงทั้ง CE_DIV = 1 และ 4

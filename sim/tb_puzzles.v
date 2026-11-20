@@ -60,7 +60,7 @@ module tb_puzzles;
                 .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .pb_kind(pb_kind), .charged(charged),
                 .eb_act(eb_act), .eb_x(eb_x), .eb_y(eb_y), .melee_on(melee_on), .melee_dir(melee_dir));
 
-    puzzles #(.SEED(16'h0000)) pz (.clk(clk), .rst(rst), .frame_tick(tick), .run(state == 3'd1),
+    puzzles #(.SEED(16'h0000)) pz (.clk(clk), .rst(rst), .frame_tick(tick), .anim(1'b0), .run(state == 3'd1),
                 .restart(restart | restart_tb), .room_load(o_load), .floor(floor), .grid(grid), .px(px), .py(py),
                 .up(up), .down(down), .left(left), .right(right), .melee_on(melee_on), .melee_dir(melee_dir),
                 .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .soko_reset(soko_reset),

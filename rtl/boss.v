@@ -112,7 +112,7 @@ module boss (
     reg [1:0]  bs2 = 0;
     reg        b3 = 1'b0;
     reg [8:0]  phase_t = 0;
-    assign shield = 1'b0;                                   // W17: boss 2 no longer has a shield (it can always be hit)
+    assign shield = act && kind == 2'd1 && bs2 != 2'd2;     // W42: boss 2 is immune (white blink) until every minion is dead
     assign vuln   = act && kind == 2'd1 && bs2 == 2'd2;
     assign tele   = act && kind == 2'd2 && b3;
     reg [1:0]  s3 = 2'd0;                                   // W24: boss 3 after the charge: 0 none, 1 storm, 2 rest (vulnerable)
@@ -131,7 +131,7 @@ module boss (
             default: pat_of = (c == 2'd0) ? 2'd0 : (c == 2'd1) ? 2'd2 : (c == 2'd2) ? 2'd1 : 2'd3;
         endcase
     endfunction
-    wire       acc = (kind == 2'd0) || (kind == 2'd1) || (kind == 2'd2 && (dmg_big || s3 == 2'd2));   // W24: boss 3 is open to any hit during its rest   // W17: boss 2 takes damage in every state
+    wire       acc = (kind == 2'd0) || (kind == 2'd1 && bs2 == 2'd2) || (kind == 2'd2 && (dmg_big || s3 == 2'd2));   // W24: boss 3 is open to any hit during its rest; W42: boss 2 only while all its minions are dead
     wire [2:0] amt = (kind == 2'd2) ? 3'd1 : dmg_amt;
 
     localparam [3:0] B_IDLE = 4'd0, B_DLY = 4'd1, B_X0 = 4'd2, B_X1 = 4'd3, B_X2 = 4'd4,
@@ -198,8 +198,10 @@ module boss (
                         if (bs2 == 2'd1) begin
                             if (phase_t < 9'd3) phase_t <= phase_t + 1'b1;            // รอให้ objects spawn ลูกน้องเสร็จก่อนเช็ค minions
                             else if (minions == 0) begin bs2 <= 2'd2; phase_t <= BOSS2_VULN_FRAMES; end
-                        end else if (phase_t == 0) begin summon <= 1'b1; bs2 <= 2'd1; end
-                        else phase_t <= phase_t - 1'b1;                                // bs2 0 (รอ summon แรก) / bs2 2 (หมดช่วง VULNERABLE)
+                        end else if (phase_t == 0) begin
+                            if (bs2 == 2'd2) begin bs2 <= 2'd0; phase_t <= BOSS2_REST; end    // W42: vulnerable window over -> a breather before the next wave
+                            else begin summon <= 1'b1; bs2 <= 2'd1; end
+                        end else phase_t <= phase_t - 1'b1;                                   // bs2 0 (first wait / breather) / bs2 2 (vulnerable window)
                     end
                     // บอส 3: ไล่ -> ชาร์จ -> โจมตีใหญ่ (kill) -> ไล่
                     if (kind == 2'd2) begin

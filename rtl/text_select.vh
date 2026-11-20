@@ -43,4 +43,14 @@
             ly1 = T22_1_Y; lx1 = T22_1_X; lw1 = T22_1_W; lh1 = T22_1_H; ls1 = T22_1_S; lb1 = T22_1_B; lk1 = T22_1_K; end
 5'd23: begin ly0 = T23_0_Y; lx0 = T23_0_X; lw0 = T23_0_W; lh0 = T23_0_H; ls0 = T23_0_S; lb0 = T23_0_B; lk0 = T23_0_K;
             ly1 = T23_1_Y; lx1 = T23_1_X; lw1 = T23_1_W; lh1 = T23_1_H; ls1 = T23_1_S; lb1 = T23_1_B; lk1 = T23_1_K; end
+5'd25: begin ly0 = T25_0_Y; lx0 = T25_0_X; lw0 = T25_0_W; lh0 = T25_0_H; ls0 = T25_0_S; lb0 = T25_0_B; lk0 = T25_0_K;
+            ly1 = T25_1_Y; lx1 = T25_1_X; lw1 = T25_1_W; lh1 = T25_1_H; ls1 = T25_1_S; lb1 = T25_1_B; lk1 = T25_1_K; end
+5'd26: begin ly0 = T26_0_Y; lx0 = T26_0_X; lw0 = T26_0_W; lh0 = T26_0_H; ls0 = T26_0_S; lb0 = T26_0_B; lk0 = T26_0_K;
+            ly1 = T26_1_Y; lx1 = T26_1_X; lw1 = T26_1_W; lh1 = T26_1_H; ls1 = T26_1_S; lb1 = T26_1_B; lk1 = T26_1_K; end
+5'd27: begin ly0 = T27_0_Y; lx0 = T27_0_X; lw0 = T27_0_W; lh0 = T27_0_H; ls0 = T27_0_S; lb0 = T27_0_B; lk0 = T27_0_K;
+            ly1 = T27_1_Y; lx1 = T27_1_X; lw1 = T27_1_W; lh1 = T27_1_H; ls1 = T27_1_S; lb1 = T27_1_B; lk1 = T27_1_K; end
+5'd28: begin ly0 = T28_0_Y; lx0 = T28_0_X; lw0 = T28_0_W; lh0 = T28_0_H; ls0 = T28_0_S; lb0 = T28_0_B; lk0 = T28_0_K;
+            ly1 = T28_1_Y; lx1 = T28_1_X; lw1 = T28_1_W; lh1 = T28_1_H; ls1 = T28_1_S; lb1 = T28_1_B; lk1 = T28_1_K; end
+5'd29: begin ly0 = T29_0_Y; lx0 = T29_0_X; lw0 = T29_0_W; lh0 = T29_0_H; ls0 = T29_0_S; lb0 = T29_0_B; lk0 = T29_0_K;
+            ly1 = T29_1_Y; lx1 = T29_1_X; lw1 = T29_1_W; lh1 = T29_1_H; ls1 = T29_1_S; lb1 = T29_1_B; lk1 = T29_1_K; end
 default: begin ly0 = 0; lx0 = 0; lw0 = 0; lh0 = 0; ls0 = 0; lb0 = 0; lk0 = 0; ly1 = 0; lx1 = 0; lw1 = 0; lh1 = 0; ls1 = 0; lb1 = 0; lk1 = 0; end

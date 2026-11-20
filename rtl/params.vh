@@ -35,6 +35,7 @@ localparam PB_COOLDOWN    = 15;            // ร่าง 2-4: เฟรมร�
 
 // ---------- มอน ----------
 localparam MON_A_HP       = 2;             // มอน A (ไล่)
+localparam MON_FACE_LEFT_IS_FLIP = 1;          // W40: 1 = the skeleton art faces RIGHT (mirror it when it walks left); 0 = the art faces left
 localparam MON_A_SPEED    = 1;
 localparam MON_A_MOVE_EVERY = 2;           // มอน A เดินทุก N เฟรม (1 = ทุกเฟรมเหมือนเดิม, 2 = ครึ่งความเร็ว)             // px/เฟรม
 localparam MON_B_HP       = 3;             // มอน B (ป้อม)
@@ -68,7 +69,7 @@ localparam PUZZLE_DELAY   = 256;           // puzzles.v เริ่มงาน
 // ---------- บอส (P5) ----------
 localparam BOSS1_HP        = 10;           // บอส 1 (ชั้น 1)
 localparam BOSS2_HP        = 16;           // บอส 2 (ชั้น 2)
-localparam BOSS3_HP        = 3;            // W12: 3 ปล่อยชาร์จที่โดน = ตาย (แถบ HP 3 ช่อง)           // บอส 3 (ชั้น 3)
+localparam BOSS3_HP        = 9;            // W12: 3 ปล่อยชาร์จที่โดน = ตาย (แถบ HP 3 ช่อง)           // บอส 3 (ชั้น 3)
 localparam BOSS1_SPEED     = 1;            // W20: px per step (was 2 every frame = too fast to shoot); with BOSS1_EVERY = 2 -> 0.5 px/frame
 localparam BOSS1_EVERY     = 2;            // boss 1 steps every N frames (W20: every 2nd frame)
 localparam BOSS2_SPEED     = 0;            // W11: บอส 2 อยู่กับที่ (เรียกลูกน้อง)
@@ -88,8 +89,9 @@ localparam [17:0] SFX_CHG_HP = 18'd41667;  localparam signed [17:0] SFX_CHG_SL =
 localparam BOSS_FLASH      = 8;           // โดนตีกะพริบ
 localparam STUN_FRAMES     = 180;          // W10: ตบมือ -> บอส 1 มึน 3 วิ
 localparam STUN_COOLDOWN   = 240;          // W10: 4 วิ
-localparam BOSS2_FIRST      = 60;           // W11: บอส 2 รอกี่เฟรมก่อน summon ครั้งแรก
-localparam BOSS2_VULN_FRAMES = 120;         // W11: ช่วงที่ตีบอส 2 ได้หลังลูกน้องตายหมด (2 วิ) แล้ว summon รอบใหม่
+localparam BOSS2_FIRST      = 90;           // W11: บอส 2 รอกี่เฟรมก่อน summon ครั้งแรก
+localparam BOSS2_REST       = 75;           // W42: breather after the vulnerable window, then the next wave (1.25 s)
+localparam BOSS2_VULN_FRAMES = 240;         // W11: ช่วงที่ตีบอส 2 ได้หลังลูกน้องตายหมด (2 วิ) แล้ว summon รอบใหม่
 localparam BOSS2_MINIONS    = 3;            // W11: ลูกน้องต่อรอบ (ตำแหน่ง SUMMON*_T* ด้านล่าง)
 localparam [4:0] SUMMON0_TX = 5'd6,  SUMMON1_TX = 5'd13, SUMMON2_TX = 5'd9;   // tile (x, y) ในวงรั้วห้องบอสชั้น 2 (ต้องเป็นพื้น)
 localparam [3:0] SUMMON0_TY = 4'd5,  SUMMON1_TY = 4'd5,  SUMMON2_TY = 4'd10;
@@ -109,8 +111,8 @@ localparam MAZE_DEADZONE   = 3;            // W7: เอียงน้อยก
 localparam MAZE_TILT_SHIFT = 2;            // ความเร่ง = tilt >> นี้ (1/16 px ต่อเฟรม^2)
 localparam MAZE_BTN_ACC    = 8;            // ความเร่งตอนใช้ปุ่มแทนเซนเซอร์
 localparam MAZE_MAXV       = 96;           // ความเร็วสูงสุด 6 px/เฟรม
-localparam MAZE_SIGN_X     = 1;            // 1 / 0 = กลับทิศแกน X ของเซนเซอร์ (ต้องเช็คบนบอร์ดจริง)
-localparam MAZE_SIGN_Y     = 1;
+localparam MAZE_SIGN_X     = 0;            // 1 / 0 = กลับทิศแกน X ของเซนเซอร์ (ต้องเช็คบนบอร์ดจริง)
+localparam MAZE_SIGN_Y     = 0;
 localparam SHAKE_PX        = 2;            // จอสั่น +-px (ค่า 1..3)
 localparam SHAKE_EVERY     = 4;            // เปลี่ยน offset ทุกกี่เฟรม
 localparam HURT_SHAKE_FRAMES = 12;         // จอสั่นกี่เฟรมหลังโดนตี (0 = ปิด)

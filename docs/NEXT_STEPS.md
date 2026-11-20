@@ -71,3 +71,5 @@ Rule 1 (the game always builds; missing or invalid art / sound falls back with a
 run `scripts/check_all.sh` before committing, no merge to `main` without an explicit "merge", nothing with a deadline risk goes in after the freeze.
 
 Standing rules (owner, 19/11): **every implementation updates `docs/FEATURES.md` in the same commit**; **every new idea is written into `docs/DESIGN_PLAN.md` first** and implemented only after the owner approves.
+
+- [ ] **FUTURE BACKLOG (20/11):** the single list of everything still open is the table `FUTURE BACKLOG` in `docs/DESIGN_PLAN.md` (waves, harder bosses, hitboxes, retry panel, smarter enemies, room redraws, credits, board tests).

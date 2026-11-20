@@ -31,12 +31,13 @@ module renderer (
     input  wire [2:0]   p_anim,        // 0 = pframe, 1 idle, 2 attack, 3 hurt, 4 death (from player_frame.v)
     input  wire [5:0]   p_aframe,      // picture number inside the animation ROM
     // ---------- objects (จาก objects.v) ----------
-    input  wire [5:0]   mon_act, mon_type, mon_flash,
+    input  wire [5:0]   mon_act, mon_type, mon_flash, mon_face,
     input  wire [59:0]  mon_x, mon_y,
     input  wire         mon_anim,
     input  wire [5:0]   pb_act,
     input  wire [59:0]  pb_x, pb_y,
     input  wire [11:0]  pb_kind,
+    input  wire         dlg_top,          // W38: draw the dialogue box at the TOP (rooms with a door in the bottom wall) instead of the bottom
     input  wire         dlg_on,           // W16: dialogue box (txt_scr = 14): black band + 2 lines from dlg_b0.. (text ROM)
     input  wire [11:0]  dlg_b0, dlg_b1,
     input  wire [4:0]   dlg_n0, dlg_n1,
@@ -72,6 +73,7 @@ module renderer (
     input  wire [3:0]   t_floor, t_m1, t_m0, t_s1, t_s0,   // ตัวเลขสดในข้อความ
     input  wire [2:0]   hud_hp, hud_hp_max,                // player hearts (hud.v)
     input  wire         mic_on, mic_hit,                  // W4: clap meter on / clap detected
+    input  wire         mic_nums,                          // W36: numbers under the meter
     input  wire [15:0]  mic_th_bcd, mic_lv_bcd,           // W4: the same numbers as decimal digits
     input  wire [6:0]   mic_w, mic_th,                    // W4: level and threshold in px
     input  wire [6:0]   chg_w,                            // W21: boss 3 charge bar fill in px (0 = hidden)
@@ -181,10 +183,10 @@ module renderer (
         a_on <= (txt_scr != 0);
         if (txt_scr != 0) begin
             case (txt_scr)
-                5'd24: begin ly0 = 10'd5;  lx0 = 10'd364 - {1'b0, hint_n0, 4'b0} / 2; lw0 = {1'b0, hint_n0, 4'b0}; lh0 = 10'd16; ls0 = 1'b0; lb0 = hint_b0; lk0 = 1'b0;
-                             ly1 = 10'd23; lx1 = 10'd364 - {1'b0, hint_n1, 4'b0} / 2; lw1 = {1'b0, hint_n1, 4'b0}; lh1 = 10'd16; ls1 = 1'b0; lb1 = hint_b1; lk1 = 1'b0; end
-                5'd14: begin ly0 = 10'd392; lx0 = 10'd320 - {1'b0, dlg_n0, 4'b0} / 2; lw0 = {1'b0, dlg_n0, 4'b0}; lh0 = 10'd16; ls0 = 1'b0; lb0 = dlg_b0; lk0 = 1'b0;
-                             ly1 = 10'd416; lx1 = 10'd320 - {1'b0, dlg_n1, 4'b0} / 2; lw1 = {1'b0, dlg_n1, 4'b0}; lh1 = 10'd16; ls1 = 1'b0; lb1 = dlg_b1; lk1 = 1'b0; end
+                5'd24: begin ly0 = 10'd42; lx0 = 10'd8; lw0 = {1'b0, hint_n0, 4'b0}; lh0 = 10'd16; ls0 = 1'b0; lb0 = hint_b0; lk0 = 1'b0;      // W38: top left under the hearts, never over a door
+                             ly1 = 10'd60; lx1 = 10'd8; lw1 = {1'b0, hint_n1, 4'b0}; lh1 = 10'd16; ls1 = 1'b0; lb1 = hint_b1; lk1 = 1'b0; end
+                5'd14: begin ly0 = dlg_top ? 10'd40 : 10'd392; lx0 = 10'd320 - {1'b0, dlg_n0, 4'b0} / 2; lw0 = {1'b0, dlg_n0, 4'b0}; lh0 = 10'd16; ls0 = 1'b0; lb0 = dlg_b0; lk0 = 1'b0;
+                             ly1 = dlg_top ? 10'd64 : 10'd416; lx1 = 10'd320 - {1'b0, dlg_n1, 4'b0} / 2; lw1 = {1'b0, dlg_n1, 4'b0}; lh1 = 10'd16; ls1 = 1'b0; lb1 = dlg_b1; lk1 = 1'b0; end
                 `include "text_select.vh"
             endcase
             rx0 = hcount - lx0; ry0 = vcount - ly0; in0 = (rx0 < lw0) && (ry0 < lh0);
@@ -230,9 +232,11 @@ module renderer (
         r1_orb   <= orb_in;
         r1_tgt   <= tg_in; r1_tgtc <= ov_phase[1] ? 12'hFF4 : 12'hF44;
         r1_orbc  <= orb_core ? orb_c : {1'b0, orb_c[11:9], 1'b0, orb_c[7:5], 1'b0, orb_c[3:1]};   // bright core, darker rim
-        r1_band  <= (dlg_on && (vs_r >= 10'd384) && (vs_r < 10'd448)) || (txt_scr == 5'd24 && hs_r >= 10'd226 && hs_r < 10'd502 && vs_r >= 10'd2 && vs_r < 10'd41);   // W16 dialogue band / W32 hint strip band
-        r1_arr   <= dlg_on && ov_phase[1] && (hs_r >= 10'd604) && (hs_r < 10'd620) && (vs_r >= 10'd418) && (vs_r < 10'd434) &&
-                    ((vs_r < 10'd426 ? (10'd425 - vs_r) : (vs_r - 10'd426)) <= ((10'd619 - hs_r) >> 1));          // W31: blinking arrow = press the attack button
+        r1_band  <= (dlg_on && (dlg_top ? ((vs_r >= 10'd32) && (vs_r < 10'd96)) : ((vs_r >= 10'd384) && (vs_r < 10'd448)))) ||
+                    (txt_scr == 5'd24 && hs_r >= 10'd6 && hs_r < 10'd284 && vs_r >= 10'd40 && vs_r < 10'd78 && (hs_r[0] ^ vs_r[0]));          // hint strip: 50 % dithered, you still see the room through it
+   // W16 dialogue band / W32 hint strip band
+        r1_arr   <= dlg_on && ov_phase[1] && (hs_r >= 10'd604) && (hs_r < 10'd620) && (vs_r >= (dlg_top ? 10'd66 : 10'd418)) && (vs_r < (dlg_top ? 10'd82 : 10'd434)) &&
+                    ((vs_r < (dlg_top ? 10'd74 : 10'd426) ? ((dlg_top ? 10'd73 : 10'd425) - vs_r) : (vs_r - (dlg_top ? 10'd74 : 10'd426))) <= ((10'd619 - hs_r) >> 1));          // W31: blinking arrow = press the attack button
         r1_scr   <= screen;
         // overlay code -> picture: 1 breakable block (if not broken) 0, 2 trap 1, 3 pillar 2, 4 torch 3 + phase, 5 left torch 7, 6 right torch 8, 7 shield 9
         r1_ovs   <= maze_on ? 1'b0 : (ovraw[3:0] == 4'd1) ? !brk[ovraw[6:4]] : (ovraw[3:0] >= 4'd2 && ovraw[3:0] <= 4'd9);
@@ -292,7 +296,7 @@ module renderer (
     wire [11:0] spr_fin = (r2_asel == 3'd1) ? idle_px : (r2_asel == 3'd2) ? atk_px :
                           (r2_asel == 3'd3) ? hurt_px : (r2_asel == 3'd4) ? die_px : spr_px;
     objline     objl (.clk(clk), .ce(ce), .hcount(hcount), .vcount(vcount),
-                      .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
+                      .mon_face(mon_face), .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
                       .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .pb_kind(pb_kind),
                       .eb_act(eb_act), .eb_x(eb_x), .eb_y(eb_y), .melee_on(melee_on), .melee_dir(melee_dir),
                       .pz_act(pz_act), .pz_x(pz_x), .pz_y(pz_y), .pz_frame(pz_frame),
@@ -315,13 +319,13 @@ module renderer (
     // on-screen health: hearts (player) + bar (boss), same latency as the tile path; game screen only
     wire [11:0] hud_px; wire hud_on;
     hud hud0 (.clk(clk), .hcount(hcount), .vcount(vcount), .hp(hud_hp), .hp_max(hud_hp_max), .boss_on(boss_act), .floor(floor),
-              .b_hp(hud_b_hp), .chg_w(chg_w), .mic_on(mic_on), .mic_w(mic_w), .mic_th(mic_th), .mic_hit(mic_hit), .mic_th_bcd(mic_th_bcd), .mic_lv_bcd(mic_lv_bcd), .hud_px(hud_px), .hud_on(hud_on));
+              .b_hp(hud_b_hp), .chg_w(chg_w), .mic_on(mic_on), .mic_w(mic_w), .mic_th(mic_th), .mic_hit(mic_hit), .mic_nums(mic_nums), .mic_th_bcd(mic_th_bcd), .mic_lv_bcd(mic_lv_bcd), .hud_px(hud_px), .hud_on(hud_on));
 
     // ======================= stage 3: เลือกชั้น =======================
     always @(posedge clk) begin
         if (txt_on)                                  color <= dlg_on ? dlg_col : 12'hFFF;    // ข้อความอยู่บนสุด (dialogue: สีตามผู้พูด)
         else if (r2_band)                            color <= r2_arr ? 12'hFFF : 12'h000;    // W16: แถบดำใต้ข้อความ dialogue
-        else if (r2_scr == 3'd0 && hud_on)           color <= hud_px;     // hearts / boss bar above the world
+        else if ((r2_scr == 3'd0 || (r2_scr == 3'd4 && mic_on)) && hud_on) color <= hud_px;    // W36: the meter is also drawn on the title SETTINGS page (black screen)     // hearts / boss bar above the world
         else if (DEATH_ANIM_EN && r2_scr == 3'd2 && r2_p && r2_asel == 3'd4 && spr_fin != C_T) color <= spr_fin;   // death animation over the GAME OVER colour
         else if (r2_scr == 3'd4)                     color <= 12'h000;    // prologue: black screen
         else if (r2_scr == 3'd2)                     color <= C_OVER;

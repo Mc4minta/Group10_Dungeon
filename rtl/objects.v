@@ -64,6 +64,7 @@ module objects (
     output wire [1:0]   trap_a, trap_b, // W19: timed spike phase (0 down, 1 warning, 2 up) of the two trap groups (renderer)
     // ---------- ให้ renderer ----------
     output wire [5:0]   mon_act,
+    output wire [5:0]   mon_face,       // W40: 1 = the monster walks to the left (the picture is mirrored)
     output wire [5:0]   mon_type,       // 0 = A, 1 = B
     output wire [5:0]   mon_flash,      // วาดเป็นสีขาว (กะพริบตอนโดนตี)
     output wire [59:0]  mon_x, mon_y,   // {m5, ..., m0} ตัวละ 10 bit
@@ -90,7 +91,8 @@ module objects (
     localparam R_C1 = 3'd1, R_C2 = 3'd2;
 
     // ---------- slot ----------
-    reg [5:0]  m_act = 0, m_typ = 0;
+    reg [5:0]  m_act = 0, m_typ = 0, m_face = 0;
+    assign mon_face = m_face;
     reg [NM*10-1:0] m_xv = 0;
     reg [NM*10-1:0] m_yv = 0;
     reg [NM*3-1:0] m_hpv = 0;
@@ -99,6 +101,8 @@ module objects (
     reg [5:0]  p_act = 0;
     reg [NP*10-1:0] p_xv = 0;
     reg [NP*10-1:0] p_yv = 0;
+    reg [NP-1:0]   p_free = 0;               // W18 level 2: this shot flies at its own velocity (free angle toward the locked target)
+    reg [NP*4-1:0] p_vxv = 0, p_vyv = 0;     //   signed 4 bit px per frame on each axis (-6 .. 6)
     reg [NP*3-1:0] p_dirv = 0;               // 0 ลง 1 ขึ้น 2 ซ้าย 3 ขวา 4 ลงซ้าย 5 ลงขวา 6 ขึ้นซ้าย 7 ขึ้นขวา
     reg [NP*2-1:0] p_kindv = 0;
     reg [NP-1:0]   p_child = 0;              // W13: ลูกที่แตกจากกระสุนร่าง 3 (ไม่แตกซ้ำ, มีอายุ)
@@ -144,6 +148,13 @@ module objects (
     // W5: tile under the player's centre (spike trap) and under the centre of the melee box (breakable block)
     wire [11:0] addr_t = taddr(grid, px + 10'd16, py + 10'd16);
     tilemap_rom rom_t (.addr(addr_t), .brk(brk), .data(), .ov(ovt));
+    // W39b: spikes hurt when ANY part of the hurt box stands on them: the centre tile plus the 4 corners of the 16 x 16 hurt box (before: the centre tile only,
+    // so a hero that visibly stood on the spikes was not hurt when its centre was on the next tile)
+    wire [7:0] ovc0, ovc1, ovc2, ovc3;
+    tilemap_rom rom_c0 (.addr(taddr(grid, px + 10'd9,  py + 10'd9)),  .brk(brk), .data(), .ov(ovc0));
+    tilemap_rom rom_c1 (.addr(taddr(grid, px + 10'd23, py + 10'd9)),  .brk(brk), .data(), .ov(ovc1));
+    tilemap_rom rom_c2 (.addr(taddr(grid, px + 10'd9,  py + 10'd23)), .brk(brk), .data(), .ov(ovc2));
+    tilemap_rom rom_c3 (.addr(taddr(grid, px + 10'd23, py + 10'd23)), .brk(brk), .data(), .ov(ovc3));
     // W19: timed spike traps (overlay code 8 = phase A, 9 = phase B, floor 2): down 90 frames, warning 30, up 60, loop 180; B is half a loop behind A.
     // Always safe for the first 60 frames after entering a room. Code 2 stays the static trap (always up, 1 damage).
     reg  [7:0] trap_t = 8'd0;
@@ -155,9 +166,15 @@ module objects (
     wire [7:0] trap_tb = (trap_t >= TRAP_LOOP / 2) ? trap_t - TRAP_LOOP / 2 : trap_t + TRAP_LOOP / 2;
     assign trap_a = (trap_grace != 0) ? 2'd0 : trap_ph(trap_t);
     assign trap_b = (trap_grace != 0) ? 2'd0 : trap_ph(trap_tb);
-    wire trap_timed = (ovt[3:0] == 4'd8) || (ovt[3:0] == 4'd9);
-    wire trap_under = (ovt[3:0] == 4'd2) ||
-                      (ovt[3:0] == 4'd8 && trap_a == 2'd2) || (ovt[3:0] == 4'd9 && trap_b == 2'd2);
+    // (the phases are passed as arguments: a continuous assignment is only re-evaluated when an ARGUMENT of the function changes)
+    function tact(input [3:0] c, input [1:0] pa, input [1:0] pb);   // this overlay code is a spike that is up right now
+        tact = (c == 4'd2) || (c == 4'd8 && pa == 2'd2) || (c == 4'd9 && pb == 2'd2);
+    endfunction
+    function ttim(input [3:0] c, input [1:0] pa, input [1:0] pb);   // ... and it is a timed one (2 HP)
+        ttim = (c == 4'd8 && pa == 2'd2) || (c == 4'd9 && pb == 2'd2);
+    endfunction
+    wire trap_timed = ttim(ovt[3:0], trap_a, trap_b) || ttim(ovc0[3:0], trap_a, trap_b) || ttim(ovc1[3:0], trap_a, trap_b) || ttim(ovc2[3:0], trap_a, trap_b) || ttim(ovc3[3:0], trap_a, trap_b);
+    wire trap_under = tact(ovt[3:0], trap_a, trap_b) || tact(ovc0[3:0], trap_a, trap_b) || tact(ovc1[3:0], trap_a, trap_b) || tact(ovc2[3:0], trap_a, trap_b) || tact(ovc3[3:0], trap_a, trap_b);
     // กระสุน: หยุดที่ # ประตูปิด (D ตอนล็อก, L ตอนยังไม่เปิด, E); ผ่าน H F
     function bpass(input [3:0] t);
         case (t)
@@ -249,6 +266,7 @@ module objects (
         bdmg = (kd == 2'd0) ? DMG2 : (kd == 2'd1) ? DMG3 : (kd == 2'd2) ? DMG4 : BIG_DMG;
     endfunction
     reg [2:0]  pk_s, pd_s;  reg [1:0] pk_k;
+    reg        pf_s; reg [3:0] vx_s, vy_s;                     // W18 level 2
     reg [9:0]  px_s, py_s, nxx, nyy;
     reg [4:0]  psz;
     reg        pout;
@@ -256,6 +274,25 @@ module objects (
     // W18 auto-lock: nearest enemy (6 monsters + boss), 8-direction aim
     reg [11:0] best_d = 12'hFFF, dstm; reg signed [11:0] bdx = 0, bdy = 0, tdx, tdy, lax, lay; reg found = 1'b0, cand_act;
     reg [11:0] ccx, ccy; reg [2:0] aim_dir = 3'd0;
+    // W18 level 2: free-angle velocity. The major axis moves S px / frame, the minor axis round(S * min / max) (counted with S comparisons, no divider),
+    // so a shot has up to 4 x S + ... distinct angles instead of 8. Result {vx[3:0], vy[3:0]} (signed).
+    function [7:0] fvel(input signed [11:0] dx, input signed [11:0] dy, input [2:0] S);
+        reg [11:0] ax, ay, mx, mn; reg [3:0] q, vxm, vym; reg [15:0] lhs;
+        begin
+            ax = dx[11] ? -dx : dx; ay = dy[11] ? -dy : dy;
+            mx = (ax >= ay) ? ax : ay; mn = (ax >= ay) ? ay : ax;
+            lhs = mn * {S, 1'b0};                                   // min * 2S
+            q = 4'd0;
+            if (S >= 3'd1 && lhs >= mx * 1)  q = q + 4'd1;
+            if (S >= 3'd2 && lhs >= mx * 3)  q = q + 4'd1;
+            if (S >= 3'd3 && lhs >= mx * 5)  q = q + 4'd1;
+            if (S >= 3'd4 && lhs >= mx * 7)  q = q + 4'd1;
+            if (S >= 3'd5 && lhs >= mx * 9)  q = q + 4'd1;
+            if (S >= 3'd6 && lhs >= mx * 11) q = q + 4'd1;
+            vxm = (ax >= ay) ? {1'b0, S} : q;  vym = (ax >= ay) ? q : {1'b0, S};
+            fvel = {dx[11] ? -vxm : vxm, dy[11] ? -vym : vym};
+        end
+    endfunction
     reg [2:0]  tgt_idx = 3'd7, best_i = 3'd7;                 // W18 level 3: sticky lock: the current target keeps a 48 px bonus (7 = none)
     reg [11:0] dstm_s, tgx;
     wire [1:0] fe   = lock_use ? lock_face : facing;               // facing used by the melee box
@@ -442,6 +479,7 @@ module objects (
                     for (q = 0; q < NP; q = q + 1)
                         if (!sp_done && !p_act[q]) begin
                             p_act[q] <= 1'b1; p_kindv[q*2 +: 2] <= 2'd3; p_dirv[q*3 +: 3] <= aim8; p_child[q] <= 1'b0;
+                            p_free[q] <= lock_use; {p_vxv[q*4 +: 4], p_vyv[q*4 +: 4]} <= fvel(bdx, bdy, BIG_SPEED);        // W18 level 2: the big ball flies at the target
                             p_xv[q*10 +: 10] <= px + 10'd8; p_yv[q*10 +: 10] <= py + 10'd8;
                             sp_done = 1'b1; ev_shoot <= 1'b1; ev_shoot_k <= 2'd3;
                         end
@@ -467,6 +505,8 @@ module objects (
                     if (freev[q] && nsp < ((form == 2'd2) ? AOE_PARENTS : 1)) begin
                         p_child[q] <= 1'b0;
                         p_act[q] <= 1'b1; p_kindv[q*2 +: 2] <= pk_k; p_dirv[q*3 +: 3] <= sdir[nsp];
+                        p_free[q] <= lock_use && (pk_k != 2'd1);                                                          // W18 level 2: form 2 / 4 shots fly at the target
+                        {p_vxv[q*4 +: 4], p_vyv[q*4 +: 4]} <= fvel(bdx, bdy, (pk_k == 2'd0) ? PB_SPEED : TAP_SPEED);
                         p_xv[q*10 +: 10] <= px + 10'd12; p_yv[q*10 +: 10] <= py + 10'd12;
                         nsp = nsp + 1;
                     end
@@ -482,10 +522,18 @@ module objects (
             pk_k = p_kindv[i[2:0]*2 +: 2]; pd_s = p_dirv[i[2:0]*3 +: 3];
             pk_s = bspd(pk_k, pd_s); psz = (pk_k == 2'd3) ? 5'd16 : 5'd8;
             px_s = p_xv[i[2:0]*10 +: 10]; py_s = p_yv[i[2:0]*10 +: 10];
+            pf_s = p_free[i[2:0]]; vx_s = p_vxv[i[2:0]*4 +: 4]; vy_s = p_vyv[i[2:0]*4 +: 4];
+            if (pf_s) begin                                                  // W18 level 2: free-angle shot
+                pout = (vx_s[3] && px_s < {6'd0, -vx_s}) || (!vx_s[3] && vx_s != 0 && px_s + {6'd0, vx_s} > 10'd640 - psz) ||
+                       (vy_s[3] && py_s < {6'd0, -vy_s}) || (!vy_s[3] && vy_s != 0 && py_s + {6'd0, vy_s} > 10'd480 - psz);
+                nxx = px_s + {{6{vx_s[3]}}, vx_s};
+                nyy = py_s + {{6{vy_s[3]}}, vy_s};
+            end else begin
             pout = (dl(pd_s) && px_s < pk_s) || (dr(pd_s) && px_s + pk_s > 10'd640 - psz) ||
                    (du(pd_s) && py_s < pk_s) || (dd(pd_s) && py_s + pk_s > 10'd480 - psz);
             nxx = dl(pd_s) ? px_s - pk_s : dr(pd_s) ? px_s + pk_s : px_s;
             nyy = du(pd_s) ? py_s - pk_s : dd(pd_s) ? py_s + pk_s : py_s;
+            end
             if (!p_act[i[2:0]] || pout) begin
                 if (pout) p_act[i[2:0]] <= 1'b0;
                 if (i == NP - 1) begin j <= 0; st <= S_EB; end
@@ -555,6 +603,7 @@ module objects (
                         else i <= i + 1'b1;
                     end
                 end else if (mon_go && px != m_xv[(i)*10 +: 10]) begin           // มอน A แกน x (mon_go: เดินทุก MON_A_MOVE_EVERY เฟรม)
+                    m_face[i] <= (px <= m_xv[(i)*10 +: 10]) ? MON_FACE_LEFT_IS_FLIP[0] : ~MON_FACE_LEFT_IS_FLIP[0];     // W40: turn toward the walking direction
                     if (px > m_xv[(i)*10 +: 10]) begin
                         nx <= m_xv[(i)*10 +: 10] + MON_A_SPEED;
                         ta <= taddr(grid, m_xv[(i)*10 +: 10] + MON_A_SPEED + 10'd27, m_yv[(i)*10 +: 10] + 10'd4);
@@ -621,13 +670,13 @@ module objects (
                 ovl({1'b0, p_xv[j[2:0]*10 +: 10]} + OFS, {1'b0, p_yv[j[2:0]*10 +: 10]} + OFS, {2'b00, psz}, {2'b00, psz},
                     {1'b0, m_xv[(i)*10 +: 10]} + OFS + 11'd4, {1'b0, m_yv[(i)*10 +: 10]} + OFS + 11'd4, 7'd24, 7'd24)) begin
                 if (pk_k == 2'd1 && !p_child[j[2:0]]) begin       // W13: กระสุนร่าง 3 โดนมอน -> แตก 4 ทิศ (ลง ขึ้น ซ้าย ขวา) จากกลางมอน
-                    p_dirv[j[2:0]*3 +: 3] <= 3'd0; p_child[j[2:0]] <= 1'b1; p_lifev[j[2:0]*5 +: 5] <= SPLIT_LIFE;
+                    p_dirv[j[2:0]*3 +: 3] <= 3'd0; p_child[j[2:0]] <= 1'b1; p_free[j[2:0]] <= 1'b0; p_lifev[j[2:0]*5 +: 5] <= SPLIT_LIFE;
                     p_xv[j[2:0]*10 +: 10] <= m_xv[(i)*10 +: 10] + 10'd12; p_yv[j[2:0]*10 +: 10] <= m_yv[(i)*10 +: 10] + 10'd28;
                     nsp = 1;
                     for (q = 0; q < NP; q = q + 1)
                         if (!p_act[q] && nsp < 4) begin
                             p_act[q] <= 1'b1; p_kindv[q*2 +: 2] <= 2'd1; p_child[q] <= 1'b1; p_lifev[q*5 +: 5] <= SPLIT_LIFE;
-                            p_dirv[q*3 +: 3] <= nsp[2:0];
+                            p_dirv[q*3 +: 3] <= nsp[2:0]; p_free[q] <= 1'b0;
                             p_xv[q*10 +: 10] <= m_xv[(i)*10 +: 10] + ((nsp == 2) ? 10'd12 - 10'd16 : (nsp == 3) ? 10'd12 + 10'd16 : 10'd12);
                             p_yv[q*10 +: 10] <= m_yv[(i)*10 +: 10] + ((nsp == 1) ? 10'd12 - 10'd16 : 10'd12);
                             nsp = nsp + 1;
@@ -661,13 +710,13 @@ module objects (
         end
         S_CPM: begin                         // ผู้เล่น x มอน (ชนตัว) + W5 กับดักหนาม
             // กับดัก: ยืนบนหนาม (ร่าง 3 บินผ่าน) -> HP -1 + knockback ถอยหลังตามทิศที่หัน (ใช้ช่วงอมตะเดียวกัน)
-            if (i == 0 && hurt_cnt == 0 && trap_under && form != 2'd2) begin
+            if (i == 0 && hurt_cnt == 0 && trap_under) begin                 // W39b: every form is hurt (the Angel no longer flies over spikes)
                 hit <= 1'b1; kb_start <= 1'b1;
                 hit_again <= trap_timed;                      // W19: timed trap = 2 damage
                 kb_dir <= (facing == 2'd0) ? 2'd1 : (facing == 2'd1) ? 2'd0 : (facing == 2'd2) ? 2'd3 : 2'd2;
                 hurt_cnt <= KB_FRAMES + INV_FRAMES;
             end
-            if (hurt_cnt == 0 && m_act[i] &&
+            if (hurt_cnt == 0 && m_act[i] && !m_typ[i] &&                       // W39: a turret (type B) never hurts by touch, only by its bullets
                 ovl(plx, ply, HURT_BOX, HURT_BOX,
                     {1'b0, m_xv[(i)*10 +: 10]} + OFS + 11'd4, {1'b0, m_yv[(i)*10 +: 10]} + OFS + 11'd4, 7'd24, 7'd24)) begin
                 hit <= 1'b1; kb_start <= 1'b1;
