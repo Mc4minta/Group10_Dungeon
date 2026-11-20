@@ -61,6 +61,8 @@ Not used by the game at all: `Jump.png`, `ChargedAttack.png`.
 | maze ball | AXIALE orb (`my_asset/ball/orb_rotate.png`, derived 16x16 `ball_0..3.png` by `scripts/make_ball_art.py`, 2x = 20x20 = the collision box; puzzle frames 10-13, picture follows the position = rolling) | FINAL |
 | boss-3 key item | `my_asset/props/keys_1_1.png`, 2x (puzzle frame 14, lies where boss 3 died) | FINAL |
 | overlay: breakable block `Z` / spike trap `X` (red plate + spikes) / solid decoration `Y` | `my_asset/props/box_1_1.png`, `peaks_1.png`, `candlestick_1_1.png`, 2x (`sprites/overlay.json` -> `mem/ovtile.mem`, +2 RAMB36) | FINAL art slots; swap the PNG in `overlay.json` to change |
+| Sokoban pressed plate with the box on it (W26) | composed by `scripts/make_plate_box.py` from `plate.png` (pressed) + `box_1_1.png` (2x) -> `my_asset/props/plate_box.png`, tile 11 | GENERATED: re-run the script if the plate or box picture changes |
+| overlay W19 timed spikes (floor 2): picture 10 flat, 11 half up, 12 fully up (= picture 1) | 10 / 11 drawn in code (`timed_pic` in `scripts/build_overlay_mem.py`: red base + dark holes / small grey tips), 12 copies the `X` picture; no new BRAM (same 16-picture ROM) | PLACEHOLDER look for flat / half: replace with real art if wanted |
 | floor colours | floor 1 purple, 2 teal, 3 olive (recolor + gain 1.7) | FINAL (adjust in `tileset.json`) |
 | wall variety (corners, tops, torches) | none: one wall id only | NOT POSSIBLE without Verilog (NEXT_STEPS C1) |
 

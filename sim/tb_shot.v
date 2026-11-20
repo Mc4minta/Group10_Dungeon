@@ -14,7 +14,7 @@ module tb_shot;
     reg [8:0] pz_act = 0; reg [89:0] pz_x = 0, pz_y = 0; reg [35:0] pz_frame = 0;
     reg [1:0] fl; reg [3:0] gr;
     wire [11:0] color;
-    renderer dut (.ov_phase(2'd0), .fade(2'd0), .dlg_on(1'b0), .dlg_b0(12'd0), .dlg_b1(12'd0), .dlg_n0(5'd0), .dlg_n1(5'd0), .dlg_col(12'hFFF), .p_hurt(1'b0), .open_E(1'b0), .brk(8'd0),
+    renderer dut (.mic_th_bcd(16'd0), .mic_lv_bcd(16'd0), .mic_on(1'b0), .mic_w(7'd0), .mic_th(7'd0), .mic_hit(1'b0), .chg_lvl(3'd0), .facing(2'd0), .boss_fcol(12'hFFF), .chg_w(7'd0), .ov_phase(2'd0), .fade(2'd0), .dlg_on(1'b0), .dlg_b0(12'd0), .dlg_b1(12'd0), .dlg_n0(5'd0), .dlg_n1(5'd0), .dlg_col(12'hFFF), .p_hurt(1'b0), .open_E(1'b0), .brk(8'd0),
         .clk(clk), .ce(1'b1), .hcount(hc), .vcount(vc), .grid(gr), .floor(fl), .form(2'd0),
         .doors_open(doors != 0), .open_L(openl != 0), .screen(scr[2:0]), .hide_player(1'b0), .px(px[9:0]), .py(py[9:0]), .pframe(pf[5:0]),
         .p_anim(3'd0), .p_aframe(6'd0), .mon_act(mon_act), .mon_type(mon_type), .mon_flash(6'd0), .mon_x(mon_x), .mon_y(mon_y), .mon_anim(1'b0),

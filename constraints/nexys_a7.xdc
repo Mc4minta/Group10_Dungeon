@@ -111,3 +111,7 @@ set_property -dict { PACKAGE_PIN D15 IOSTANDARD LVCMOS33 } [get_ports ACL_CSN]
 ## Configuration
 set_property CONFIG_VOLTAGE 3.3 [current_design]
 set_property CFGBVS VCCO [current_design]
+
+## W22 USB keyboard: the Nexys A7 USB-HID port reaches the FPGA as a PS/2 keyboard (PIC24 emulation)
+set_property -dict { PACKAGE_PIN F4 IOSTANDARD LVCMOS33 PULLUP true } [get_ports PS2_CLK]
+set_property -dict { PACKAGE_PIN B2 IOSTANDARD LVCMOS33 PULLUP true } [get_ports PS2_DATA]

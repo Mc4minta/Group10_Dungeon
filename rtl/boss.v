@@ -1,6 +1,7 @@
 // P5: บอส 3 ตัว (module เดียว + ROM พารามิเตอร์ boss_rom) — ใช้ slot บอสที่สำรองไว้ใน objects.v
 //
-//   บอส 1 (ชั้น 1): HP 10, ไล่เร็ว 2 px/เฟรม, ไม่ยิง, รับดาเมจตลอด, ตบมือ (หรือ SW11) = มึน 180 เฟรม แล้ว cooldown 240 (W10)
+//   W20: all bosses shoot patterns (fire_pat: 0 cross, 1 ring, 2 X, 3 aimed fan) every BOSS*_FIRE frames, blink (warn) BOSS_WARN frames before; boss 1 / 3 chase slowly
+//   บอส 1 (ชั้น 1): HP 10, ไล่ (W20: ช้าลง 1 px ทุก 2 เฟรม), ยิงกระสุนเป็นแพทเทิร์น, รับดาเมจตลอด, ตบมือ (หรือ SW11) = มึน 180 เฟรม แล้ว cooldown 240 (W10)
 //   บอส 2 (ชั้น 2): HP 16, อยู่กับที่, เรียกลูกน้อง 3 ตัวต่อรอบ; ตีได้ตลอด (W17; เดิม W11 ตีได้เฉพาะตอนลูกน้องตายหมด) ลูกน้องตายหมด -> รอ 120 เฟรม -> summon รอบใหม่
 //   บอส 3 (ชั้น 3): HP 3, เกราะ: รับเฉพาะกระสุนชาร์จ (ทีละ 1); ไล่ 180 เฟรม -> ชาร์จโจมตีใหญ่ 120 เฟรม (หยุดนิ่ง กะพริบ) -> ผู้เล่นตาย (kill) / ถูกชาร์จขัดแล้ววนใหม่ (W12)
 //   (ค่าทั้งหมดอยู่ใน params.vh)
@@ -25,9 +26,9 @@ module boss_rom (
     // ใช้ assign (iverilog ไม่คิด always @* ที่ input ไม่เคยเปลี่ยน -> X)
     assign hp        = (kind == 2'd0) ? BOSS1_HP    : (kind == 2'd1) ? BOSS2_HP    : BOSS3_HP;
     assign speed     = (kind == 2'd0) ? BOSS1_SPEED : (kind == 2'd1) ? BOSS2_SPEED : BOSS3_SPEED;
-    assign every     = (kind == 2'd0) ? BOSS1_EVERY : 2'd1;
+    assign every     = (kind == 2'd0) ? BOSS1_EVERY : (kind == 2'd2) ? BOSS3_EVERY : 2'd1;
     assign bounce    = 1'b0;                      // ไม่มีบอสเด้งแล้ว (W11)
-    assign fire      = (kind == 2'd0) ? 7'd0 : (kind == 2'd1) ? BOSS2_FIRE : BOSS3_FIRE;
+    assign fire      = (kind == 2'd0) ? BOSS1_FIRE : (kind == 2'd1) ? BOSS2_FIRE : BOSS3_FIRE;
     assign stunnable = (kind == 2'd0);            // W10: ตบมือ = บอส 1 มึน
     assign fence     = (kind == 2'd1);
 endmodule
@@ -54,7 +55,12 @@ module boss (
     output reg  [1:0]  kind = 0,
     output wire        flash,            // วาดขาว
     output wire        stunned,
-    output reg         fire = 1'b0,      // pulse: ยิง 4 ทิศจากจุดกลาง (objects.v ใส่ slot กระสุนศัตรู)
+    output reg         fire = 1'b0,      // pulse: fire a bullet pattern from the centre (objects.v puts it in enemy bullet slots)
+    output reg  [1:0]  fire_pat = 2'd0,  // W20: pattern of this pulse: 0 cross (4 straight), 1 ring (8), 2 X (4 diagonals), 3 aimed fan (3 bullets at the player)
+    output reg         fire_heavy = 1'b0,// W24: this volley is the boss-3 storm: its bullets hurt 2 HP
+    output wire [1:0]  tele_lvl,         // W21: charge progress in quarters 0..3 (blink gets faster)
+    output wire [6:0]  chg_w,            // W21: charge bar fill in px (0..120), 0 when not charging
+    output wire        warn,             // W20: the boss is about to fire (last BOSS_WARN frames): drawn blinking
     output reg         died = 1'b0,      // pulse: บอสตาย (kind บอกว่าตัวไหน)
     output reg         summon = 1'b0,    // pulse: บอส 2 เรียกลูกน้อง (objects.v spawn)
     output reg         kill = 1'b0,      // pulse: โจมตีใหญ่ของบอส 3 ถูกผู้เล่น (HP -> 0)
@@ -109,7 +115,23 @@ module boss (
     assign shield = 1'b0;                                   // W17: boss 2 no longer has a shield (it can always be hit)
     assign vuln   = act && kind == 2'd1 && bs2 == 2'd2;
     assign tele   = act && kind == 2'd2 && b3;
-    wire       acc = (kind == 2'd0) || (kind == 2'd1) || (kind == 2'd2 && dmg_big);   // W17: boss 2 takes damage in every state
+    reg [1:0]  s3 = 2'd0;                                   // W24: boss 3 after the charge: 0 none, 1 storm, 2 rest (vulnerable)
+    reg [5:0]  stf = 0;                                     // storm volley timer
+    reg [2:0]  sn = 0;                                      // storm volley number
+    wire [8:0] chg_el = BOSS3_CHARGE - phase_t;             // frames charged so far
+    assign tele_lvl = (chg_el < BOSS3_CHARGE / 4) ? 2'd0 : (chg_el < BOSS3_CHARGE / 2) ? 2'd1 : (chg_el < BOSS3_CHARGE * 3 / 4) ? 2'd2 : 2'd3;
+    assign chg_w    = (act && kind == 2'd2 && b3) ? chg_el[7:1] : 7'd0;
+    reg [1:0]  pcnt = 2'd0;                                 // W20: pattern counter, steps with every volley
+    assign warn   = act && p_fire != 0 && !stunned && !b3 && s3 == 2'd0 && ftmr < BOSS_WARN;
+    // W20 pattern lists (4 volleys, then again): boss 1 fan fan ring fan; boss 2 cross X cross X (spiral look); boss 3 cross X ring fan
+    function [1:0] pat_of(input [1:0] k, input [1:0] c);
+        case (k)
+            2'd0:    pat_of = (c == 2'd2) ? 2'd1 : 2'd3;
+            2'd1:    pat_of = c[0] ? 2'd2 : 2'd0;
+            default: pat_of = (c == 2'd0) ? 2'd0 : (c == 2'd1) ? 2'd2 : (c == 2'd2) ? 2'd1 : 2'd3;
+        endcase
+    endfunction
+    wire       acc = (kind == 2'd0) || (kind == 2'd1) || (kind == 2'd2 && (dmg_big || s3 == 2'd2));   // W24: boss 3 is open to any hit during its rest   // W17: boss 2 takes damage in every state
     wire [2:0] amt = (kind == 2'd2) ? 3'd1 : dmg_amt;
 
     localparam [3:0] B_IDLE = 4'd0, B_DLY = 4'd1, B_X0 = 4'd2, B_X1 = 4'd3, B_X2 = 4'd4,
@@ -152,9 +174,10 @@ module boss (
                         bx   <= (floor == 2'd1) ? {BOSSB_TX, 5'd0} - 10'd16 : {BOSSA_TX, 5'd0} - 10'd16;
                         by   <= (floor == 2'd1) ? {1'b0, BOSSB_TY, 5'd0} - 10'd16 : {1'b0, BOSSA_TY, 5'd0} - 10'd16;
                         stn <= 0; fl <= 0; ecnt <= 0; sx <= 1'b0; sy <= 1'b1;
-                        bs2 <= 2'd0; b3 <= 1'b0;
+                        bs2 <= 2'd0; b3 <= 1'b0; s3 <= 2'd0;
                         phase_t <= (floor == 2'd1) ? BOSS2_FIRST : BOSS3_CHASE;
-                        ftmr <= (floor == 2'd2) ? BOSS3_FIRE - 1 : 7'd0;
+                        ftmr <= (floor == 2'd0) ? BOSS1_FIRE - 1 : (floor == 2'd1) ? BOSS2_FIRE - 1 : BOSS3_FIRE - 1;   // W20: first volley a full period after entering
+                        pcnt <= 2'd0;
                         hp <= (floor == 2'd0) ? BOSS1_HP : (floor == 2'd1) ? BOSS2_HP : BOSS3_HP;
                         hp_bar <= 8'hFF;
                     end
@@ -181,15 +204,24 @@ module boss (
                     // บอส 3: ไล่ -> ชาร์จ -> โจมตีใหญ่ (kill) -> ไล่
                     if (kind == 2'd2) begin
                         if (phase_t == 0) begin
-                            if (b3) begin kill <= 1'b1; b3 <= 1'b0; phase_t <= BOSS3_CHASE; end
+                            if (b3) begin b3 <= 1'b0; s3 <= 2'd1; phase_t <= BOSS3_STORM; stf <= 0; sn <= 0; end     // W24: charge done -> storm (no instant kill)
+                            else if (s3 == 2'd1) begin s3 <= 2'd2; phase_t <= BOSS3_REST; end                       // storm done -> rest
+                            else if (s3 == 2'd2) begin s3 <= 2'd0; phase_t <= BOSS3_CHASE; end                      // rest done -> chase again
                             else begin b3 <= 1'b1; phase_t <= BOSS3_CHARGE; end
                         end else phase_t <= phase_t - 1'b1;
+                        // W24 storm volleys: cross, X, ring, X, cross ... every BOSS3_STORM_PERIOD frames, heavy bullets
+                        if (s3 == 2'd1) begin
+                            if (stf == 0) begin
+                                fire <= 1'b1; fire_heavy <= 1'b1; fire_pat <= (sn == 3'd2) ? 2'd1 : sn[0] ? 2'd2 : 2'd0;
+                                sn <= sn + 1'b1; stf <= BOSS3_STORM_PERIOD - 1;
+                            end else stf <= stf - 1'b1;
+                        end
                     end
-                    if (stunned || (kind == 2'd2 && b3)) st <= B_END;
+                    if (stunned || (kind == 2'd2 && (b3 || s3 != 2'd0))) st <= B_END;
                     else begin
                         // ยิง
                         if (p_fire != 0) begin
-                            if (ftmr == 0) begin fire <= 1'b1; ftmr <= p_fire - 1; end
+                            if (ftmr == 0) begin fire <= 1'b1; fire_heavy <= 1'b0; fire_pat <= pat_of(kind, pcnt); pcnt <= pcnt + 1'b1; ftmr <= p_fire - 1; end
                             else ftmr <= ftmr - 1'b1;
                         end
                         // เดินทุก every เฟรม

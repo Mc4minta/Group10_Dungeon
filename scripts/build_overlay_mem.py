@@ -5,7 +5,7 @@
     python scripts/build_overlay_mem.py --preview    also write preview/overlay_tiles.png
 
 16 pictures x 32x32 x 12-bit words (address = pic*1024 + y*32 + x): 0 breakable block, 1 spike trap, 2 solid decoration, 3-6 wall torch (4 flame frames),
-7 left-wall torch, 8 right-wall torch, 9 wall shield, 10-15 spare.
+7 left-wall torch, 8 right-wall torch, 9 wall shield, 10 / 11 / 12 timed spikes flat / half / up (W19), 13-15 spare.
 F0F = see-through (the floor shows). A 16x16 source is scaled exactly 2x (nearest neighbour). "cut" = exact [r,g,b] colours made see-through,
 "plate" = [r,g,b] rectangle drawn under the picture (the trap's red base).
 Rule 1: a missing / unreadable / empty picture falls back to a simple procedural placeholder with a printed warning. Exit code 0 always (the game builds).
@@ -19,7 +19,7 @@ from PIL import Image, ImageDraw
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 KEY = 0xF0F
 NPIC = 16
-NAMES = ["breakable block", "spike trap", "solid decoration", "torch 0", "torch 1", "torch 2", "torch 3", "torch left", "torch right", "wall shield"] + ["spare"] * 6
+NAMES = ["breakable block", "spike trap", "solid decoration", "torch 0", "torch 1", "torch 2", "torch 3", "torch left", "torch right", "wall shield"] + ["timed spikes flat", "timed spikes half", "timed spikes up"] + ["spare"] * 3
 
 
 def to444(r, g, b):
@@ -38,6 +38,20 @@ def placeholder(i):
             d.polygon([(x, 26), (x + 4, 6), (x + 8, 26)], fill=(220, 220, 230, 255))
     elif i == 2:
         d.rectangle((9, 4, 22, 29), fill=(120, 120, 135, 255), outline=(50, 50, 60, 255))
+    return im
+
+
+def timed_pic(i):
+    """W19: 10 = spikes flat (red base + 6 dark holes), 11 = spikes half up (small grey tips). Same base colour as picture 1."""
+    im = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    d.rectangle((2, 2, 29, 29), fill=(80, 32, 32, 255))
+    for x in (7, 15, 23):
+        for y in (9, 21):
+            if i == 10:
+                d.rectangle((x, y, x + 2, y + 2), fill=(30, 10, 10, 255))
+            else:
+                d.polygon([(x - 2, y + 5), (x + 1, y - 3), (x + 4, y + 5)], fill=(200, 200, 215, 255))
     return im
 
 
@@ -91,7 +105,11 @@ def main(argv=None):
     warn, words, imgs = [], [], []
     for i in range(NPIC):
         spec = cfg.get("pics", {}).get(str(i))
-        if i >= 10 and not spec:
+        if i in (10, 11):                                  # W19: timed spikes: flat / half up (procedural, same red base as picture 1)
+            im, fb = timed_pic(i), False
+        elif i == 12:                                      # W19: timed spikes fully up = picture 1
+            im, fb = imgs[1].copy(), False
+        elif i >= 10 and not spec:
             im, fb = Image.new("RGBA", (32, 32), (0, 0, 0, 0)), False
         else:
             im, fb = load_pic(i, spec, alpha, warn)
@@ -108,8 +126,8 @@ def main(argv=None):
         f.write(chr(10).join(f"{w:03x}" for w in words) + chr(10))
     print("Wrote mem/ovtile.mem (%d words)" % (NPIC * 1024))
     if "--preview" in argv:
-        sheet = Image.new("RGBA", (10 * 68, 68 * 2), (60, 100, 60, 255))
-        for i, im in enumerate(imgs[:10]):
+        sheet = Image.new("RGBA", (13 * 68, 68 * 2), (60, 100, 60, 255))
+        for i, im in enumerate(imgs[:13]):
             sheet.paste(im.resize((64, 64), Image.NEAREST), (i * 68 + 2, 2), im.resize((64, 64), Image.NEAREST))
         os.makedirs(os.path.join(root, "preview"), exist_ok=True)
         sheet.save(os.path.join(root, "preview", "overlay_tiles.png"))

@@ -13,3 +13,4 @@ localparam HURT_STEP      = 4;     // game frames per hurt picture (4 pictures)
 localparam SHOT_STEP      = 3;     // W14: game frames per attack picture when a form 2 / 3 shoots (4 pictures)
 localparam FLASH_FRAMES   = 12;     // W14: frames of the red hurt flash
 localparam DEATH_STEP     = 6;     // game frames per death picture (12 pictures, last one is held)
+localparam ORB_DIST         = 18;      // W25: distance of the growing charge ball from the hero centre (px, in the facing direction)

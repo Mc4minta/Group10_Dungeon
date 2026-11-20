@@ -450,9 +450,14 @@ module tb_objects;
         check(nb_big == 0, "held 44 frames: released without a big shot");
         frames(20); clear_all;
         @(posedge clk) begin atk_press <= 1; atk_hold <= 1; end @(posedge clk) atk_press <= 0;
-        frames(1); frames(45);                   // ค้าง 45 เฟรมหลังนัดเร็ว
-        check(charged, "held 45 frames: charged (player flashes)");
+        frames(1);
+        check(dut.chg_lvl == 3'd1, "W25: the charge ball appears at once (step 1)");
+        frames(24); check(dut.chg_lvl == 3'd2, "W25: after about half the charge: step 2");
+        frames(10); check(dut.chg_lvl == 3'd3, "W25: after about 3/4: step 3");
+        frames(11);                              // ค้าง 45 เฟรมหลังนัดเร็ว
+        check(charged && dut.chg_lvl == 3'd4, "held 45 frames: charged (player flashes), ball at full size");
         atk_hold = 0; frames(2);
+        check(dut.chg_lvl == 3'd0, "W25: the ball is gone after the release");
         nb_big = 0; for (n = 0; n < 6; n = n + 1) if (pb_act[n] && pb_kind[n*2 +: 2] == 3) nb_big = nb_big + 1;
         check(nb_big == 1 && !charged, "release after 45 frames: one big 16x16 shot");
         clear_all;
@@ -582,6 +587,47 @@ module tb_objects;
             place(0, 288, 224); clear_all; heal; dut.hurt_cnt = 7'd0;
             hits0 = hits; frames(4);
             check(hits == hits0, "W5: form 3 (Angel) flies over spike traps");
+            set_ov(7 * 20 + 9, 8'h00);
+            clear_all; heal;
+        end
+
+        // ================= 10b. W19 timed spike traps (overlay code 8 = phase A, 9 = phase B): safe / warning / up, 2 damage =================
+        begin : w19
+            integer hp0, hits0;
+            set_ov(7 * 20 + 9, 8'h08);
+            while (busy) @(posedge clk); fsm.form = 2'd0;
+            // down: safe
+            place(0, 288, 224); clear_all; heal; dut.hurt_cnt = 7'd0; dut.trap_grace = 6'd0; dut.trap_t = 8'd10;
+            hits0 = hits; frames(3);
+            check(hits == hits0 && dut.trap_a == 2'd0, "W19: spikes down = safe");
+            // warning: still safe
+            dut.trap_t = 8'd95; frames(3);
+            check(hits == hits0 && dut.trap_a == 2'd1, "W19: warning phase = safe");
+            // up: 2 damage once
+            dut.trap_t = 8'd125; hp0 = fsm.hp;
+            frames(3);
+            check(hits == hits0 + 2 && dut.trap_a == 2'd2, "W19: spikes up hurt (2 hit pulses)");
+            check(fsm.hp == hp0 - 2, "W19: the timed trap takes 2 HP");
+            frames(3);
+            check(hits == hits0 + 2, "W19: no chain hit during invulnerability");
+            // rising under a standing player
+            clear_all; heal; place(0, 288, 224); dut.trap_t = 8'd117; hits0 = hits; frames(6);
+            check(hits == hits0 + 2, "W19: spikes rising under a standing player hurt him");
+            // the cycle wraps and the spikes go down again
+            clear_all; heal; place(0, 288, 224); dut.trap_t = TRAP_LOOP - 2; frames(4);
+            check(dut.trap_t < 8'd10 && dut.trap_a == 2'd0, "W19: the cycle wraps to spikes down");
+            // grace after entering a room: up phase but safe
+            clear_all; heal; place(0, 288, 224); dut.trap_t = 8'd125; dut.trap_grace = 6'd40; hits0 = hits; frames(3);
+            check(hits == hits0 && dut.trap_a == 2'd0, "W19: spikes stay safe during the room-entry grace");
+            // phase B is half a loop behind: t = 40 -> A down, B up
+            set_ov(7 * 20 + 9, 8'h09);
+            clear_all; heal; place(0, 288, 224); dut.trap_grace = 6'd0; dut.trap_t = 8'd40; hits0 = hits; frames(3);
+            check(hits == hits0 + 2 && dut.trap_a == 2'd0 && dut.trap_b == 2'd2, "W19: group B is up while group A is down");
+            // form 3 flies over
+            while (busy) @(posedge clk); fsm.form = 2'd2;
+            clear_all; heal; place(0, 288, 224); dut.trap_t = 8'd40; hits0 = hits; frames(3);
+            check(hits == hits0, "W19: form 3 (Angel) flies over timed spikes");
+            while (busy) @(posedge clk); fsm.form = 2'd0;
             set_ov(7 * 20 + 9, 8'h00);
             clear_all; heal;
         end

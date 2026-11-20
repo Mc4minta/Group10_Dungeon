@@ -17,7 +17,7 @@ module audio #(
     input  wire        rst,
     input  wire        frame_tick,
     input  wire        pause,           // 1 = หยุดเกม (SW15): เงียบ + SFX / BGM ค้างที่เดิม แล้วต่อเมื่อปล่อย
-    input  wire [12:1] ev,              // pulse เอฟเฟกต์ 1..12 (11 = บอสปรากฏ, 12 = ผ่านประตู; 12 ต่ำกว่า 11 เพื่อให้เสียงบอสแทรกเสียงประตูได้)
+    input  wire [13:1] ev,              // pulse เอฟเฟกต์ 1..13 (11 = บอสปรากฏ, 12 = ผ่านประตู; 12 ต่ำกว่า 11 เพื่อให้เสียงบอสแทรกเสียงประตูได้; 13 = W21 boss-3 charge beep, ต่ำสุด)
     input  wire [1:0]  shoot_k,
     input  wire        simon_note_on,
     input  wire [1:0]  simon_note,
@@ -55,6 +55,7 @@ module audio #(
         else if (ev[10]) new_id = 4'd10;
         else if (ev[11]) new_id = 4'd11;
         else if (ev[12]) new_id = 4'd12;
+        else if (ev[13]) new_id = 4'd13;
         new_hp = 0; new_sl = 0; new_len = 0;
         case (new_id)
             4'd1:  begin new_hp = SFX_HURT_HP;  new_sl = SFX_HURT_SL;  new_len = SFX_HURT_LEN;  end
@@ -74,6 +75,7 @@ module audio #(
             4'd10: begin new_hp = SFX_MELEE_HP; new_sl = SFX_MELEE_SL; new_len = SFX_MELEE_LEN; end
             4'd11: begin new_hp = SFX_BOSS_HP;  new_sl = SFX_BOSS_SL;  new_len = SFX_BOSS_LEN;  end
             4'd12: begin new_hp = SFX_DOOR_HP;  new_sl = SFX_DOOR_SL;  new_len = SFX_DOOR_LEN;  end
+            4'd13: begin new_hp = SFX_CHG_HP;   new_sl = SFX_CHG_SL;   new_len = SFX_CHG_LEN;   end
             default: ;
         endcase
     end

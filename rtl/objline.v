@@ -29,6 +29,7 @@ module objline (
     input  wire [9:0]   boss_x, boss_y,
     input  wire [2:0]   boss_frame,        // 0-5 = บอส*2 + เฟรม
     input  wire         boss_flash,
+    input  wire [11:0]  boss_fcol,        // W21: colour of the boss blink (white for a hit, a colour ramp during the boss-3 charge)
     input  wire [9:0]   sh_dx, sh_dy,      // จอสั่น: offset (two's complement 10 bit) ของพิกัดภาพ (ไม่ยุ่ง sync)
     input  wire [9:0]   px, py,
     output reg  [11:0]  obj_px = 12'hF0F
@@ -89,7 +90,7 @@ module objline (
     // ---------- พอร์ตเขียน: บัฟเฟอร์ละ 1 พอร์ต (วาด ถ้าเป็นบัฟเฟอร์หลัง / ล้าง ถ้าเป็นบัฟเฟอร์หน้า) ----------
     wire [11:0] w_raw = (w_kind == 3'd0) ? mdat : (w_kind == 3'd1) ? bdat : (w_kind == 3'd2) ? edat :
                         (w_kind == 3'd3) ? pdat : gdat;
-    wire [11:0] w_src = ((w_kind == 3'd0 || w_kind == 3'd4) && w_flash) ? 12'hFFF : w_raw;
+    wire [11:0] w_src = ((w_kind == 3'd0 || w_kind == 3'd4) && w_flash) ? ((w_kind == 3'd4) ? boss_fcol : 12'hFFF) : w_raw;
     wire        w_opq = (w_raw != C_T);
     wire        dw    = w_on && w_opq;                                    // วาดพิกเซลทึบ
     // ล้างช้ากว่าตำแหน่งอ่าน 3 พิกเซล (จอสั่นอ่านที่ hcount + dx, dx = -2..+2): x = hcount - 3

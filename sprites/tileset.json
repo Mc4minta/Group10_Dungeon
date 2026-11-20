@@ -37,7 +37,7 @@
     "8":  { "file": "my_asset/props/peaks_3.png", "cell_size": 16, "cell": [0, 0], "base": 1, "cut": [[61, 37, 59], [54, 32, 48]] },
     "9":  { "file": "my_asset/props/peaks_3.png", "cell_size": 16, "cell": [0, 0], "base": 1, "cut": [[61, 37, 59], [54, 32, 48]] },
     "10": { "cell": [2, 3], "gain": 1.0 },
-    "11": { "file": "my_asset/props/plate.png", "cell_size": 32, "base": 1, "recolor": "rgb", "gain": 1.0, "cell": [1, 0] },
+    "11": { "file": "my_asset/props/plate_box.png", "cell_size": 32, "base": 1, "recolor": "rgb", "gain": 1.0, "cell": [1, 0] },
     "12": { "file": "my_asset/props/plate.png", "cell_size": 32, "base": 1, "recolor": "rgb", "gain": 1.0, "cell": [0, 0], "tint": [235, 60, 60] },
     "13": { "file": "my_asset/props/plate.png", "cell_size": 32, "base": 1, "recolor": "rgb", "gain": 1.0, "cell": [0, 0], "tint": [70, 120, 255] },
     "14": { "file": "my_asset/props/plate.png", "cell_size": 32, "base": 1, "recolor": "rgb", "gain": 1.0, "cell": [0, 0], "tint": [70, 200, 90] },

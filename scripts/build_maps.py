@@ -37,7 +37,8 @@ TILE = {
 }
 DECOR = set(',;:`')
 # W5 overlay layer (separate 4-bit code map, see docs/DESIGN_PLAN.md 5.1): Z breakable block, X spike trap, Y solid decoration
-OVL = {'Z': 1, 'X': 2, 'Y': 3}
+OVL = {'Z': 1, 'X': 2, 'Y': 3, 'W': 8, 'V': 9}   # W19: W / V = timed spike trap (floor 2 only), phase A / B, 2 damage; X stays the static trap (1 damage)
+TIMED_ROOMS = {7, 8}         # grids of floor 2 combat rooms
 # wall decoration (looks only: the tile stays a wall, no collision change): t torch (animated), [ torch on the left wall, ] torch on the right wall, v shield -> overlay codes 4..7
 WALLDECOR = {'t': 4, '[': 5, ']': 6, 'v': 7}
 MAX_BRK = 8                  # breakable blocks per room (state bits in overlay.v)
@@ -74,6 +75,8 @@ for g, path in enumerate(maps):
             if ch in OVL:
                 if g not in OVL_ROOMS:
                     raise ValueError(f'{path} ({tx},{ty}): overlay {ch!r} is not allowed in this room (grid {g})')
+                if ch in 'WV' and g not in TIMED_ROOMS:
+                    raise ValueError(f'{path} ({tx},{ty}): timed trap {ch!r} is only allowed on floor 2 (grids {sorted(TIMED_ROOMS)})')
                 mem.append(TILE['.'])
                 if ch == 'Z':
                     assert nbrk < MAX_BRK, f'{path}: more than {MAX_BRK} breakable blocks'

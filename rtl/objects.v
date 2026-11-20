@@ -39,7 +39,9 @@ module objects (
     // ---------- บอส (slot บอส; ตัว state อยู่ใน boss.v) ----------
     input  wire         boss_act,
     input  wire [9:0]   boss_x, boss_y,   // มุมซ้ายบน sprite 64x64, hitbox 48x48 ที่ +8
-    input  wire         boss_fire,        // pulse: ยิง 4 ทิศจากจุดกลางบอส
+    input  wire         boss_fire,        // pulse: boss fires a pattern from its centre
+    input  wire         boss_heavy,       // W24: the volley is the boss-3 storm (bullets hurt 2 HP)
+    input  wire [1:0]   boss_pat,         // W20: 0 cross (4 straight), 1 ring (8), 2 X (4 diagonals), 3 aimed fan (3 bullets at the player)
     input  wire [7:0]   brk,                // W5: บล็อกพังได้ของห้องนี้ที่พังแล้ว (overlay.v)
     output reg          brk_set = 1'b0,     // pulse: กระสุน / ฟันโดนบล็อกพังได้ -> overlay.v ตั้งบิต brk_idx
     output reg  [2:0]   brk_idx = 3'd0,
@@ -58,6 +60,7 @@ module objects (
     output wire         invuln,         // อยู่ในช่วง knockback + อมตะ
     output wire         player_blink,   // ซ่อน sprite ผู้เล่นเฟรมนี้ (กะพริบตอนอมตะ)
     output wire         busy,           // กำลังประมวลผล (ใช้วัดจำนวน clock ใน testbench)
+    output wire [1:0]   trap_a, trap_b, // W19: timed spike phase (0 down, 1 warning, 2 up) of the two trap groups (renderer)
     // ---------- ให้ renderer ----------
     output wire [5:0]   mon_act,
     output wire [5:0]   mon_type,       // 0 = A, 1 = B
@@ -72,6 +75,7 @@ module objects (
     output reg          ev_melee = 1'b0,  // pulse: ฟัน
     output reg          ev_mdmg = 1'b0,   // pulse: มอนโดนตี
     output reg          ev_mdie = 1'b0,   // pulse: มอนตาย
+    output wire [2:0]   chg_lvl,          // W25: size step of the growing charge ball: 0 none, 1..4 (4 = full)
     output wire         charged,          // ร่าง 4 ชาร์จเต็มแล้ว (ให้ผู้เล่นกะพริบ)
     output wire [15:0]  eb_act,
     output wire [159:0] eb_x, eb_y,
@@ -103,7 +107,7 @@ module objects (
     reg [15:0] e_act = 0;
     reg [NE*10-1:0] e_xv = 0;
     reg [NE*10-1:0] e_yv = 0;
-    reg [NE*2-1:0] e_dirv = 0;
+    reg [NE*3-1:0] e_dirv = 0;               // W20: 3 bit like the player bullets (0 down 1 up 2 left 3 right 4 dl 5 dr 6 ul 7 ur)
 
     reg [14:0] cleared = 0;                  // [floor*5 + room]
     reg [3:0]  cur_idx = 0;                  // ห้องที่ spawn ล่าสุด
@@ -113,6 +117,9 @@ module objects (
     reg [1:0]  mel_dir = 0;
     reg [5:0]  mel_mask = 0;                 // มอนที่โดนฟันครั้งนี้แล้ว
     reg        mel_boss = 1'b0;              // บอสโดนฟันครั้งนี้แล้ว
+    reg        bheavy_r = 1'b0;               // W24
+    reg [15:0] e_heavy = 16'd0;               // W24: enemy bullet j is a storm bullet (2 HP)
+    reg [1:0]  bpat_r = 2'd0;                // W20: pattern of the pending boss volley
     reg        bfire_req = 1'b0;             // บอสขอยิง (ทำตอนประมวลผลเฟรมถัดไป)
     reg [4:0]  cool = 0;
     reg [6:0]  hurt_cnt = 0;                 // KB_FRAMES + INV_FRAMES .. 0
@@ -136,7 +143,20 @@ module objects (
     // W5: tile under the player's centre (spike trap) and under the centre of the melee box (breakable block)
     wire [11:0] addr_t = taddr(grid, px + 10'd16, py + 10'd16);
     tilemap_rom rom_t (.addr(addr_t), .brk(brk), .data(), .ov(ovt));
-    wire trap_under = (ovt[3:0] == 4'd2);
+    // W19: timed spike traps (overlay code 8 = phase A, 9 = phase B, floor 2): down 90 frames, warning 30, up 60, loop 180; B is half a loop behind A.
+    // Always safe for the first 60 frames after entering a room. Code 2 stays the static trap (always up, 1 damage).
+    reg  [7:0] trap_t = 8'd0;
+    reg  [5:0] trap_grace = 6'd0;
+    reg        hit_again = 1'b0;             // second hit pulse one clock later = 2 damage (timed trap)
+    function [1:0] trap_ph(input [7:0] t);
+        trap_ph = (t < TRAP_DOWN) ? 2'd0 : (t < TRAP_DOWN + TRAP_WARN) ? 2'd1 : 2'd2;
+    endfunction
+    wire [7:0] trap_tb = (trap_t >= TRAP_LOOP / 2) ? trap_t - TRAP_LOOP / 2 : trap_t + TRAP_LOOP / 2;
+    assign trap_a = (trap_grace != 0) ? 2'd0 : trap_ph(trap_t);
+    assign trap_b = (trap_grace != 0) ? 2'd0 : trap_ph(trap_tb);
+    wire trap_timed = (ovt[3:0] == 4'd8) || (ovt[3:0] == 4'd9);
+    wire trap_under = (ovt[3:0] == 4'd2) ||
+                      (ovt[3:0] == 4'd8 && trap_a == 2'd2) || (ovt[3:0] == 4'd9 && trap_b == 2'd2);
     // กระสุน: หยุดที่ # ประตูปิด (D ตอนล็อก, L ตอนยังไม่เปิด, E); ผ่าน H F
     function bpass(input [3:0] t);
         case (t)
@@ -202,6 +222,18 @@ module objects (
         oob = (d == 2'd2 && x < s) || (d == 2'd3 && x + s > 10'd632) ||
               (d == 2'd1 && y < s) || (d == 2'd0 && y + s > 10'd472);
     endfunction
+    // W20: enemy bullets fly in 8 directions (3 bit); straight = EB_SPEED, diagonal = EB_DIAG per axis
+    function [2:0] es(input [2:0] d); es = d[2] ? EB_DIAG : EB_SPEED; endfunction
+    function [9:0] estep_x(input [9:0] x, input [2:0] d);
+        estep_x = (d == 3'd2 || d == 3'd4 || d == 3'd6) ? x - es(d) : (d == 3'd3 || d == 3'd5 || d == 3'd7) ? x + es(d) : x;
+    endfunction
+    function [9:0] estep_y(input [9:0] y, input [2:0] d);
+        estep_y = (d == 3'd1 || d == 3'd6 || d == 3'd7) ? y - es(d) : (d == 3'd0 || d == 3'd4 || d == 3'd5) ? y + es(d) : y;
+    endfunction
+    function eoob(input [9:0] x, input [2:0] d, input [9:0] y);
+        eoob = ((d == 3'd2 || d == 3'd4 || d == 3'd6) && x < es(d)) || ((d == 3'd3 || d == 3'd5 || d == 3'd7) && x + es(d) > 10'd632) ||
+               ((d == 3'd1 || d == 3'd6 || d == 3'd7) && y < es(d)) || ((d == 3'd0 || d == 3'd4 || d == 3'd5) && y + es(d) > 10'd472);
+    endfunction
 
     // ---------- กระสุนผู้เล่น ----------
     function dl(input [2:0] d); dl = (d == 3'd2) || (d == 3'd4) || (d == 3'd6); endfunction
@@ -254,6 +286,21 @@ module objects (
         end
     endfunction
 
+    // W20 boss volley: number of bullets and the direction of bullet fk for the pending pattern bpat_r
+    //   0 cross: 0 1 2 3 (4)   1 ring: 0..7 (8)   2 X: 4 5 6 7 (4)   3 aimed fan: aim, aim +- 45 degrees (3)
+    wire [10:0] bdx_p = {1'b0, px} + 11'd16, bdx_b = {1'b0, boss_x} + 11'd32;
+    wire [10:0] bdy_p = {1'b0, py} + 11'd16, bdy_b = {1'b0, boss_y} + 11'd32;
+    wire [10:0] baadx = (bdx_p > bdx_b) ? bdx_p - bdx_b : bdx_b - bdx_p;
+    wire [10:0] baady = (bdy_p > bdy_b) ? bdy_p - bdy_b : bdy_b - bdy_p;
+    wire        b_right = (bdx_p >= bdx_b), b_down = (bdy_p >= bdy_b);
+    wire [2:0]  b_aim = ({baady, 1'b0} < baadx) ? (b_right ? 3'd3 : 3'd2) :
+                        ({baadx, 1'b0} < baady) ? (b_down ? 3'd0 : 3'd1) :
+                        b_down ? (b_right ? 3'd5 : 3'd4) : (b_right ? 3'd7 : 3'd6);
+    wire [3:0]  bp_n   = (bpat_r == 2'd1) ? 4'd8 : (bpat_r == 2'd3) ? 4'd3 : 4'd4;
+    wire [2:0]  bp_dir = (bpat_r == 2'd0) ? {1'b0, fk[1:0]} : (bpat_r == 2'd1) ? fk :
+                         (bpat_r == 2'd2) ? {1'b1, fk[1:0]} :
+                         (fk == 3'd0) ? b_aim : (fk == 3'd1) ? ring_p(b_aim) : ring_m(b_aim);
+
     wire [3:0] idx_now = {2'b00, floor} * 4'd5 + {1'b0, room};
 
     always @(posedge clk) begin
@@ -267,14 +314,14 @@ module objects (
             mbw = mel_dir[1] ? 7'd16 : 7'd24;
             mbh = mel_dir[1] ? 7'd24 : 7'd16;
         end
-        hit <= 1'b0;
+        hit <= hit_again; hit_again <= 1'b0;      // W19: second pulse of a 2-damage trap hit
         kb_start <= 1'b0;
         ev_shoot <= 1'b0; ev_melee <= 1'b0; ev_mdmg <= 1'b0; ev_mdie <= 1'b0;
         if (atk_press && run) atk_req <= 1'b1;
         if (!run) atk_req <= 1'b0;
-        if (room_load) spawn_req <= 1'b1;
+        if (room_load) begin spawn_req <= 1'b1; trap_t <= 8'd0; trap_grace <= TRAP_GRACE; end
         boss_dmg <= 1'b0; boss_dmg_big <= 1'b0; brk_set <= 1'b0;
-        if (boss_fire) bfire_req <= 1'b1;
+        if (boss_fire) begin bfire_req <= 1'b1; bpat_r <= boss_pat; bheavy_r <= boss_heavy; end
         if (summon) summon_req <= 1'b1;
         if (dbg_clear && st == S_IDLE && !spawn_req) m_act <= 0;   // ห้องเคลียร์ที่ S_END ของเฟรมถัดไป
 
@@ -299,6 +346,8 @@ module objects (
                 st <= S_SUMMON;
             end else if (frame_tick && run) begin
                 fcnt <= fcnt + 1'b1;
+                trap_t <= (trap_t == TRAP_LOOP - 1) ? 8'd0 : trap_t + 1'b1;
+                if (trap_grace != 0) trap_grace <= trap_grace - 1'b1;
                 if (auto_lock) begin i <= 0; best_d <= 12'hFFF; found <= 1'b0; st <= S_LOCK; end
                 else begin lock_use <= 1'b0; st <= S_NEAR; end
             end
@@ -462,15 +511,15 @@ module objects (
             if (!e_act[j]) begin
                 if (j == NE - 1) begin i <= 0; st <= S_MON; end
                 j <= j + 1'b1;
-            end else if (oob(e_xv[(j)*10 +: 10], e_dirv[(j)*2 +: 2], EB_SPEED, e_yv[(j)*10 +: 10])) begin
+            end else if (eoob(e_xv[(j)*10 +: 10], e_dirv[(j)*3 +: 3], e_yv[(j)*10 +: 10])) begin
                 e_act[j] <= 1'b0;
                 if (j == NE - 1) begin i <= 0; st <= S_MON; end
                 j <= j + 1'b1;
             end else begin
-                nx <= step_x(e_xv[(j)*10 +: 10], e_dirv[(j)*2 +: 2], EB_SPEED);
-                ny <= step_y(e_yv[(j)*10 +: 10], e_dirv[(j)*2 +: 2], EB_SPEED);
-                ta <= taddr(grid, step_x(e_xv[(j)*10 +: 10], e_dirv[(j)*2 +: 2], EB_SPEED) + 10'd4,
-                                  step_y(e_yv[(j)*10 +: 10], e_dirv[(j)*2 +: 2], EB_SPEED) + 10'd4);
+                nx <= estep_x(e_xv[(j)*10 +: 10], e_dirv[(j)*3 +: 3]);
+                ny <= estep_y(e_yv[(j)*10 +: 10], e_dirv[(j)*3 +: 3]);
+                ta <= taddr(grid, estep_x(e_xv[(j)*10 +: 10], e_dirv[(j)*3 +: 3]) + 10'd4,
+                                  estep_y(e_yv[(j)*10 +: 10], e_dirv[(j)*3 +: 3]) + 10'd4);
                 ph <= 1;
             end
         end else begin
@@ -547,7 +596,8 @@ module objects (
                 e_act[j] <= 1'b1;
                 e_xv[(j)*10 +: 10]   <= m_xv[(i)*10 +: 10] + 10'd12;
                 e_yv[(j)*10 +: 10]   <= m_yv[(i)*10 +: 10] + 10'd12;
-                e_dirv[(j)*2 +: 2] <= fk[1:0];
+                e_dirv[(j)*3 +: 3] <= {1'b0, fk[1:0]};
+                e_heavy[j] <= 1'b0;
                 fk <= fk + 1'b1;
             end
             j <= j + 1'b1;
@@ -606,6 +656,7 @@ module objects (
             // กับดัก: ยืนบนหนาม (ร่าง 3 บินผ่าน) -> HP -1 + knockback ถอยหลังตามทิศที่หัน (ใช้ช่วงอมตะเดียวกัน)
             if (i == 0 && hurt_cnt == 0 && trap_under && form != 2'd2) begin
                 hit <= 1'b1; kb_start <= 1'b1;
+                hit_again <= trap_timed;                      // W19: timed trap = 2 damage
                 kb_dir <= (facing == 2'd0) ? 2'd1 : (facing == 2'd1) ? 2'd0 : (facing == 2'd2) ? 2'd3 : 2'd2;
                 hurt_cnt <= KB_FRAMES + INV_FRAMES;
             end
@@ -624,6 +675,7 @@ module objects (
                 ovl(plx, ply, HURT_BOX, HURT_BOX, {1'b0, e_xv[(j)*10 +: 10]} + OFS, {1'b0, e_yv[(j)*10 +: 10]} + OFS, 7'd8, 7'd8)) begin
                 e_act[j] <= 1'b0;
                 hit <= 1'b1; kb_start <= 1'b1;
+                hit_again <= e_heavy[j];                      // W24: storm bullet = 2 HP
                 kb_dir <= away(e_xv[(j)*10 +: 10] + 10'd4, e_yv[(j)*10 +: 10] + 10'd4);
                 hurt_cnt <= KB_FRAMES + INV_FRAMES;
             end
@@ -654,15 +706,16 @@ module objects (
         S_BFIRE: begin                       // บอสยิง 4 ทิศ ลง slot กระสุนศัตรูที่ว่าง (1 clock / slot)
             if (!bfire_req || !boss_act) begin bfire_req <= 1'b0; j <= 0; st <= S_BPB; end
             else begin
-                if (!e_act[j] && fk < 4) begin
+                if (!e_act[j] && {1'b0, fk} < bp_n) begin
                     e_act[j] <= 1'b1;
                     e_xv[(j)*10 +: 10] <= boss_x + 10'd28;
                     e_yv[(j)*10 +: 10] <= boss_y + 10'd28;
-                    e_dirv[(j)*2 +: 2] <= fk[1:0];
+                    e_dirv[(j)*3 +: 3] <= bp_dir;
+                    e_heavy[j] <= bheavy_r;
                     fk <= fk + 1'b1;
                 end
                 j <= j + 1'b1;
-                if (j == NE - 1 || (fk == 3'd3 && !e_act[j])) begin bfire_req <= 1'b0; j <= 0; st <= S_BPB; end
+                if (j == NE - 1 || ({1'b0, fk} == bp_n - 4'd1 && !e_act[j])) begin bfire_req <= 1'b0; j <= 0; st <= S_BPB; end
             end
         end
         S_BPB: begin                         // กระสุนผู้เล่น j x บอส (ลูกใหญ่โดนบอสครั้งเดียวต่อลูก)
@@ -719,6 +772,8 @@ module objects (
     assign pb_act = p_act;
     assign pb_kind = p_kindv;
     assign charged = (form == 2'd3) && chg_ok && (chg >= CHARGE_FRAMES);
+    // W25: the ball appears at the first frame of the hold and grows in 4 steps (1/4, 1/2, 3/4, full)
+    assign chg_lvl = !(form == 2'd3 && chg_ok) ? 3'd0 : (chg >= CHARGE_FRAMES) ? 3'd4 : (chg >= CHARGE_FRAMES * 3 / 4) ? 3'd3 : (chg >= CHARGE_FRAMES / 2) ? 3'd2 : 3'd1;
     assign eb_act = e_act;
     assign melee_on = (melee_cnt != 0);
     assign melee_dir = mel_dir;

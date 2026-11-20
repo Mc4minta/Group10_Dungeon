@@ -147,6 +147,7 @@ class RealProject(unittest.TestCase):
         """tiles 7 / 11 (Sokoban plate raised / pressed) and 12-15 (Simon plates, tinted) come from my_asset/props/plate.png at 1:1"""
         from PIL import Image
         im = Image.open(os.path.join(ROOT, "my_asset", "props", "plate.png")).convert("RGBA")
+        im_box = Image.open(os.path.join(ROOT, "my_asset", "props", "plate_box.png")).convert("RGBA")      # W26: tile 11 = pressed plate WITH the box
         floor1 = self.mem[T.tidx(3, 1) * N:(T.tidx(3, 1) + 1) * N]
         for floor in (1, 2, 3):
             for t, row, tint in ((7, 0, None), (11, 1, None), (12, 0, (235, 60, 60)), (13, 0, (70, 120, 255)),
@@ -157,7 +158,7 @@ class RealProject(unittest.TestCase):
                 exp = list(base)
                 for y in range(32):
                     for x in range(32):
-                        r, g, b, a = im.getpixel((x, y + row * 32))
+                        r, g, b, a = (im_box if t == 11 else im).getpixel((x, y + row * 32))
                         if a < 128:
                             continue
                         ch = (r, g, b) if tint is None else tuple(min(255, int(v * k / 180.0 + 0.5)) for v, k in zip((r, g, b), tint))
@@ -187,7 +188,7 @@ class Fallbacks(unittest.TestCase):
             os.makedirs(os.path.join(self.t, d))
         shutil.copy(os.path.join(ROOT, "mem", "tileset_v1.mem"), os.path.join(self.t, "mem"))
         os.makedirs(os.path.join(self.t, "my_asset", "props"))
-        for pf in ("plate.png", "peaks_1.png", "peaks_3.png"):
+        for pf in ("plate.png", "plate_box.png", "peaks_1.png", "peaks_3.png"):
             shutil.copy(os.path.join(ROOT, "my_asset", "props", pf), os.path.join(self.t, "my_asset", "props"))
         shutil.copy(os.path.join(ROOT, "my_asset", "tileset", "Dungeon_Tileset.png"),
                     os.path.join(self.t, "my_asset", "sheet.png"))

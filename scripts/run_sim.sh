@@ -56,9 +56,11 @@ case "${1:-player}" in
   boss)   run tb_boss ../sim/tb_boss.v ../rtl/boss.v ../rtl/keyitem.v ../rtl/objects.v ../rtl/player.v ../rtl/game_fsm.v ../rtl/world.v ../rtl/roms.v ;;
   debug)  run tb_debug ../sim/tb_debug.v ../rtl/*.v ;;
   objects) run tb_objects ../sim/tb_objects.v ../rtl/overlay.v ../rtl/objects.v ../rtl/player.v ../rtl/game_fsm.v ../rtl/roms.v ;;
+  orb)    run tb_orb ../sim/tb_orb.v ../rtl/renderer.v ../rtl/hud.v ../rtl/objline.v ../rtl/roms.v ;;
+  ps2)    run tb_ps2 ../sim/tb_ps2.v ../rtl/ps2_kbd.v ;;
   top)    iverilog -g2012 -I../rtl -o ../sim/tb_top.vvp ../sim/tb_top.v ../rtl/*.v
           vvp ../sim/tb_top.vvp | tee /tmp/run_sim_tb_top.log
           if grep -q "FAIL" /tmp/run_sim_tb_top.log; then echo "== tb_top: FAILED"; exit 1; fi ;;
-  all)    "$SELF" player && "$SELF" world && "$SELF" fsm && "$SELF" objects && "$SELF" puzzles && "$SELF" mic && "$SELF" mictop && "$SELF" audio && "$SELF" boss && "$SELF" hud && "$SELF" simonplate && "$SELF" dialog && "$SELF" ovrender && "$SELF" text && "$SELF" debug && "$SELF" top && echo "== ALL OK" ;;
+  all)    "$SELF" player && "$SELF" world && "$SELF" fsm && "$SELF" objects && "$SELF" puzzles && "$SELF" mic && "$SELF" mictop && "$SELF" audio && "$SELF" boss && "$SELF" hud && "$SELF" simonplate && "$SELF" dialog && "$SELF" ovrender && "$SELF" text && "$SELF" ps2 && "$SELF" orb && "$SELF" debug && "$SELF" top && echo "== ALL OK" ;;
   *) echo "usage: $0 [player|world|fsm|top|all]"; exit 1 ;;
 esac

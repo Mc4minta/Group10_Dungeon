@@ -8,7 +8,7 @@ module tb_audio;
     localparam FR = 1680000 / 64;                 // clock ต่อเฟรม
     reg clk = 0; always #5 clk = ~clk;
     reg rst = 1;
-    reg [12:1] ev = 0; reg [1:0] shoot_k = 0;
+    reg [13:1] ev = 0; reg [1:0] shoot_k = 0;
     reg simon_on = 0; reg [1:0] simon_n = 0;
     reg bgm_en = 0; reg [2:0] track = 0; reg pause = 0;
     integer fc = 0; reg tick = 0;

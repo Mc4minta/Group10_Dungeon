@@ -52,7 +52,8 @@ Tick `[x]` when an item is done and update `docs/SPRITE_STATUS.md` / `docs/SOUND
 
 ## Design plan items (19/11 design notes) - PLAN ONLY, see `docs/DESIGN_PLAN.md`
 
-- [ ] **Phase A (small):** W15 SW15 = pause / SW14 = sprint / facing lock -> SW12, W1 door = spike trap, W2 pressure plate = tulip plate (needs your picture), W3 charged shot stops on hit, W4 clap on the board (mic debug), W6 new start screen, W9a prologue screen.
+- [ ] **Waiting for approval (20/11):** W28 tutorial, W29 title CONTROLS / CREDITS pages, W31 story freezes play, W32 hint strip, W33 intro skip, W34 input edge cases (designed in `docs/DESIGN_PLAN.md`, review table in `docs/GAMEPLAY_REVIEW.md`).
+- [ ] **Phase A (small):** W15 SW15 = pause / SW14 = sprint / facing lock -> SW12, W1 door = spike trap, W2 pressure plate (DONE), W3 charged shot stops on hit (DONE), W4 clap on the board (mic debug), W6 new start screen, W9a prologue screen.
 - [ ] **Phase B (bosses):** W10 boss 1 fast + clap stun, W11 boss 2 summon (hurt only when all minions are dead), W12 boss 3 armour + charge + big attack, W13 form 3 AOE split.
 - [ ] **Phase C:** W5 breakable block, trap, solid decoration (overlay layer). **Phase D:** W7 key -> door -> Ball in a Maze (accelerometer) -> WIN. **Phase E:** W9b story.
 - [x] W8 hearts + boss bar (done).

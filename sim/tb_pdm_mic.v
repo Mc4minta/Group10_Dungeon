@@ -21,9 +21,14 @@ module tb_pdm_mic;
         .win_pulse(), .holdoff(), .th_dyn(12'd0), .use_dyn(1'b0));
 
     // ไมค์จำลอง: เปลี่ยน bit ที่ขอบขาลงของ M_CLK (ADMP421 ช่องซ้าย) ความน่าจะเป็น 50% หรือ 90%
+    // W4: a REAL microphone signal is AC: first order sigma-delta of 0.5 + 0.45 * sin(2 pi 2 kHz t) when loud, exactly 0.5 (bits 0101..) when quiet.
+    // (the old test fed a DC-biased 90 % stream, which hid that the detector could not see a real sound)
+    real acc = 0.0, tt = 0.0, xin;
     always @(negedge m_clk) begin
-        rnd = rnd ^ (rnd << 13); rnd = rnd ^ (rnd >> 17); rnd = rnd ^ (rnd << 5);
-        m_data <= loud ? (rnd[6:0] < 7'd115) : rnd[0];     // 115/128 = 90%
+        tt = tt + 0.4e-6;                                   // one M_CLK period = 0.4 us
+        xin = loud ? (0.5 + 0.45 * $sin(6.2831853 * 2000.0 * tt)) : 0.5;
+        acc = acc + xin;
+        if (acc >= 1.0) begin acc = acc - 1.0; m_data <= 1'b1; end else m_data <= 1'b0;
     end
     always @(posedge clk) begin
         if (clap) begin

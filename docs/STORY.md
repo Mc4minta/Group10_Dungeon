@@ -77,7 +77,7 @@ Nov 20, 2026 · @min · อนุมัติเรื่องและบท�
 | ID | Tier | Trigger | จังหวะ | ผู้พูด | บรรทัด 1 | บรรทัด 2 |
 | --- | --- | --- | --- | --- | --- | --- |
 | F1-01 | B | start! | Safe Room: ตื่น | Player | GASP! WHERE AM I! | WHAT IS THIS PLACE! |
-| F1-02 | B | first_attack | หลังลองโจมตีครั้งแรก | Player | I DONT GET IT YET. | BUT THIS IS COOL! |
+| F1-02 | B | after:F1-01! | Safe Room: ต่อจากตื่น (20/11: เดิมรอโจมตีครั้งแรก) | Player | I DONT GET IT YET. | BUT THIS IS COOL! |
 | F1-03 | B | after:F1-02! | Safe Room | Voice | BRAVE HERO! | HEED MY CALL! |
 | F1-04 | B | after:F1-03! | Safe Room | Player | YOU MEAN... ME! |  |
 | F1-05 | B | after:F1-04! | Safe Room | Voice | I CAN SEND YOU HOME. | LISTEN CLOSELY. |

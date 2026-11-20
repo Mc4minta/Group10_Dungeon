@@ -68,7 +68,13 @@ class Real(unittest.TestCase):
             self.assertEqual(self.mem[int(i) * 1024:(int(i) + 1) * 1024], exp, f"picture {i}")
 
     def test_spare_is_see_through_and_pictures_have_art(self):
-        self.assertTrue(all(w == KEY for w in self.mem[10 * 1024:]))
+        self.assertTrue(all(w == KEY for w in self.mem[13 * 1024:]))        # 13-15 spare (10-12 = W19 timed spikes)
+        # W19: picture 12 (timed spikes up) is picture 1; 10 / 11 (flat / half) have the same red base, only the middle differs
+        self.assertEqual(self.mem[12 * 1024:13 * 1024], self.mem[1024:2 * 1024])
+        for i in (10, 11):
+            pic = self.mem[i * 1024:(i + 1) * 1024]
+            self.assertGreater(sum(1 for w in pic if w != KEY), 600, f"picture {i} is mostly empty")
+        self.assertNotEqual(self.mem[10 * 1024:11 * 1024], self.mem[11 * 1024:12 * 1024])
         for i in range(10):
             pic = self.mem[i * 1024:(i + 1) * 1024]
             self.assertGreater(sum(1 for w in pic if w != KEY), 100, f"picture {i} is mostly empty")

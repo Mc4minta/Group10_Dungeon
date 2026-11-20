@@ -69,13 +69,23 @@ localparam PUZZLE_DELAY   = 256;           // puzzles.v เริ่มงาน
 localparam BOSS1_HP        = 10;           // บอส 1 (ชั้น 1)
 localparam BOSS2_HP        = 16;           // บอส 2 (ชั้น 2)
 localparam BOSS3_HP        = 3;            // W12: 3 ปล่อยชาร์จที่โดน = ตาย (แถบ HP 3 ช่อง)           // บอส 3 (ชั้น 3)
-localparam BOSS1_SPEED     = 2;            // W10: px ต่อก้าว (เร็วมาก)
-localparam BOSS1_EVERY     = 1;            // บอส 1 ก้าวทุกกี่เฟรม (ทุกเฟรม)
+localparam BOSS1_SPEED     = 1;            // W20: px per step (was 2 every frame = too fast to shoot); with BOSS1_EVERY = 2 -> 0.5 px/frame
+localparam BOSS1_EVERY     = 2;            // boss 1 steps every N frames (W20: every 2nd frame)
 localparam BOSS2_SPEED     = 0;            // W11: บอส 2 อยู่กับที่ (เรียกลูกน้อง)
-localparam BOSS3_SPEED     = 2;            // ไล่ px/เฟรม
-localparam BOSS2_FIRE      = 0;            // บอส 2 ไม่ยิงแล้ว (0 = ไม่ยิง)
-localparam BOSS3_FIRE      = 60;
-localparam BOSS_FLASH      = 8;            // โดนตีกะพริบ
+localparam BOSS3_SPEED     = 1;            // W20: chase px per step (was 2)
+localparam BOSS3_EVERY     = 2;            // W20: boss 3 steps every N frames
+localparam BOSS1_FIRE      = 90;           // W20: bullet pattern every 1.5 s (0 = never)
+localparam BOSS2_FIRE      = 90;           // W20: boss 2 (stationary) shoots patterns too
+localparam BOSS3_FIRE      = 90;
+localparam BOSS_WARN       = 20;           // W20: the boss blinks this many frames before each pattern (telegraph)
+localparam EB_DIAG         = 2;            // W20: enemy bullet px per axis on diagonals
+localparam TRAP_DOWN       = 90;           // W19: timed spike trap (floor 2): frames flat / safe
+localparam TRAP_WARN       = 30;           //   frames half up (warning, still safe)
+localparam TRAP_UP         = 60;           //   frames fully up (2 damage)
+localparam TRAP_LOOP       = TRAP_DOWN + TRAP_WARN + TRAP_UP;   // 180 = 3 s
+localparam TRAP_GRACE      = 60;           //   after entering a room the traps stay safe this long
+localparam [17:0] SFX_CHG_HP = 18'd41667;  localparam signed [17:0] SFX_CHG_SL = -18'sd1200;  localparam SFX_CHG_LEN = 12;   // W21: boss-3 charge beep, 600 -> about 1000 Hz (rising)
+localparam BOSS_FLASH      = 8;           // โดนตีกะพริบ
 localparam STUN_FRAMES     = 180;          // W10: ตบมือ -> บอส 1 มึน 3 วิ
 localparam STUN_COOLDOWN   = 240;          // W10: 4 วิ
 localparam BOSS2_FIRST      = 60;           // W11: บอส 2 รอกี่เฟรมก่อน summon ครั้งแรก
@@ -84,7 +94,10 @@ localparam BOSS2_MINIONS    = 3;            // W11: ลูกน้องต่�
 localparam [4:0] SUMMON0_TX = 5'd6,  SUMMON1_TX = 5'd13, SUMMON2_TX = 5'd9;   // tile (x, y) ในวงรั้วห้องบอสชั้น 2 (ต้องเป็นพื้น)
 localparam [3:0] SUMMON0_TY = 4'd5,  SUMMON1_TY = 4'd5,  SUMMON2_TY = 4'd10;
 localparam BOSS3_CHASE      = 180;          // W12: บอส 3 ไล่ (เกราะ) กี่เฟรมก่อนชาร์จโจมตีใหญ่
-localparam BOSS3_CHARGE     = 120;          // W12: ชาร์จโจมตีใหญ่ 2 วิ (ตอนนี้ยิงชาร์จขัดได้) ครบ = ผู้เล่นตายทั้งห้อง          // หลังมึนจบ รอกี่เฟรมถึงตบมือได้อีก
+localparam BOSS3_STORM      = 120;          // W24: bullet storm after the charge (2 s), replaces the instant-death hit
+localparam BOSS3_STORM_PERIOD = 24;        // W24: frames between two volleys of the storm (cross, X, ring, X, cross)
+localparam BOSS3_REST       = 120;          // W24: after the storm the boss stands still and any hit hurts it (2 s)
+localparam BOSS3_CHARGE     = 240;          // W21: 4 s charge (was 120); keep <= 254: the HUD charge bar is (elapsed >> 1) px wide, max 127 //          // W12: ชาร์จโจมตีใหญ่ 2 วิ (ตอนนี้ยิงชาร์จขัดได้) ครบ = ผู้เล่นตายทั้งห้อง          // หลังมึนจบ รอกี่เฟรมถึงตบมือได้อีก
 
 // ---------- ฉากหนี (P5) ----------
 localparam ESCAPE_SECONDS  = 60;           // W7: ESCAPE state = Ball in a Maze: นับถอยหลัง 60 วิ (หมดเวลา = GAME OVER)
@@ -106,7 +119,7 @@ localparam LED_BLINK       = 15;           // LED กะพริบ 4 Hz (ค�
 // ---------- ไมค์ PDM (P5) ----------
 localparam MIC_CLK_DIV     = 40;           // 100 MHz / 40 = 2.5 MHz (M_CLK)
 localparam MIC_WINDOW      = 4096;         // นับ bit 1 ทุกกี่ sample (1.64 ms)
-localparam MIC_TH          = 600;          // |ones - 2048| > TH = ตบมือ (เงียบ ~ +-100, ตบมือดังกว่ามาก)
+localparam MIC_TH          = 448;          // W4: window peak of |block - DC| x 64 > TH = clap (= 7 ones of 64; a silent mic reads 0..128). SW5-SW8 on the game top change it, see the mic meter
 localparam MIC_HOLDOFF     = 20000000;     // หลังตบมือ ไม่สนกี่ clock (200 ms ที่ 100 MHz)
 localparam BOSS_DELAY      = 300;          // boss.v เริ่มงานต่อเฟรมหลัง frame_tick กี่ clock (หลัง objects.v)
 

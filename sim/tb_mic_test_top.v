@@ -7,6 +7,7 @@ module tb_mic_test_top;
     reg BTNC = 0, BTND = 0; reg [15:0] SW = 0;
     reg [1:0] mode = 0;                  // 0 เงียบ, 1 เสียงดัง
     reg [31:0] rnd = 32'hC0FFEE01;
+    real acc = 0.0, tt = 0.0, xin;
     reg m_data = 0;
     wire [15:0] LED; wire LED16_G, LED17_R; wire CA, CB, CC, CD, CE, CF, CG, DP; wire [7:0] AN;
     wire M_CLK, M_LRSEL;
@@ -19,7 +20,10 @@ module tb_mic_test_top;
 
     always @(negedge M_CLK) begin
         rnd = rnd ^ (rnd << 13); rnd = rnd ^ (rnd >> 17); rnd = rnd ^ (rnd << 5);
-        m_data <= (mode == 1) ? (rnd[6:0] < 7'd121) : rnd[0];       // 121/128 = 94.5% ones
+        // W4: AC microphone model (first order sigma-delta of a 2 kHz tone when loud, exactly 0.5 when quiet) instead of a DC-biased stream
+        tt = tt + 0.4e-6; xin = (mode == 1) ? (0.5 + 0.45 * $sin(6.2831853 * 2000.0 * tt)) : 0.5;
+        acc = acc + xin;
+        if (acc >= 1.0) begin acc = acc - 1.0; m_data <= 1'b1; end else m_data <= 1'b0;
     end
 
     integer errors = 0, checks = 0, claps_seen = 0;

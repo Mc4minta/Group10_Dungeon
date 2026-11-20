@@ -23,6 +23,7 @@ module top #(
     input  wire        CLK100MHZ,
     input  wire        CPU_RESETN,
     input  wire        BTNC, BTNU, BTND, BTNL, BTNR,
+    input  wire        PS2_CLK, PS2_DATA,             // W22: USB keyboard through the Nexys USB-HID port (PS/2 protocol)
     input  wire [15:0] SW,
     output wire [15:0] LED,
     output wire        LED16_R, LED16_G, LED16_B,
@@ -54,29 +55,62 @@ module top #(
 
     // ---------- input ----------
     wire bu, bd, bl, br, bc, bc_rise, sw1_r, sw2_r, sw3_r, sw4_r, sw13_rise, sw15;   // sw15 = pause switch (level)
-    debounce #(DEBOUNCE) d_u (.clk(clk), .in(BTNU),  .level(bu), .rise());
-    debounce #(DEBOUNCE) d_d (.clk(clk), .in(BTND),  .level(bd), .rise());
-    debounce #(DEBOUNCE) d_l (.clk(clk), .in(BTNL),  .level(bl), .rise());
-    debounce #(DEBOUNCE) d_r (.clk(clk), .in(BTNR),  .level(br), .rise());
-    debounce #(DEBOUNCE) d_c (.clk(clk), .in(BTNC),  .level(bc), .rise(bc_rise));
+    wire bu_b, bd_b, bl_b, br_b, bc_b, bc_rise_b, sw13_b, sw15_b;                    // the real buttons / switches (debounced)
+    debounce #(DEBOUNCE) d_u (.clk(clk), .in(BTNU),  .level(bu_b), .rise());
+    debounce #(DEBOUNCE) d_d (.clk(clk), .in(BTND),  .level(bd_b), .rise());
+    debounce #(DEBOUNCE) d_l (.clk(clk), .in(BTNL),  .level(bl_b), .rise());
+    debounce #(DEBOUNCE) d_r (.clk(clk), .in(BTNR),  .level(br_b), .rise());
+    debounce #(DEBOUNCE) d_c (.clk(clk), .in(BTNC),  .level(bc_b), .rise(bc_rise_b));
+    // ---- W22 USB keyboard (PS/2): arrows / WASD walk, Space / J / Enter attack, Shift sprint, P / Esc pause (toggle), L auto-lock (toggle),
+    //      R Sokoban box reset, C clap fallback. Works together with the buttons (logical OR). ----
+    wire k_up, k_dn, k_lf, k_rt, k_atk, k_spr, k_pause_p, k_lock_p, k_reset_p, k_clap_p, k_got, k_clkact;
+    ps2_kbd kbd (.clk(clk), .rst(rst), .ps2_clk(PS2_CLK), .ps2_data(PS2_DATA), .up(k_up), .down(k_dn), .left(k_lf), .right(k_rt),
+                 .atk(k_atk), .sprint(k_spr), .pause_p(k_pause_p), .lock_p(k_lock_p), .reset_p(k_reset_p), .clap_p(k_clap_p), .got_key(k_got), .clk_act(k_clkact));
+    // keyboard diagnostics on RGB LED 17: BLUE flickers when the PS2_CLK line moves (the keyboard talks), GREEN flickers when a good byte was decoded
+    reg [23:0] kd_clk = 24'd0, kd_got = 24'd0;
+    always @(posedge clk) begin
+        kd_clk <= k_clkact ? 24'd10_000_000 : (kd_clk != 0) ? kd_clk - 1'b1 : 24'd0;     // 0.1 s stretch
+        kd_got <= k_got    ? 24'd10_000_000 : (kd_got != 0) ? kd_got - 1'b1 : 24'd0;
+    end
+    reg k_pause_on = 1'b0, k_lock_on = 1'b0, k_atk_d = 1'b0;
+    always @(posedge clk) begin
+        k_atk_d <= k_atk;
+        if (rst) begin k_pause_on <= 1'b0; k_lock_on <= 1'b0; end
+        else begin
+            if (k_pause_p) k_pause_on <= ~k_pause_on;
+            if (k_lock_p)  k_lock_on  <= ~k_lock_on;
+        end
+    end
+    assign bu = bu_b | k_up;
+    assign bd = bd_b | k_dn;
+    assign bl = bl_b | k_lf;
+    assign br = br_b | k_rt;
+    assign bc = bc_b | k_atk;
+    assign bc_rise = bc_rise_b | (k_atk & ~k_atk_d);
     debounce #(DEBOUNCE) d_s1(.clk(clk), .in(SW[1]),  .level(), .rise(sw1_r));
     debounce #(DEBOUNCE) d_s2(.clk(clk), .in(SW[2]),  .level(), .rise(sw2_r));
     debounce #(DEBOUNCE) d_s3(.clk(clk), .in(SW[3]),  .level(), .rise(sw3_r));
     debounce #(DEBOUNCE) d_s4(.clk(clk), .in(SW[4]),  .level(), .rise(sw4_r));
-    debounce #(DEBOUNCE) d_s13(.clk(clk), .in(SW[13]), .level(), .rise(sw13_rise));
-    wire sw9;                          // SW9 = W18 auto-lock: attacks aim at the nearest enemy
-    debounce #(DEBOUNCE) d_s9(.clk(clk), .in(SW[9]), .level(sw9), .rise());
+    wire sw13_rise_b;
+    debounce #(DEBOUNCE) d_s13(.clk(clk), .in(SW[13]), .level(), .rise(sw13_rise_b));
+    assign sw13_rise = sw13_rise_b | k_reset_p;           // W22: key R = Sokoban box reset
+    wire sw9, sw9_b;                          // SW9 = W18 auto-lock: attacks aim at the nearest enemy
+    debounce #(DEBOUNCE) d_s9(.clk(clk), .in(SW[9]), .level(sw9_b), .rise());
+    assign sw9 = sw9_b | k_lock_on;                       // W22: key L toggles the auto-lock
     wire sw10;                         // SW10 = เขาวงกต: ใช้ปุ่มแทนเซนเซอร์เอียง
     debounce #(DEBOUNCE) d_s10(.clk(clk), .in(SW[10]), .level(sw10), .rise());
-    wire sw11_rise;                    // SW11 = ตบมือสำรอง (ถ้าไมค์ใช้ไม่ได้): ยก = pulse stun บอส 1
-    debounce #(DEBOUNCE) d_s11(.clk(clk), .in(SW[11]), .level(), .rise(sw11_rise));
+    wire sw11_rise, sw11_rise_b;       // SW11 = ตบมือสำรอง (ถ้าไมค์ใช้ไม่ได้): ยก = pulse stun บอส 1
+    debounce #(DEBOUNCE) d_s11(.clk(clk), .in(SW[11]), .level(), .rise(sw11_rise_b));
+    assign sw11_rise = sw11_rise_b | k_clap_p;             // W22: key C = the same pulse
     // debug: ใช้ได้เฉพาะ DEBUG = 1
     wire dbg = (DEBUG != 0);
     wire sw1_rise = dbg & sw1_r, sw2_rise = dbg & sw2_r, sw3_rise = dbg & sw3_r, sw4_rise = dbg & sw4_r;
     wire sw0_key  = dbg & SW[0];
-    debounce #(DEBOUNCE) d_s15(.clk(clk), .in(SW[15]), .level(sw15), .rise());
-    wire sw14;                         // SW14 = sprint (+1 px/เฟรม)
-    debounce #(DEBOUNCE) d_s14(.clk(clk), .in(SW[14]), .level(sw14), .rise());
+    debounce #(DEBOUNCE) d_s15(.clk(clk), .in(SW[15]), .level(sw15_b), .rise());
+    assign sw15 = sw15_b | k_pause_on;                      // W22: keys P / Esc toggle the pause
+    wire sw14, sw14_b;                 // SW14 = sprint (+1 px/เฟรม)
+    debounce #(DEBOUNCE) d_s14(.clk(clk), .in(SW[14]), .level(sw14_b), .rise());
+    assign sw14 = sw14_b | k_spr;                           // W22: Shift = sprint
     wire sw12;                         // SW12 = ล็อกทิศค้าง (ถอยหลังพร้อมฟันได้โดยไม่หันหนี; ลงเพื่อหันทิศใหม่) (เดิม SW14)
     debounce #(DEBOUNCE) d_s12(.clk(clk), .in(SW[12]), .level(sw12), .rise());
 
@@ -162,7 +196,14 @@ module top #(
     wire [3:0] e_s_t, e_s_o, e_f_t, e_f_o;
     wire       esc_banner;
     // บอส
-    wire        b_act, b_flash, b_stunned, b_fire, b_died, b_anim, b_busy, b_dmg, b_dmg_big, b_summon, b_kill, b_shield, b_tele, b_vuln, b_intr;
+    wire        b_act, b_flash, b_stunned, b_fire, b_died, b_anim, b_busy, b_dmg, b_dmg_big, b_summon, b_kill, b_shield, b_tele, b_vuln, b_intr, b_warn;
+    wire [2:0]  p_chg_lvl;              // W25
+    wire        b_heavy;                // W24
+    wire [1:0]  b_tele_lvl;             // W21
+    wire [6:0]  b_chg_w;                // W21
+    // W21: blink colour of boss 3 while it charges: pale blue -> yellow -> orange -> red with the charge level (white = normal hit flash)
+    wire [11:0] b_fcol = !b_tele ? 12'hFFF : (b_tele_lvl == 2'd0) ? 12'h8BF : (b_tele_lvl == 2'd1) ? 12'hFE6 : (b_tele_lvl == 2'd2) ? 12'hF93 : 12'hF44;
+    wire [1:0]  b_pat;                  // W20: boss bullet pattern
     wire [9:0]  b_x, b_y;
     wire [1:0]  b_kind;
     wire [2:0]  b_dmg_amt;
@@ -170,7 +211,8 @@ module top #(
     wire [4:0]  b_hp;
     wire [7:0]  b_hpbar;
     wire        clap;
-    wire [7:0]  brk;                    // W5 overlay: บล็อกพังได้ของห้องนี้ที่พังแล้ว
+    wire [1:0]  trap_a, trap_b;         // W19: timed spike phases (objects.v -> renderer)
+    wire [7:0]  brk;                  // W5 overlay: บล็อกพังได้ของห้องนี้ที่พังแล้ว
     wire        brk_set;
     wire [2:0]  brk_idx;
     wire [11:0] mic_amp;
@@ -218,12 +260,12 @@ module top #(
                  .open_L(open_L), .px(px), .py(py), .facing(facing), .form(form), .damage(damage),
                  .atk_press(bc_rise_g), .atk_hold(bc & ~paused), .dbg_clear(sw2_rise),
                  .blk0(blk0), .blk1(blk1), .blk2(blk2), .blk_en(blk_en),
-                 .boss_act(b_act), .boss_x(b_x), .boss_y(b_y), .boss_fire(b_fire),
+                 .boss_act(b_act), .boss_x(b_x), .boss_y(b_y), .boss_fire(b_fire), .boss_pat(b_pat), .boss_heavy(b_heavy),
                  .boss_dmg(b_dmg), .boss_dmg_amt(b_dmg_amt), .boss_dmg_big(b_dmg_big), .summon(b_summon),
                  .doors_open(doors_open), .alive(alive), .hit(obj_hit), .kb_start(kb_start), .kb_dir(kb_dir),
-                 .invuln(invuln), .player_blink(obj_blink), .busy(),
+                 .invuln(invuln), .player_blink(obj_blink), .busy(), .trap_a(trap_a), .trap_b(trap_b),
                  .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
-                 .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .pb_kind(pb_kind), .charged(charged),
+                 .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .pb_kind(pb_kind), .chg_lvl(p_chg_lvl), .charged(charged),
                  .ev_shoot(ev_shoot), .ev_shoot_k(ev_shoot_k), .ev_melee(ev_melee), .ev_mdmg(ev_mdmg), .ev_mdie(ev_mdie),
                  .eb_act(eb_act), .eb_x(eb_x), .eb_y(eb_y), .melee_on(melee_on), .melee_dir(melee_dir));
 
@@ -233,11 +275,28 @@ module top #(
              .floor(floor), .room(room), .grid(grid), .px(px), .py(py),
              .dmg(b_dmg), .dmg_amt(b_dmg_amt), .dmg_big(b_dmg_big), .minions(alive), .clap((clap | sw11_rise) & ~paused),
              .act(b_act), .bx(b_x), .by(b_y), .kind(b_kind), .flash(b_flash), .stunned(b_stunned),
-             .fire(b_fire), .summon(b_summon), .kill(b_kill), .shield(b_shield), .tele(b_tele), .vuln(b_vuln), .intr(b_intr), .died(b_died), .dead(b_dead), .hp(b_hp), .hp_bar(b_hpbar), .anim(b_anim), .busy(b_busy));
+             .fire(b_fire), .fire_pat(b_pat), .fire_heavy(b_heavy), .tele_lvl(b_tele_lvl), .chg_w(b_chg_w), .warn(b_warn), .summon(b_summon), .kill(b_kill), .shield(b_shield), .tele(b_tele), .vuln(b_vuln), .intr(b_intr), .died(b_died), .dead(b_dead), .hp(b_hp), .hp_bar(b_hpbar), .anim(b_anim), .busy(b_busy));
+    wire        mic_win;                    // W4: window pulse of the mic (meter)
     pdm_mic #(.CLK_DIV(MIC_CLK_DIV), .WINDOW(MIC_WINDOW), .TH(MIC_TH), .HOLDOFF(MIC_HOLDOFF)) mic (
              .clk(clk), .rst(rst), .m_clk(M_CLK), .m_data(M_DATA), .m_lrsel(M_LRSEL),
              .clap_pulse(clap), .amplitude(mic_amp),
-             .win_pulse(), .holdoff(), .th_dyn(12'd0), .use_dyn(1'b0));
+             .win_pulse(mic_win), .holdoff(), .th_dyn({1'b0, SW[8:5], 7'd0}), .use_dyn(SW[8:5] != 4'd0));
+    // ---- W4 clap meter on the screen (boss 1 fight): SW5-SW8 = threshold (0 = default MIC_TH, else 128 x the 4 bit value) ----
+    wire [11:0] mic_th_eff = (SW[8:5] != 4'd0) ? {1'b0, SW[8:5], 7'd0} : MIC_TH;
+    reg  [11:0] mic_lvl = 12'd0;                 // level with a slow fall so the bar can be read
+    reg  [4:0]  mic_hit_cnt = 5'd0;              // clap flash (about 0.5 s)
+    always @(posedge clk) begin
+        if (mic_win && mic_amp > mic_lvl) mic_lvl <= mic_amp;
+        else if (frame_tick && mic_lvl != 0) mic_lvl <= mic_lvl - (mic_lvl >> 3) - 1'b1;
+        if (clap | sw11_rise) mic_hit_cnt <= 5'd30;
+        else if (frame_tick && mic_hit_cnt != 0) mic_hit_cnt <= mic_hit_cnt - 1'b1;
+    end
+    wire [15:0] mic_th_bcd, mic_lv_bcd;           // numbers shown under the meter (threshold, live level)
+    bin2bcd bcd_th (.clk(clk), .bin({2'b00, mic_th_eff}), .bcd(mic_th_bcd));
+    bin2bcd bcd_lv (.clk(clk), .bin({2'b00, mic_lvl}),    .bcd(mic_lv_bcd));
+    wire        mic_on    = b_act && (b_kind == 2'd0);
+    wire [6:0]  mic_w     = (mic_lvl[11:4] > 8'd120) ? 7'd120 : mic_lvl[10:4];
+    wire [6:0]  mic_th_px = (mic_th_eff[11:4] > 8'd120) ? 7'd120 : mic_th_eff[10:4];
 
     puzzles #(.SEED(SEED)) pz (.clk(clk), .rst(rst), .frame_tick(ft), .run(run), .brk(brk),
                  .restart(restart), .room_load(load), .floor(floor), .grid(grid), .px(px), .py(py),
@@ -427,7 +486,7 @@ module top #(
                       .shoot(ev_shoot), .anim_sel(p_anim), .aframe(p_aframe), .hurt_flash(p_hurt));
     wire [2:0]  screen = is_title ? 3'd1 : (state == S_GAME_OVER) ? 3'd2 : is_win ? 3'd3 : is_pro ? 3'd4 : is_esc ? 3'd5 : 3'd0;
     wire [11:0] color;
-    renderer rnd (.brk(brk), .open_E(open_E), .p_hurt(p_hurt), .ov_phase(fc[4:3]), .fade(fade_lvl), .dlg_on(txt_scr == 4'd14), .dlg_b0(dlg_b0), .dlg_b1(dlg_b1), .dlg_n0(dlg_n0), .dlg_n1(dlg_n1), .dlg_col(dlg_col), .hud_hp(hp), .hud_hp_max(hp_max), .hud_b_hp(b_hp), .clk(clk), .ce(ce), .hcount(hcount), .vcount(vcount), .grid(grid), .floor(floor),
+    renderer rnd (.brk(brk), .trap_a(trap_a), .trap_b(trap_b), .open_E(open_E), .p_hurt(p_hurt), .ov_phase(fc[4:3]), .fade(fade_lvl), .dlg_on(txt_scr == 4'd14), .dlg_b0(dlg_b0), .dlg_b1(dlg_b1), .dlg_n0(dlg_n0), .dlg_n1(dlg_n1), .dlg_col(dlg_col), .hud_hp(hp), .hud_hp_max(hp_max), .hud_b_hp(b_hp), .chg_w(b_chg_w), .facing(face_vis), .chg_lvl(p_chg_lvl), .boss_fcol(b_fcol), .mic_on(mic_on), .mic_w(mic_w), .mic_th(mic_th_px), .mic_hit(mic_hit_cnt != 5'd0), .mic_th_bcd(mic_th_bcd), .mic_lv_bcd(mic_lv_bcd), .clk(clk), .ce(ce), .hcount(hcount), .vcount(vcount), .grid(grid), .floor(floor),
                   .form(form), .doors_open(doors_open), .open_L(open_L),
                   .screen(screen), .hide_player(fsm_hide | is_pro | is_esc | (obj_blink && !is_title)),
                   .px(rpx), .py(rpy), .pframe(pframe), .p_anim(p_anim), .p_aframe(p_aframe),
@@ -438,7 +497,7 @@ module top #(
                   .pz_act(pz_act_r), .pz_x(pz_x_r), .pz_y(pz_y_r), .pz_frame(pz_frame_r),
                   .pbox0(pbox0), .pbox1(pbox1), .pbox_en(pbox_en),
                   .simon_lit_on(simon_lit_on), .simon_lit(simon_lit), .simon_wrong(simon_wrong),
-                  .boss_act(b_act | is_title), .boss_x(is_title ? 10'd352 : b_x), .boss_y(is_title ? 10'd192 : b_y), .boss_frame(is_title ? {2'b10, fc[5]} : b_frame), .boss_flash(b_flash | (b_shield & fc[3]) | (b_tele & fc[2])),
+                  .boss_act(b_act | is_title), .boss_x(is_title ? 10'd352 : b_x), .boss_y(is_title ? 10'd192 : b_y), .boss_frame(is_title ? {2'b10, fc[5]} : b_frame), .boss_flash(b_flash | (b_shield & fc[3]) | (b_tele & ((b_tele_lvl == 2'd0) ? fc[4] : (b_tele_lvl == 2'd1) ? fc[3] : (b_tele_lvl == 2'd2) ? fc[2] : fc[1])) | (b_warn & fc[2])),
                   .sh_dx(sh_dx), .sh_dy(sh_dy), .txt_scr(txt_scr), .txt_blink(fc[5]),
                   .t_floor({2'b00, floor} + 4'd1), .t_m1(m_t), .t_m0(m_o), .t_s1(s_t), .t_s0(s_o),
                   .color(color));
@@ -485,7 +544,8 @@ module top #(
     assign LED16_G = dim & rgb[1];
     assign LED16_B = dim & rgb[0];
     assign LED17_R = dim & invuln;                // แดงตอนโดนตี (knockback + อมตะ)
-    assign {LED17_G, LED17_B} = 2'b00;
+    assign LED17_G = dim & (kd_got != 0);          // W22 diagnostics: a valid PS/2 byte arrived
+    assign LED17_B = dim & (kd_clk != 0);          // W22 diagnostics: the PS2_CLK line is moving
 
     // ---------- เสียง (audio.v) ----------
     // เหตุการณ์ -> pulse 1 clock; ขอบขึ้นของสัญญาณระดับ (มึน, ประตูเปิด, gate เปิด) ตรวจที่นี่
@@ -493,7 +553,11 @@ module top #(
     always @(posedge clk) begin stun_d <= b_stunned; doors_d <= doors_open; gate_d <= gate_open; end
     reg b_act_d = 1'b0;
     always @(posedge clk) b_act_d <= b_act;
-    wire [12:1] aud_ev = {door_evt, b_act & ~b_act_d, ev_melee, ev_shoot, ev_mdmg | b_dmg, ev_ok, pz_hit,
+    reg  [1:0] chg_lvl_d = 2'd0;       // W21: charge level last frame (a beep at every step of the boss-3 charge)
+    reg        b_tele_d2 = 1'b0;
+    always @(posedge clk) begin chg_lvl_d <= b_tele_lvl; b_tele_d2 <= b_tele; end
+    wire chg_beep = b_tele & (~b_tele_d2 | (b_tele_lvl != chg_lvl_d));
+    wire [13:1] aud_ev = {chg_beep, door_evt, b_act & ~b_act_d, ev_melee, ev_shoot, ev_mdmg | b_dmg, ev_ok, pz_hit,
                           (doors_open & ~doors_d) | (gate_open & ~gate_d), pz_got | sw3_rise,
                           ev_mdie | b_died, b_stunned & ~stun_d, obj_hit | sw4_rise};
     `include "bgm_cfg.vh"

@@ -42,7 +42,7 @@ function [127:0] dlg_trigs(input [63:0] ev, input [127:0] fin);
     begin
         dlg_trigs = 128'd0;
         dlg_trigs[0] = ev[0];   // F1-01 start
-        dlg_trigs[1] = ev[1];   // F1-02 first_attack
+        dlg_trigs[1] = fin[0];   // F1-02 after F1-01
         dlg_trigs[2] = fin[1];   // F1-03 after F1-02
         dlg_trigs[3] = fin[2];   // F1-04 after F1-03
         dlg_trigs[4] = fin[3];   // F1-05 after F1-04
