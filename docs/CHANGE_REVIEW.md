@@ -1,4 +1,28 @@
-# Change review - everything on branch `sprite-zip` compared with `main`
+# Change review
+
+## Update 20-21/11/2026 (branches `dev` = `main`)
+
+Everything below is committed on `dev` and merged into `main`. "sim" = verified with a testbench / Python test, "board" = not yet tried on the board.
+
+| Area | What changed (design item) | Verified |
+|---|---|---|
+| Traps | timed floor-2 spikes (W19), every form is hurt, 5-tile hurt-box check (W39) | `tb_objects` sim, board open |
+| Bosses | bullet patterns + slow chase (W20), boss 3 charge bar / colour / beep (W21), storm instead of instant death (W24), boss 2 rework (W42), boss 3 HP 9 (W44), second phase (W43) | `tb_boss` sim, board open |
+| Input | USB keyboard (W22, **board confirmed**), edge cases (W34), SW8 / H hitbox overlay | `tb_ps2` sim |
+| Combat | charge ball (W25), auto aim on by default + free angle + marker (W18 / W46), smarter chasers and aimed turret (W45), waves (W43), retry current floor (W43) | `tb_objects`, `tb_game_fsm` sim |
+| Microphone | detector rewritten for an AC signal (W4), meter + title SETTINGS page (W27 / W30 / W36) | `tb_pdm_mic`, `tb_hud` sim, board open |
+| Story / help | story boxes freeze the game (W31), hint strip + tutorial (W28 / W32), title pages (W29), intro once (W33), text never covers doors (W38) | `tb_dialog`, `tb_top` (older run), `test_story` |
+| Maps | combat / start 1 / boss rooms redrawn with a purpose per object (W23), light puzzle at the bottom (W26-related), Sokoban reset hint (W41) | `test_maps` |
+| Art | plate with box (W26), Human attack animation ON (W35), clearer lever art, flickering torch bulbs | `test_tileset_pipeline`, `test_sprite_pipeline` |
+| Fixed in synthesis | `ORB_DIST` wiped from a generated file; `dlg_ev` bit bound and `lock_seen` multi-driver (Vivado kept constant 0: the intro-again box and the room-cleared boxes never fired) | Vivado synth warnings, rerun pending |
+
+Known gaps: `tb_puzzles` lever-XOR check fails (unexplained, same before the changes); the full-system `tb_top` was not rerun on the last commit; nothing from W19 onwards is board-tested.
+
+---
+
+# Change review (older text, 19/11)
+
+## Everything on branch `sprite-zip` compared with `main` (19/11)
 
 Branch `sprite-zip`, tag `board-test-2`. Nothing of this is in `main` yet (main waits for an explicit "merge"). All feature branches that existed during development are merged into `sprite-zip` and deleted
 (history is kept in `sprite-zip`; the old phase branches are kept as tags `archive/p2-game-fsm` ... `archive/p6-tweaks`; unfinished work is on `wip/wall-variants`).
@@ -33,7 +57,7 @@ Everything is documented in `sprites/README.md`; what is final / placeholder is 
 |---|---|---|
 | Easier: start HP 4 for forms 1-2 (was 3), invulnerable 90 frames after a hit (was 60), the chasing monster moves every 2nd frame (half speed) | `rtl/params.vh`, `rtl/objects.v` | `HP1`, `HP2`, `INV_FRAMES`, `MON_A_MOVE_EVERY` |
 | After tapping BTNC the facing stays locked for 24 frames (attack and step back with one hand) | new `rtl/face_lock.v`, `rtl/top.v` | `FACE_LOCK_FRAMES` (0 = off) |
-| SW14 up = facing locked all the time | `rtl/top.v` | - |
+| SW12 up = facing locked all the time (was SW14); SW15 = pause, SW14 = sprint (W15) | `rtl/top.v` | - |
 | Screen shake for 12 frames after being hit | `rtl/top.v` | `HURT_SHAKE_FRAMES` (0 = off) |
 | Two new sound effects: boss appears (11), room change (12) | `rtl/audio.v`, `rtl/params.vh`, `rtl/top.v` | `SFX_BOSS_*`, `SFX_DOOR_*` |
 | Music ROM has 8 tracks; track 6 is a custom track that loops; which track plays where comes from `sprites/music.json` | `rtl/audio.v`, `scripts/make_music.py`, generated `rtl/bgm_cfg.vh` | `sprites/music.json` |
@@ -70,6 +94,7 @@ All four flags are `false` in `sprites/sprites.json`, so the build is exactly th
 | `scripts/check_all.sh` (generated files current, all Python tests, `run_sim.sh all`) | PASS (`run_sim.sh all` = ALL OK) |
 | Whole-system test with all four animation flags forced ON (`run_sim.sh topanim`) | PASS |
 | Fallback drill on the real tree (4 scenarios) | PASS |
+| Verilator `full_game.txt` script | NOT valid any more after the W7 maze: the run used to end with the ESCAPE dash to door E; now boss 3 gives a key and door E starts the tilt maze (the script has no maze solution; extend it with button moves or use `SW10`) |
 | Verilator full game to WIN | last passed on the commit before the tuning / face lock / SW14 / music RTL changes (screenshots in `preview/game`); NOT repeated on the newest RTL because Verilator cannot be rebuilt on the build machine |
 | Vivado synthesis and board run | pending: the owner builds in the GUI (`docs/BOARD_TEST_STEPS.md`); Block RAM and WNS numbers are still to be recorded |
 

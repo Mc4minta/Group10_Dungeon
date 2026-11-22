@@ -23,6 +23,8 @@ localparam [2:0] RGB4 = 3'b110;            // ทอง
 localparam [2:0] SPRINT_BONUS = 3'd1;      // SW15: +px/เฟรม
 localparam [6:0] EVOLVE_FRAMES = 7'd60;    // EVOLVE 1 วิ
 localparam [7:0] CLEAR_FRAMES  = 8'd120;   // FLOOR_CLEAR 2 วิ
+localparam [8:0] PROLOGUE_FRAMES = 9'd360;  // W9a: แต่ละหน้า prologue อยู่นานสุด 6 วิ (หรือกด BTNC ข้ามไปหน้าถัดไป)
+localparam [2:0] PROLOGUE_PAGES  = 3'd4;    // จำนวนหน้า prologue (PRO-01..04)
 
 // ---------- การโจมตีของผู้เล่น ----------
 localparam MELEE_FRAMES   = 8;             // ร่าง 1: hit box อยู่กี่เฟรม (24x16 หน้าตัว)
@@ -33,6 +35,7 @@ localparam PB_COOLDOWN    = 15;            // ร่าง 2-4: เฟรมร�
 
 // ---------- มอน ----------
 localparam MON_A_HP       = 2;             // มอน A (ไล่)
+localparam MON_FACE_LEFT_IS_FLIP = 1;          // W40: 1 = the skeleton art faces RIGHT (mirror it when it walks left); 0 = the art faces left
 localparam MON_A_SPEED    = 1;
 localparam MON_A_MOVE_EVERY = 2;           // มอน A เดินทุก N เฟรม (1 = ทุกเฟรมเหมือนเดิม, 2 = ครึ่งความเร็ว)             // px/เฟรม
 localparam MON_B_HP       = 3;             // มอน B (ป้อม)
@@ -66,20 +69,58 @@ localparam PUZZLE_DELAY   = 256;           // puzzles.v เริ่มงาน
 // ---------- บอส (P5) ----------
 localparam BOSS1_HP        = 10;           // บอส 1 (ชั้น 1)
 localparam BOSS2_HP        = 16;           // บอส 2 (ชั้น 2)
-localparam BOSS3_HP        = 24;           // บอส 3 (ชั้น 3)
-localparam BOSS1_SPEED     = 1;            // px ต่อก้าว
-localparam BOSS1_EVERY     = 2;            // บอส 1 ก้าวทุกกี่เฟรม (1 px ทุก 2 เฟรม)
-localparam BOSS2_SPEED     = 2;            // เด้งทแยง px/เฟรม
-localparam BOSS3_SPEED     = 2;            // ไล่ px/เฟรม
-localparam BOSS2_FIRE      = 120;          // ยิง 4 ทิศทุกกี่เฟรม
-localparam BOSS3_FIRE      = 60;
-localparam BOSS_FLASH      = 8;            // โดนตีกะพริบ
-localparam STUN_FRAMES     = 120;          // ตบมือ -> บอส 2 มึน
-localparam STUN_COOLDOWN   = 300;          // หลังมึนจบ รอกี่เฟรมถึงตบมือได้อีก
+localparam BOSS3_HP        = 9;            // W12: 3 ปล่อยชาร์จที่โดน = ตาย (แถบ HP 3 ช่อง)           // บอส 3 (ชั้น 3)
+localparam BOSS1_SPEED     = 1;            // W20: px per step (was 2 every frame = too fast to shoot); with BOSS1_EVERY = 2 -> 0.5 px/frame
+localparam BOSS1_EVERY     = 2;            // boss 1 steps every N frames (W20: every 2nd frame)
+localparam BOSS2_SPEED     = 0;            // W11: บอส 2 อยู่กับที่ (เรียกลูกน้อง)
+localparam BOSS3_SPEED     = 1;            // W20: chase px per step (was 2)
+localparam BOSS3_EVERY     = 2;            // W20: boss 3 steps every N frames
+localparam BOSS1_FIRE      = 90;           // W20: bullet pattern every 1.5 s (0 = never)
+localparam BOSS2_FIRE      = 90;           // W20: boss 2 (stationary) shoots patterns too
+localparam BOSS3_FIRE      = 90;
+localparam BOSS_WARN       = 20;           // W20: the boss blinks this many frames before each pattern (telegraph)
+localparam EB_DIAG         = 2;            // W20: enemy bullet px per axis on diagonals
+localparam TRAP_DOWN       = 90;           // W19: timed spike trap (floor 2): frames flat / safe
+localparam TRAP_WARN       = 30;           //   frames half up (warning, still safe)
+localparam TRAP_UP         = 60;           //   frames fully up (2 damage)
+localparam TRAP_LOOP       = TRAP_DOWN + TRAP_WARN + TRAP_UP;   // 180 = 3 s
+localparam TRAP_GRACE      = 60;           //   after entering a room the traps stay safe this long
+localparam [17:0] SFX_CHG_HP = 18'd41667;  localparam signed [17:0] SFX_CHG_SL = -18'sd1200;  localparam SFX_CHG_LEN = 12;   // W21: boss-3 charge beep, 600 -> about 1000 Hz (rising)
+localparam BOSS1_FIRE_RAGE = 55;           // W43: second phase (below half HP; boss 3 below a third): faster volleys
+localparam BOSS2_FIRE_RAGE = 60;
+localparam BOSS3_FIRE_RAGE = 60;
+localparam BOSS2_VULN_RAGE = 180;          // boss 2 second phase: shorter vulnerable window (3 s) and a shorter breather
+localparam BOSS2_REST_RAGE = 45;
+localparam BOSS3_CHASE_RAGE = 120;         // boss 3 second phase: shorter chase, faster storm volleys, shorter rest
+localparam BOSS3_STORM_PERIOD_RAGE = 18;
+localparam BOSS3_REST_RAGE = 90;
+localparam BOSS_FLASH      = 8;           // โดนตีกะพริบ
+localparam STUN_FRAMES     = 180;          // W10: ตบมือ -> บอส 1 มึน 3 วิ
+localparam STUN_COOLDOWN   = 240;          // W10: 4 วิ
+localparam BOSS2_FIRST      = 90;           // W11: บอส 2 รอกี่เฟรมก่อน summon ครั้งแรก
+localparam BOSS2_REST       = 75;           // W42: breather after the vulnerable window, then the next wave (1.25 s)
+localparam BOSS2_VULN_FRAMES = 240;         // W11: ช่วงที่ตีบอส 2 ได้หลังลูกน้องตายหมด (2 วิ) แล้ว summon รอบใหม่
+localparam BOSS2_MINIONS    = 3;            // W11: ลูกน้องต่อรอบ (ตำแหน่ง SUMMON*_T* ด้านล่าง)
+localparam [4:0] SUMMON0_TX = 5'd6,  SUMMON1_TX = 5'd13, SUMMON2_TX = 5'd9;   // tile (x, y) ในวงรั้วห้องบอสชั้น 2 (ต้องเป็นพื้น)
+localparam [3:0] SUMMON0_TY = 4'd5,  SUMMON1_TY = 4'd5,  SUMMON2_TY = 4'd10;
+localparam BOSS3_CHASE      = 180;          // W12: บอส 3 ไล่ (เกราะ) กี่เฟรมก่อนชาร์จโจมตีใหญ่
+localparam BOSS3_STORM      = 120;          // W24: bullet storm after the charge (2 s), replaces the instant-death hit
+localparam BOSS3_STORM_PERIOD = 24;        // W24: frames between two volleys of the storm (cross, X, ring, X, cross)
+localparam BOSS3_REST       = 120;          // W24: after the storm the boss stands still and any hit hurts it (2 s)
+localparam BOSS3_CHARGE     = 240;          // W21: 4 s charge (was 120); keep <= 254: the HUD charge bar is (elapsed >> 1) px wide, max 127 //          // W12: ชาร์จโจมตีใหญ่ 2 วิ (ตอนนี้ยิงชาร์จขัดได้) ครบ = ผู้เล่นตายทั้งห้อง          // หลังมึนจบ รอกี่เฟรมถึงตบมือได้อีก
 
 // ---------- ฉากหนี (P5) ----------
-localparam ESCAPE_SECONDS  = 30;           // นับถอยหลัง (1800 เฟรม)
-localparam ESCAPE_BANNER   = 120;          // ข้อความ ESCAPE! กี่เฟรม
+localparam ESCAPE_SECONDS  = 60;           // W7: ESCAPE state = Ball in a Maze: นับถอยหลัง 60 วิ (หมดเวลา = GAME OVER)
+localparam ESCAPE_BANNER   = 120;          // ข้อความตอนเริ่มเขาวงกต กี่เฟรม
+localparam LOCK_RANGE       = 240;         // W18: auto-lock: ระยะเป้าหมายสูงสุด (px, Manhattan จากกลางตัวถึงกลางเป้า)
+localparam LOCK_TURN_FRAMES = 20;          // W18: ตัวละครหันตามเป้ากี่เฟรมหลังโจมตี (ภาพเท่านั้น)
+localparam DLG_FRAMES      = 150;         // W16: ข้อความ dialogue แบบไม่หยุดเกมอยู่กี่เฟรม (2.5 วิ)
+localparam MAZE_DEADZONE   = 3;            // W7: เอียงน้อยกว่านี้ (นับ ADXL ~64 ต่อ 1 g) ถือว่าราบ
+localparam MAZE_TILT_SHIFT = 2;            // ความเร่ง = tilt >> นี้ (1/16 px ต่อเฟรม^2)
+localparam MAZE_BTN_ACC    = 8;            // ความเร่งตอนใช้ปุ่มแทนเซนเซอร์
+localparam MAZE_MAXV       = 96;           // ความเร็วสูงสุด 6 px/เฟรม
+localparam MAZE_SIGN_X     = 0;            // 1 / 0 = กลับทิศแกน X ของเซนเซอร์ (ต้องเช็คบนบอร์ดจริง)
+localparam MAZE_SIGN_Y     = 0;
 localparam SHAKE_PX        = 2;            // จอสั่น +-px (ค่า 1..3)
 localparam SHAKE_EVERY     = 4;            // เปลี่ยน offset ทุกกี่เฟรม
 localparam HURT_SHAKE_FRAMES = 12;         // จอสั่นกี่เฟรมหลังโดนตี (0 = ปิด)
@@ -88,11 +129,13 @@ localparam LED_BLINK       = 15;           // LED กะพริบ 4 Hz (ค�
 // ---------- ไมค์ PDM (P5) ----------
 localparam MIC_CLK_DIV     = 40;           // 100 MHz / 40 = 2.5 MHz (M_CLK)
 localparam MIC_WINDOW      = 4096;         // นับ bit 1 ทุกกี่ sample (1.64 ms)
-localparam MIC_TH          = 600;          // |ones - 2048| > TH = ตบมือ (เงียบ ~ +-100, ตบมือดังกว่ามาก)
+localparam MIC_TH          = 448;          // W4: window peak of |block - DC| x 64 > TH = clap (= 7 ones of 64; a silent mic reads 0..128). SW5-SW8 on the game top change it, see the mic meter
 localparam MIC_HOLDOFF     = 20000000;     // หลังตบมือ ไม่สนกี่ clock (200 ms ที่ 100 MHz)
 localparam BOSS_DELAY      = 300;          // boss.v เริ่มงานต่อเฟรมหลัง frame_tick กี่ clock (หลัง objects.v)
 
 // ---------- อาวุธต่อร่าง (P6) ----------
+localparam AOE_PARENTS    = 3;            // W13: ร่าง 3 ยิงกี่นัดพร้อมกัน (3 ทาง; นัดที่โดนมอนจะแตก 4 ทิศ ต้องมี slot ว่าง 3 ช่อง)
+localparam SPLIT_LIFE      = 24;           // W13: ลูกที่แตกบินกี่เฟรม (24 x 4 px = 96 px = 3 tile) แล้วหาย
 localparam SPREAD_SPEED    = 4;            // ร่าง 3 กระสุนกระจาย: ทางตรง px/เฟรม
 localparam SPREAD_DIAG     = 3;            // ร่าง 3: ทแยง 45 องศา px/เฟรม ต่อแกน
 localparam SPREAD_COOLDOWN = 20;           // ร่าง 3: เฟรมระหว่างชุด (3 นัด)
@@ -100,7 +143,7 @@ localparam TAP_SPEED       = 6;            // ร่าง 4 กดครั้�
 localparam TAP_COOLDOWN    = 15;           // ร่าง 4: เฟรมระหว่างนัด
 localparam CHARGE_FRAMES   = 45;           // ร่าง 4: กดค้างกี่เฟรมถึงชาร์จเต็ม (0.75 วิ)
 localparam BIG_SPEED       = 4;            // ร่าง 4 ลูกใหญ่ 16x16 px/เฟรม
-localparam BIG_DMG         = 4;            // ร่าง 4 ลูกใหญ่: ดาเมจ (ทะลุมอน, โดนแต่ละตัวครั้งเดียว)
+localparam BIG_DMG         = 4;            // ร่าง 4 ลูกใหญ่: ดาเมจ (หยุดเมื่อโดน, W3)
 
 // ---------- เสียง (P6) ----------
 localparam AUD_PWM_BITS    = 8;            // PWM 8 bit, carrier = 100 MHz / 256 = 390 kHz

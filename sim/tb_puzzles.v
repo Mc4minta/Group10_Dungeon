@@ -35,32 +35,32 @@ module tb_puzzles;
     wire [8:0] pz_act; wire [89:0] pz_x, pz_y; wire [35:0] pz_frame;
     wire [9:0] dseq; wire [2:0] dsm; wire [1:0] dround;
 
-    game_fsm fsm (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(fsm_btnc), .got_item(pz_got | item_dbg),
-                  .take_hit(obj_hit | pz_hit), .floor_done(1'b0), .exit_evt(1'b0), .escape_start(1'b0), .exit_direct(1'b1), .sprint(1'b0),
+    game_fsm #(.PROLOGUE(0)) fsm (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(fsm_btnc), .btnl_rise(1'b0), .floor_in(floor), .got_item(pz_got | item_dbg),
+                  .take_hit(obj_hit | pz_hit), .floor_done(1'b0), .exit_evt(1'b0), .escape_start(1'b0), .exit_direct(1'b1), .sprint(1'b0), .key_get(1'b0), .goal(1'b0), .kill(1'b0),
                   .state(state), .restart(restart), .next_floor(next_floor), .form(form), .hp(hp),
                   .hp_max(hp_max), .speed(speed), .damage(damage), .rgb(rgb), .freeze(freeze),
                   .hide_player(fsm_hide), .m_t(m_t), .m_o(m_o), .s_t(s_t), .s_o(s_o));
 
-    player pl (.clk(clk), .rst(rst), .frame_tick(tick), .up(up), .down(down), .left(left), .right(right),
+    player pl (.open_E(form == 2'd3), .brk(8'd0), .clk(clk), .rst(rst), .frame_tick(tick), .up(up), .down(down), .left(left), .right(right),
                .hold_facing(atk_hold), .form(form), .speed(speed), .freeze(freeze), .grid(grid),
                .doors_open(doors_open), .open_L(has_item[floor]), .load(p_load), .load_x(lx), .load_y(ly),
                .blk0(blk0), .blk1(blk1), .blk2(blk2), .blk_en(blk_en),
                .kb_start(kb_start), .kb_dir(kb_dir), .px(px), .py(py), .facing(facing), .pose(pose),
                .door_evt(door_evt), .door_dir(door_dir));
 
-    objects ob (.clk(clk), .rst(rst), .frame_tick(tick), .run(state == 3'd1), .restart(restart | restart_tb),
+    objects ob (.brk(8'd0), .brk_set(), .brk_idx(), .clk(clk), .rst(rst), .frame_tick(tick), .run(state == 3'd1), .restart(restart | restart_tb),
                 .room_load(o_load), .floor(floor), .room(room), .grid(grid), .open_L(has_item[floor]),
                 .px(px), .py(py), .facing(facing), .form(form), .damage(damage),
                 .atk_press(atk_press), .atk_hold(atk_hold), .dbg_clear(1'b0),
                 .blk0(blk0), .blk1(blk1), .blk2(blk2), .blk_en(blk_en),
-                .boss_act(1'b0), .boss_x(10'd0), .boss_y(10'd0), .boss_fire(1'b0), .boss_dmg(), .boss_dmg_amt(),
+                .boss_act(1'b0), .boss_x(10'd0), .boss_y(10'd0), .boss_fire(1'b0), .auto_lock(1'b0), .lock_use(), .lock_face(), .summon(1'b0), .boss_dmg(), .boss_dmg_amt(), .boss_dmg_big(),
                 .doors_open(doors_open), .alive(alive), .hit(obj_hit), .kb_start(kb_start), .kb_dir(kb_dir),
                 .invuln(invuln), .player_blink(blink), .busy(obj_busy),
                 .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
                 .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .pb_kind(pb_kind), .charged(charged),
                 .eb_act(eb_act), .eb_x(eb_x), .eb_y(eb_y), .melee_on(melee_on), .melee_dir(melee_dir));
 
-    puzzles #(.SEED(16'h0000)) pz (.clk(clk), .rst(rst), .frame_tick(tick), .run(state == 3'd1),
+    puzzles #(.SEED(16'h0000)) pz (.clk(clk), .rst(rst), .frame_tick(tick), .anim(1'b0), .run(state == 3'd1),
                 .restart(restart | restart_tb), .room_load(o_load), .floor(floor), .grid(grid), .px(px), .py(py),
                 .up(up), .down(down), .left(left), .right(right), .melee_on(melee_on), .melee_dir(melee_dir),
                 .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .soko_reset(soko_reset),
@@ -131,7 +131,7 @@ module tb_puzzles;
     // หันขึ้นแล้วฟันคันโยก k (ยืนแถว 2 ใต้คันโยก)
     task hit_lever(input integer k); reg [4:0] tx; begin
         tx = (k == 0) ? 4 : (k == 1) ? 8 : (k == 2) ? 12 : 16;
-        place({tx, 5'd0}, 10'd70);
+        place({tx, 5'd0}, 10'd396);                  // 20/11: the levers are at the bottom now (row 11); the hero stands on row 12
         up = 1; frames(1); up = 0;
         press; frames(10); frames(12);          // ฟัน 8 เฟรม + cooldown 20
     end endtask
@@ -222,14 +222,14 @@ module tb_puzzles;
         frames(62); wait_play;
         check(form == 1, "form 2 (shooter) for the bullet test");
         before_bulbs = bulbs;
-        place(10'd256, 10'd200); up = 1; frames(1); up = 0;
+        place(10'd256, 10'd400); up = 1; frames(1); up = 0;
         press; frames(40);
         check(bulbs == (before_bulbs ^ 4'b1011), "player bullet through lever b: bulbs ^= 1011 exactly once");
         // แก้ให้ครบ: คำนวณเซตคันโยกที่ต้องตี แล้วยิงทีละคัน
         sel = best(bulbs);
         $display("      bulbs=%b -> hit levers %b", bulbs, sel[3:0]);
         for (n = 0; n < 4; n = n + 1) if (sel[n]) begin
-            place({n == 0 ? 5'd4 : n == 1 ? 5'd8 : n == 2 ? 5'd12 : 5'd16, 5'd0}, 10'd200);
+            place({n == 0 ? 5'd4 : n == 1 ? 5'd8 : n == 2 ? 5'd12 : 5'd16, 5'd0}, 10'd400);
             up = 1; frames(1); up = 0; press; frames(40);
         end
         frames(2);

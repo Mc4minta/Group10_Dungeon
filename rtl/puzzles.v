@@ -17,6 +17,7 @@ module puzzles #(
     input  wire        clk,
     input  wire        rst,
     input  wire        frame_tick,
+    input  wire        anim,                 // slow flicker phase (fc[3]): a lit bulb alternates between puzzle pictures 1 and 15 (torch flame animation)
     input  wire        run,                  // state PLAY
     input  wire        restart,              // เกมใหม่: ล้างปริศนา + ไอเทมทั้งหมด
     input  wire        room_load,            // world.load (เข้าห้อง)
@@ -28,6 +29,7 @@ module puzzles #(
     input  wire [1:0]  melee_dir,
     input  wire [5:0]  pb_act,               // กระสุนผู้เล่น 6 slot
     input  wire [59:0] pb_x, pb_y,
+    input  wire [7:0]  brk,                  // W5: บล็อกพังได้ที่พังแล้ว
     input  wire        soko_reset,           // SW13 rise
     output reg         got_item = 1'b0,      // pulse -> game_fsm (EVOLVE)
     output reg         hit = 1'b0,           // pulse -> game_fsm take_hit (Simon ผิด)
@@ -55,6 +57,7 @@ module puzzles #(
     output reg  [3:0]  bulbs = 4'd0,
     output reg         lb_ok = 1'b0,
     output reg         gate_open = 1'b0,
+    output wire        soko_stuck,           // W41: a box is in a dead corner (not on a plate, walls on one horizontal and one vertical side) -> the room can not be solved without a reset
     output reg         sm_ok = 1'b0,
     output wire        busy,
     output wire [9:0]  dbg_seq,              // debug: ลำดับ Simon (2 bit ต่อแผ่น, แผ่นแรก = bit 1:0)
@@ -86,7 +89,7 @@ module puzzles #(
     // ---------- tile ROM (ปลายทางกล่อง / จุดกลางผู้เล่นใน Simon) ----------
     reg  [11:0] ta = 0;
     wire [3:0]  td;
-    tilemap_rom rom (.addr(ta), .data(td));
+    tilemap_rom rom (.addr(ta), .brk(brk), .data(td), .ov());
 
     // ---------- state ----------
     reg [2:0]  picked = 0;
@@ -98,6 +101,21 @@ module puzzles #(
     integer    jb;
     reg [4:0]  b0x = BOX0_TX, b1x = BOX1_TX;
     reg [3:0]  b0y = BOX0_TY, b1y = BOX1_TY;
+    // ---- W41 dead-corner detection for the Sokoban boxes: the 4 neighbours of each box (tile 0 = wall) ----
+    wire [3:0] n0l, n0r, n0u, n0d, n1l, n1r, n1u, n1d;
+    tilemap_rom rn0l (.addr(tad(G_SOKO, b0x - 5'd1, b0y)),        .brk(8'd0), .data(n0l), .ov());
+    tilemap_rom rn0r (.addr(tad(G_SOKO, b0x + 5'd1, b0y)),        .brk(8'd0), .data(n0r), .ov());
+    tilemap_rom rn0u (.addr(tad(G_SOKO, b0x, b0y - 4'd1)),        .brk(8'd0), .data(n0u), .ov());
+    tilemap_rom rn0d (.addr(tad(G_SOKO, b0x, b0y + 4'd1)),        .brk(8'd0), .data(n0d), .ov());
+    tilemap_rom rn1l (.addr(tad(G_SOKO, b1x - 5'd1, b1y)),        .brk(8'd0), .data(n1l), .ov());
+    tilemap_rom rn1r (.addr(tad(G_SOKO, b1x + 5'd1, b1y)),        .brk(8'd0), .data(n1r), .ov());
+    tilemap_rom rn1u (.addr(tad(G_SOKO, b1x, b1y - 4'd1)),        .brk(8'd0), .data(n1u), .ov());
+    tilemap_rom rn1d (.addr(tad(G_SOKO, b1x, b1y + 4'd1)),        .brk(8'd0), .data(n1d), .ov());
+    wire pl0 = (b0x == PLATE0_TX && b0y == PLATE0_TY) || (b0x == PLATE1_TX && b0y == PLATE1_TY);
+    wire pl1 = (b1x == PLATE0_TX && b1y == PLATE0_TY) || (b1x == PLATE1_TX && b1y == PLATE1_TY);
+    wire dead0 = !pl0 && (n0l == 4'd0 || n0r == 4'd0) && (n0u == 4'd0 || n0d == 4'd0);
+    wire dead1 = !pl1 && (n1l == 4'd0 || n1r == 4'd0) && (n1u == 4'd0 || n1d == 4'd0);
+    assign soko_stuck = (grid == G_SOKO) && !gate_open && (dead0 || dead1);
     reg [4:0]  sc0 = 0, sc1 = 0;             // เฟรมเลื่อนที่เหลือ
     reg [1:0]  sd0 = 0, sd1 = 0;             // ทิศเลื่อน 0 ลง 1 ขึ้น 2 ซ้าย 3 ขวา
     // Simon
@@ -410,10 +428,10 @@ module puzzles #(
                 x_[1*10 +: 10] = {LEVER1_TX, 5'd0}; y_[1*10 +: 10] = {1'b0, LEVER1_TY, 5'd0}; f_[1*4 +: 4] = 4'd2 + levers[1];
                 x_[2*10 +: 10] = {LEVER2_TX, 5'd0}; y_[2*10 +: 10] = {1'b0, LEVER2_TY, 5'd0}; f_[2*4 +: 4] = 4'd2 + levers[2];
                 x_[3*10 +: 10] = {LEVER3_TX, 5'd0}; y_[3*10 +: 10] = {1'b0, LEVER3_TY, 5'd0}; f_[3*4 +: 4] = 4'd2 + levers[3];
-                x_[4*10 +: 10] = {BULB0_TX, 5'd0};  y_[4*10 +: 10] = {1'b0, BULB0_TY, 5'd0};  f_[4*4 +: 4] = {3'd0, bulbs[3]};
-                x_[5*10 +: 10] = {BULB1_TX, 5'd0};  y_[5*10 +: 10] = {1'b0, BULB1_TY, 5'd0};  f_[5*4 +: 4] = {3'd0, bulbs[2]};
-                x_[6*10 +: 10] = {BULB2_TX, 5'd0};  y_[6*10 +: 10] = {1'b0, BULB2_TY, 5'd0};  f_[6*4 +: 4] = {3'd0, bulbs[1]};
-                x_[7*10 +: 10] = {BULB3_TX, 5'd0};  y_[7*10 +: 10] = {1'b0, BULB3_TY, 5'd0};  f_[7*4 +: 4] = {3'd0, bulbs[0]};
+                x_[4*10 +: 10] = {BULB0_TX, 5'd0};  y_[4*10 +: 10] = {1'b0, BULB0_TY, 5'd0};  f_[4*4 +: 4] = bulbs[3] ? (anim ? 4'd15 : 4'd1) : 4'd0;
+                x_[5*10 +: 10] = {BULB1_TX, 5'd0};  y_[5*10 +: 10] = {1'b0, BULB1_TY, 5'd0};  f_[5*4 +: 4] = bulbs[2] ? (anim ? 4'd15 : 4'd1) : 4'd0;
+                x_[6*10 +: 10] = {BULB2_TX, 5'd0};  y_[6*10 +: 10] = {1'b0, BULB2_TY, 5'd0};  f_[6*4 +: 4] = bulbs[1] ? (anim ? 4'd15 : 4'd1) : 4'd0;
+                x_[7*10 +: 10] = {BULB3_TX, 5'd0};  y_[7*10 +: 10] = {1'b0, BULB3_TY, 5'd0};  f_[7*4 +: 4] = bulbs[0] ? (anim ? 4'd15 : 4'd1) : 4'd0;
             end else if (grid == G_SOKO) begin
                 a_[0] = !(sc0 == 0 && on_p0);   // วางนิ่งบนแผ่น = tile 11 แทน
                 x_[0*10 +: 10] = bpos(b0x, sc0, sd0, 1'b1); y_[0*10 +: 10] = bpos({1'b0, b0y}, sc0, sd0, 1'b0);

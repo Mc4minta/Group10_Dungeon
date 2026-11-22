@@ -2,6 +2,8 @@
 """แปลง maps/*.txt (ASCII 20x15) -> mem/tilemap.mem + mem/objects.txt + mem/monsters.mem
 
 tilemap.mem  : 4096 บรรทัด, 1 hex digit ต่อ tile, address = grid*300 + ty*20 + tx
+overlay.mem  : 4096 บรรทัด x 8 bit (W5), address เดียวกัน: [3:0] = 0 ไม่มี, 1 กล่องพังได้ (Z), 2 กับดักหนาม (X), 3 เสาตกแต่งตัน (Y); [6:4] = ลำดับกล่องพังได้ในห้อง (0..7)
+                ใต้ overlay ใน tilemap.mem เป็นพื้น (1) เสมอ
 objects.txt  : รายการ object ต่อห้อง (อ่านง่ายสำหรับคน)
 monsters.mem : ROM มอนต่อห้องสำหรับ rtl/objects.v, 128 บรรทัด x 16 bit, address = grid*8 + i (i = 0..7)
                bit 15 = valid, bit 14..12 = ชนิด (0 = มอน A 'S' ไล่, 1 = มอน B 'T' ป้อม),
@@ -34,50 +36,93 @@ TILE = {
     '`': 0xF,  # rubble
 }
 DECOR = set(',;:`')
+# W5 overlay layer (separate 4-bit code map, see docs/DESIGN_PLAN.md 5.1): Z breakable block, X spike trap, Y solid decoration
+OVL = {'Z': 1, 'X': 2, 'Y': 3, 'W': 8, 'V': 9}   # W19: W / V = timed spike trap (floor 2 only), phase A / B, 2 damage; X stays the static trap (1 damage)
+TIMED_ROOMS = {7, 8}         # grids of floor 2 combat rooms
+# wall decoration (looks only: the tile stays a wall, no collision change): t torch (animated), [ torch on the left wall, ] torch on the right wall, v shield -> overlay codes 4..7
+WALLDECOR = {'t': 4, '[': 5, ']': 6, 'v': 7}
+MAX_BRK = 8                  # breakable blocks per room (state bits in overlay.v)
+# overlay only in rooms without puzzle logic and not the boss rooms: start rooms 0,1 and combat rooms 4,5,7,8,10,11
+OVL_ROOMS = {0, 1, 4, 5, 7, 8, 10, 11}
 # rooms where decoration is allowed: only rooms that are drawn with floor 1 or 2 art and are not a puzzle room that reads tile ids.
 # NOT allowed: 1 (floor 3), 2 (boss, floors 1+3), 9 (Sokoban: boxes only move onto tile 1/7), 10-12 (floor 3: C-F = Simon plate art)
 DECOR_ROOMS = {0, 3, 4, 5, 6, 7, 8}
 # object -> tile ใต้ object (object เองเก็บแยกใน objects.txt)
-OBJ_FLOOR = set('PSTBabcd1234KGIN')
-MONSTER = {'S': 0, 'T': 1}   # ตัวอักษรในแมพ -> ชนิดมอน (0 = A ไล่, 1 = B ป้อม)
+OBJ_FLOOR = set('PSTBabcd1234KGINmnop')
+MONSTER = {'S': 0, 'T': 1, 'm': 0, 'n': 1, 'o': 0, 'p': 1}   # map char -> monster type (0 = A chaser, 1 = B turret); S T = wave 1, m n = wave 2, o p = wave 3 (W43)
+WAVE = {'S': 0, 'T': 0, 'm': 1, 'n': 1, 'o': 2, 'p': 2}
 MAX_MON = 6                  # slot มอนใน objects.v
 
-maps = sorted(glob.glob(os.path.join(ROOT, 'maps', '*.txt')))
+maps = sorted(glob.glob(os.path.join(ROOT, 'maps', '[0-9][0-9]_*.txt')))
 assert len(maps) == 13, f'expected 13 maps, found {len(maps)}'
 
 mem = []
+ovl = []
 objs = []
-mons = [[] for _ in range(16)]
+mons = [[] for _ in range(16)]                 # wave 1 (the first monsters of a room)
+mons_w = [[[] for _ in range(16)] for _ in range(4)]   # mons_w[wave][grid]
 for g, path in enumerate(maps):
     rows = open(path, encoding='utf-8').read().rstrip('\n').split('\n')
     assert len(rows) == 15, f'{path}: {len(rows)} rows'
+    nbrk = 0
     for ty, row in enumerate(rows):
         assert len(row) == 20, f'{path} row {ty}: {len(row)} chars'
         for tx, ch in enumerate(row):
             if ch in DECOR and g not in DECOR_ROOMS:
                 raise ValueError(f'{path} ({tx},{ty}): decoration {ch!r} is not allowed in this room (grid {g})')
+            if ch in WALLDECOR:
+                mem.append(TILE['#'])
+                ovl.append(WALLDECOR[ch])
+                continue
+            if ch in OVL:
+                if g not in OVL_ROOMS:
+                    raise ValueError(f'{path} ({tx},{ty}): overlay {ch!r} is not allowed in this room (grid {g})')
+                if ch in 'WV' and g not in TIMED_ROOMS:
+                    raise ValueError(f'{path} ({tx},{ty}): timed trap {ch!r} is only allowed on floor 2 (grids {sorted(TIMED_ROOMS)})')
+                mem.append(TILE['.'])
+                if ch == 'Z':
+                    assert nbrk < MAX_BRK, f'{path}: more than {MAX_BRK} breakable blocks'
+                    ovl.append(OVL[ch] | (nbrk << 4)); nbrk += 1
+                else:
+                    ovl.append(OVL[ch])
+                continue
             if ch in TILE:
                 mem.append(TILE[ch])
             elif ch in OBJ_FLOOR:
                 mem.append(TILE['.'])
                 objs.append(f'{g:2d} {os.path.basename(path):32s} {ch} x={tx:2d} y={ty:2d}')
                 if ch in MONSTER:
-                    mons[g].append(0x8000 | (MONSTER[ch] << 12) | (ty << 8) | tx)
+                    mons_w[WAVE[ch]][g].append(0x8000 | (MONSTER[ch] << 12) | (ty << 8) | tx)
             else:
                 raise ValueError(f'{path} ({tx},{ty}): unknown char {ch!r}')
+            ovl.append(0)
 
 mem += [0] * (4096 - len(mem))
+ovl += [0] * (4096 - len(ovl))
+with open(os.path.join(ROOT, 'mem', 'overlay.mem'), 'w') as f:
+    f.write(chr(10).join(f'{v:02x}' for v in ovl) + chr(10))
 with open(os.path.join(ROOT, 'mem', 'tilemap.mem'), 'w') as f:
     f.write('\n'.join(f'{v:x}' for v in mem) + '\n')
 with open(os.path.join(ROOT, 'mem', 'objects.txt'), 'w') as f:
     f.write('# grid file char x y\n' + '\n'.join(objs) + '\n')
 
+mons = mons_w[0]
 rom = []
-for g, m in enumerate(mons):
-    assert len(m) <= MAX_MON, f'grid {g}: {len(m)} monsters > {MAX_MON} slots'
-    rom += m + [0] * (8 - len(m))
+for w in range(4):                                # W43: 4 blocks of 16 rooms x 8 words: wave 1 first (the old layout), then waves 2, 3, spare
+    for g, m in enumerate(mons_w[w]):
+        assert len(m) <= MAX_MON, f'grid {g} wave {w + 1}: {len(m)} monsters > {MAX_MON} slots'
+        rom += m + [0] * (8 - len(m))
 with open(os.path.join(ROOT, 'mem', 'monsters.mem'), 'w') as f:
     f.write('\n'.join(f'{v:04x}' for v in rom) + '\n')
+
+# ---------- W7 maze (not a room): maps/maze/maze.txt -> mem/maze.mem (512 x 2 bit: 0 floor, 1 wall, 2 goal G, 3 start S; address = row*20 + col) ----------
+mz = open(os.path.join(ROOT, 'maps', 'maze', 'maze.txt'), encoding='utf-8').read().rstrip(chr(10)).split(chr(10))
+assert len(mz) == 15 and all(len(r) == 20 for r in mz), 'maze.txt must be 20x15'
+MZ = {'#': 1, '.': 0, 'G': 2, 'S': 3}
+mzv = [MZ[c] for r in mz for c in r]
+assert mzv.count(2) == 1 and mzv.count(3) == 1, 'maze: exactly one S and one G'
+with open(os.path.join(ROOT, 'mem', 'maze.mem'), 'w') as f:
+    f.write(chr(10).join(f'{v:x}' for v in mzv + [1] * (512 - len(mzv))) + chr(10))
 
 # ---------- ตำแหน่งของในห้องปริศนา -> rtl/puzzle_layout.vh (include ใน puzzles.v) ----------
 def find(g, ch):
@@ -116,4 +161,4 @@ with open(os.path.join(ROOT, 'rtl', 'puzzle_layout.vh'), 'w', encoding='utf-8') 
     f.write('\n'.join(lay) + '\n')
 
 print(f'tilemap.mem: {len(maps)} rooms, objects: {len(objs)}, '
-      f'monsters.mem: {sum(len(m) for m in mons)} monsters')
+      f'monsters.mem: {sum(len(m) for m in mons)} monsters (+ {sum(len(m) for w in mons_w[1:] for m in w)} in later waves)')

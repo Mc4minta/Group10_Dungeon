@@ -27,8 +27,8 @@
         "spin_die": "my_asset/Character/Human/SpinDie.png"
       }
     },
-    "2": { "enabled": true, "cell": 32, "scale": 2, "sheets": { "walk": "my_asset/Character/ORc/form2_Walk.png" } },
-    "3": { "enabled": true, "cell": 32, "scale": 2, "sheets": { "walk": "my_asset/Character/Angel/Angel_walk.png.png" } },
+    "2": { "enabled": true, "cell": 32, "scale": 2, "sheets": { "walk": "my_asset/Character/ORc/form2_Walk.png", "attack": "my_asset/Character/ORc/form2_Attack.png", "dmg": "my_asset/Character/ORc/form2_Dmg.png" } },
+    "3": { "enabled": true, "cell": 32, "scale": 2, "sheets": { "walk": "my_asset/Character/Angel/Angel_walk.png.png", "attack": "my_asset/Character/Angel/Angel_Attack.png", "dmg": "my_asset/Character/Angel/Angel_Dmg.png" } },
     "4": {
       "enabled": true,
       "cell": 32,
@@ -46,9 +46,14 @@
     "gold": { "dark": [110, 66, 0], "light": [255, 226, 90] }
   },
   "animations": {
-    "_help": "Extra Human (form 1) animations, each needs Verilog + BRAM (about 22 / 6 / 6 / 6 RAMB36). All OFF = exactly the old behaviour. After changing a flag: rebuild (this regenerates rtl/sprite_cfg.vh) and re-synthesise.",
+    "_help": "Extra player animations, each needs Verilog + BRAM. Human idle about 22 RAMB36, death 6, hurt 6. The ATTACK ROM holds 3 forms x 16 pictures (about 16 RAMB36 together): attack_anim = Human melee, attack_anim_form2 / _form3 = Orc / Angel attack picture when they shoot or swing (W14, option C; all three false = no attack ROM at all). hurt_flash = red flash of the sprite after a hit, any form, no BRAM. After changing a flag: rebuild (regenerates rtl/sprite_cfg.vh) and re-synthesise. Out of Block RAM? set attack_anim_form2 / form3 to false.",
     "idle_anim": false,
-    "attack_anim": false,
+    "attack_anim": true,
+    "attack_anim_form2": true,
+    "attack_anim_form3": true,
+    "hurt_flash": true,
+    "hurt_flash_frames": 12,
+    "shot_step_frames": 3,
     "hurt_anim": false,
     "death_anim": false,
     "death_sheet": "soul_die",

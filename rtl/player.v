@@ -31,6 +31,8 @@ module player (
     output reg  [1:0]  pose = 0,               // 0 idle 1 ก้าว A 2 ก้าว B
     output reg         door_evt = 0,           // pulse 1 clock
     output reg  [1:0]  door_dir = 0,           // 0 ลง 1 ขึ้น 2 ซ้าย 3 ขวา (ขอบจอที่ประตูอยู่)
+    input  wire        open_E,                 // W7: ประตู E เปิด (มีกุญแจ) -> เดินผ่านได้
+    input  wire [7:0]  brk,                    // W5: บล็อกพังได้ที่พังแล้ว (overlay.v)
     output wire        moving_o                // 1 = กำลังเดิน (ใช้เลือกภาพ idle เท่านั้น ไม่กระทบเกม)
 );
     localparam S_WAIT = 3'd0, S_XA = 3'd1, S_XB = 3'd2, S_YA = 3'd3,
@@ -46,8 +48,8 @@ module player (
     reg [3:0] anim_cnt = 0;
     reg [1:0] step = 0;
 
-    tilemap_rom rom_a (.addr(addr_a), .data(t_a));
-    tilemap_rom rom_b (.addr(addr_b), .data(t_b));
+    tilemap_rom rom_a (.addr(addr_a), .brk(brk), .data(t_a), .ov());
+    tilemap_rom rom_b (.addr(addr_b), .brk(brk), .data(t_b), .ov());
 
     `include "params.vh"
     reg  [3:0] kb_cnt = 0;            // เฟรม knockback ที่เหลือ
@@ -68,7 +70,7 @@ module player (
             4'hC, 4'hD, 4'hE, 4'hF: pass = 1'b1;
             4'h2: pass = doors_open && !kb_now;        // D
             4'h3: pass = open_L && !kb_now;            // L
-            4'h4: pass = (form == 2'd3) && !kb_now;    // E: ร่าง 4
+            4'h4: pass = open_E && !kb_now;            // E: เปิดเมื่อมีกุญแจ (W7)
             4'h5: pass = (form >= 2'd2);    // H: ร่าง 3+
             default: pass = 1'b0;           // # , F
         endcase

@@ -1,7 +1,7 @@
 # Next steps (backlog)
 
-Current state: branch `sprite-zip`, tag `board-test-2` (the build for the board). Everything listed under "Done" is merged and tested
-(`scripts/check_all.sh`: all Python tests + the full iverilog suite). Not verified on the real board yet: that is step P1.1 below.
+Current state (21/11): branches `dev` = `main` (everything up to W46 is merged; W1-W46 in `docs/DESIGN_PLAN.md`), tag `board-test-2` (an older board build). Everything listed under "Done" is merged and tested
+(`scripts/check_all.sh`: all Python tests + the full iverilog suite). Board status: the first builds ran on the Nexys A7 (USB keyboard confirmed); everything from W19 onwards still needs the board checks in `docs/BOARD_TEST_STEPS.md` (items 6b-6f). The single list of open work is the **FUTURE BACKLOG** table in `docs/DESIGN_PLAN.md`.
 Tick `[x]` when an item is done and update `docs/SPRITE_STATUS.md` / `docs/SOUND_PLAN.md` in the same commit.
 
 ---
@@ -52,8 +52,9 @@ Tick `[x]` when an item is done and update `docs/SPRITE_STATUS.md` / `docs/SOUND
 
 ## Design plan items (19/11 design notes) - PLAN ONLY, see `docs/DESIGN_PLAN.md`
 
-- [ ] **Phase A (small):** W1 door = spike trap, W2 pressure plate = tulip plate (needs your picture), W3 charged shot stops on hit, W4 clap on the board (mic debug), W6 new start screen, W9a prologue screen.
-- [ ] **Phase B (bosses):** W10 boss 1 fast + clap stun, W11 boss 2 summon (hurt only while minions live), W12 boss 3 armour + charge + big attack, W13 form 3 AOE split.
+- [ ] **Waiting for approval (20/11):** W28 tutorial, W29 title CONTROLS / CREDITS pages, W31 story freezes play, W32 hint strip, W33 intro skip, W34 input edge cases (designed in `docs/DESIGN_PLAN.md`, review table in `docs/GAMEPLAY_REVIEW.md`).
+- [ ] **Phase A (small):** W15 SW15 = pause / SW14 = sprint / facing lock -> SW12, W1 door = spike trap, W2 pressure plate (DONE), W3 charged shot stops on hit (DONE), W4 clap on the board (mic debug), W6 new start screen, W9a prologue screen.
+- [ ] **Phase B (bosses):** W10 boss 1 fast + clap stun, W11 boss 2 summon (hurt only when all minions are dead), W12 boss 3 armour + charge + big attack, W13 form 3 AOE split.
 - [ ] **Phase C:** W5 breakable block, trap, solid decoration (overlay layer). **Phase D:** W7 key -> door -> Ball in a Maze (accelerometer) -> WIN. **Phase E:** W9b story.
 - [x] W8 hearts + boss bar (done).
 - Answer the defaults in `docs/DESIGN_PLAN.md` section 6 first.
@@ -68,3 +69,7 @@ Tick `[x]` when an item is done and update `docs/SPRITE_STATUS.md` / `docs/SOUND
 
 Rule 1 (the game always builds; missing or invalid art / sound falls back with a warning), `*_v1.mem` backups never edited, `mem/*.mem` are generated, branch from `sprite-zip`,
 run `scripts/check_all.sh` before committing, no merge to `main` without an explicit "merge", nothing with a deadline risk goes in after the freeze.
+
+Standing rules (owner, 19/11): **every implementation updates `docs/FEATURES.md` in the same commit**; **every new idea is written into `docs/DESIGN_PLAN.md` first** and implemented only after the owner approves.
+
+- [ ] **FUTURE BACKLOG (20/11):** the single list of everything still open is the table `FUTURE BACKLOG` in `docs/DESIGN_PLAN.md` (waves, harder bosses, hitboxes, retry panel, smarter enemies, room redraws, credits, board tests).

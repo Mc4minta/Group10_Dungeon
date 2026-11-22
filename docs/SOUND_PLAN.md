@@ -36,6 +36,7 @@ Legend: **FINAL** = you are happy with it. **PLACEHOLDER** = a programmer test t
 | 10 | MELEE | the sword swing (form 1; forms 2-4 when an enemy is in the box) | 450 -> 250 Hz | 7 frames | `SFX_MELEE_*` |
 | 11 | BOSS (new) | a boss appears | 250 -> 204 Hz low rumble | 30 frames (0.5 s) | `SFX_BOSS_*` |
 | 12 | DOOR (new) | the player walks through a door into another room | 1000 Hz blip | 4 frames | `SFX_DOOR_*` |
+| 13 | CHARGE (new 20/11) | boss 3 charge: one beep at every quarter of the 4 s charge (rising) | 600 -> 1000 Hz | 12 frames | `SFX_CHG_*` (lowest priority) |
 
 Priority = the number: 1 beats everything, 12 is cut by every other effect. A boss sound (11) is allowed to cut the door blip (12), because the
 boss appears right after the door.

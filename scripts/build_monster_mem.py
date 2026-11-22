@@ -79,7 +79,10 @@ def load_config(path, root):
         fr = e.get("frames", [])
         if not isinstance(fr, list) or len(fr) > 2:
             raise ConfigError(f'monsters."{k}".frames must be a list of at most 2 entries (anim 0 and 1)')
-        cfg["monsters"][k] = {"enabled": en, "frames": [frame_spec(v, f'monsters."{k}".frames[{i}]') for i, v in enumerate(fr)]}
+        sc = e.get("scale", 1)
+        if isinstance(sc, bool) or sc not in (1, 2):
+            raise ConfigError(f'monsters."{k}".scale must be 1 or 2, got {sc!r}')
+        cfg["monsters"][k] = {"enabled": en, "scale": sc, "frames": [frame_spec(v, f'monsters."{k}".frames[{i}]') for i, v in enumerate(fr)]}
     cfg["alternatives"] = {}
     for name, lst in raw.get("alternatives", {}).items():
         if name.startswith("_"):
@@ -128,6 +131,21 @@ def resolve_frame(spec, sheets, cfg):
     return w, st, f"{sh.label} r{spec['row']} c{spec['col']}", None
 
 
+def art_bbox(words32, key):
+    xs = [i % 32 for i, w in enumerate(words32) if w != key]
+    ys = [i // 32 for i, w in enumerate(words32) if w != key]
+    return (min(xs), min(ys), max(xs) + 1, max(ys) + 1) if xs else None
+
+
+def scale2_window(words32, anchor, key):
+    """32x32 -> 32x32 at 2x: the 16x16 source window centred on the art (anchor = art centre) is doubled, so the monster is drawn as big as the hero
+    (art at most 16x16 px, bigger art is cut)"""
+    cx, cy = anchor
+    x0 = min(max(int(round(cx - 8)), 0), 16)
+    y0 = min(max(int(round(cy - 8)), 0), 16)
+    return [words32[(y0 + y // 2) * 32 + x0 + x // 2] for y in range(32) for x in range(32)]
+
+
 def build(cfg, root):
     b = Build()
     b.fallback, b.nl = read_fallback(cfg["fallback"])
@@ -142,6 +160,16 @@ def build(cfg, root):
     b.result = []
     for k, mi in (("A", 0), ("B", 1)):
         mc = cfg["monsters"][k]
+        anchor = None
+        if mc["enabled"] and mc["scale"] == 2:                          # one anchor per monster (union of its frames): the animation must not jump
+            boxes = []
+            for sp in mc["frames"][:2]:
+                w0 = resolve_frame(sp, b.sheets, cfg)[0]
+                bb = art_bbox(w0, cfg["key"]) if w0 is not None else None
+                if bb:
+                    boxes.append(bb)
+            if boxes:
+                anchor = ((min(x[0] for x in boxes) + max(x[2] for x in boxes)) / 2.0, (min(x[1] for x in boxes) + max(x[3] for x in boxes)) / 2.0)
         for anim in range(2):
             i = mi * 2 + anim
             info = {"idx": i, "name": NAMES[i], "source": None, "fallback": None, "stats": None}
@@ -152,6 +180,9 @@ def build(cfg, root):
                 info["fallback"] = "frame not configured"
             else:
                 words, info["stats"], info["source"], info["fallback"] = resolve_frame(mc["frames"][anim], b.sheets, cfg)
+                if words is not None and mc["scale"] == 2 and anchor is not None:
+                    words = scale2_window(words, anchor, cfg["key"])
+                    info["source"] = str(info["source"]) + " x2"
             if words is None:
                 words = b.fallback[i * FRAME_WORDS:(i + 1) * FRAME_WORDS]
             b.out[i * FRAME_WORDS:(i + 1) * FRAME_WORDS] = words

@@ -4,6 +4,20 @@
 
 สถานะ: **P0–P5 เสร็จใน simulation — เล่นจบเกมได้ใน sim** — ภาพขึ้นจอ, เดิน 8 ทิศ, ชนกำแพง + ไถล + corner slide, เปลี่ยนห้อง flip-screen ครบ 3 ชั้น × 5 ห้อง, หลุม/ประตูบอส/ประตูทางออกเช็คตามร่าง, Game FSM (TITLE / PLAY / EVOLVE / FLOOR_CLEAR / WIN / GAME_OVER), 4 ร่าง + HP + เวลา mm.ss + sprint, การต่อสู้ (ฟัน/ยิง, มอน A ไล่ + มอน B ป้อมยิง 4 ทิศ, โดนตี knockback + อมตะ, ห้อง Combat ล็อกจนมอนตายหมด), ปริศนา 3 ห้อง (Light Bulb, Sokoban + ดันกล่อง, Simon) + ไอเทมจริง (EVOLVE + เปิดประตูบอส L), บอส 3 ตัว + FLOOR_CLEAR จริง, ฉากหนี ESCAPE 30 วิ, ข้อความบนจอ, ไมค์ PDM (ตบมือ = บอส 2 มึน) (ยังไม่ได้ลงบอร์ดจริง) — ดูความคืบหน้าที่ `docs/PROGRESS.md`
 
+## Current status (21/11/2026) - read this first
+
+The game is playable from the title screen to the win screen **in simulation, and the first batches were tested on the Nexys A7 board** (the USB keyboard works, the build synthesises: 103.5 of 135 Block RAM tiles). Everything added on 20-21/11 is committed on `dev` and merged into `main`, and is **not yet tested on the board**: see `docs/BOARD_TEST_STEPS.md` (items 6b-6f).
+
+What exists (details: `docs/FEATURES.md`, controls for the player: **`docs/CONTROLS.md`**):
+
+* 3 floors x (safe room, 2 combat rooms with 2-3 waves, 1 puzzle room, 1 boss room), forms 1-4, melee / shot / spread / charge, auto aim (on by default, free angle, target marker), timed spikes, breakable crates, pits, hint strip + tutorial, story boxes that freeze the game, title pages (settings, controls, credits).
+* 3 bosses with second phases: boss 1 (clap, microphone meter on the screen), boss 2 (fence box, minions, hit only when they are dead), boss 3 (armour, 4 s charge, bullet storm).
+* Key + Ball in a Maze ending (accelerometer; axes flipped 20/11), GAME OVER = retry the current floor.
+* Inputs: board buttons / switches **and** a USB keyboard at the same time. SW8 / H = hitbox overlay.
+* Docs: `docs/README.md` (index), `docs/DESIGN_PLAN.md` (every item W1-W46 and the **FUTURE BACKLOG** table), `docs/GAMEPLAY_REVIEW.md`, `docs/MAP_DESIGN.md`, `docs/STORY.md` (all on-screen text), `docs/SPRITE_STATUS.md`.
+
+Branches: `main` and `dev` are the same commit; new work goes on `dev` first, `main` only when the owner says "merge".
+
 ## Quick start for the art / map / sound pipelines (English)
 
 The sprites, tiles, enemies, bosses, puzzle objects, maps and music are generated from files you edit (`my_asset/`, `my_audio/`, `sprites/*.json`, `maps/*.txt`).
@@ -18,7 +32,7 @@ The sprites, tiles, enemies, bosses, puzzle objects, maps and music are generate
 | Sounds and music | `docs/SOUND_PLAN.md` |
 | What to do next | `docs/NEXT_STEPS.md` |
 
-Development line: branch `sprite-zip` (tag `board-test-2` = the build for the board). `main` is the older version.
+Development line: branch `dev` (`main` = the same code, merged 21/11; tag `board-test-2` = an older board build).
 
 ## เริ่มใช้
 
@@ -43,7 +57,10 @@ Development line: branch `sprite-zip` (tag `board-test-2` = the build for the bo
 | BTNU/D/L/R | เดิน (กด 2 ปุ่ม = ทแยง) |
 | BTNC กด | เริ่มเกมจากหน้า TITLE · **โจมตี** ตอนเล่น (ดูตารางอาวุธต่อร่าง) · กลับ TITLE จากหน้า WIN / GAME OVER |
 | BTNC กดค้าง | strafe (ไม่เปลี่ยนทิศที่หัน) + ร่าง 2–3 ยิงซ้ำทุก cooldown, ร่าง 4 ชาร์จลูกใหญ่ |
-| **SW15** | **sprint**: ความเร็ว +1 px/เฟรม (ค่า `SPRINT_BONUS` ใน `rtl/params.vh`) ใช้ได้ทุกร่าง ระหว่างเล่น |
+| **SW9** | **auto-lock**: ยก = โจมตีเล็งศัตรูที่ใกล้สุดอัตโนมัติ (8 ทิศ ระยะ 240 px) · ลง = เล็งตามทิศที่หัน |
+| **SW15** | **PAUSE**: ยก = เกมหยุดทุกอย่าง (ตำแหน่ง มอน กระสุน timer) + ข้อความ PAUSED + เสียงเงียบ, ลง = เล่นต่อ (ใช้ได้ตอน PLAY / ESCAPE)
+| **SW14** | **sprint**: ความเร็ว +1 px/เฟรม (ค่า `SPRINT_BONUS` ใน `rtl/params.vh`) ใช้ได้ทุกร่าง ระหว่างเล่น (LED14) |
+| **SW12** | ล็อกทิศค้าง (เดิม SW14) |
 | **SW13** ยกขึ้น | รีเซ็ตกล่องห้อง Sokoban (ชั้น 2) กลับที่เดิม — ใช้ได้เฉพาะในห้องนั้น ตอน gate ยังปิด (control จริง ไม่ใช่ debug) |
 | CPU_RESETN | reset (กลับหน้า TITLE) |
 
@@ -116,10 +133,10 @@ Development line: branch `sprite-zip` (tag `board-test-2` = the build for the bo
 | 4 | นัดเร็ว 6 px/เฟรม | ชาร์จ (strafe): ครบ 45 เฟรม ตัวละครกะพริบสว่าง ปล่อยแล้วยิง **ลูกใหญ่** | 8×8 เหลือง / ลูกใหญ่ 16×16 ส้ม | 2 / ลูกใหญ่ 4 |
 
 - **ฟันได้ทุกร่าง**: ร่าง 2–4 กด Space ตอนมีมอนหรือบอสอยู่ในกล่องหน้าตัว = ฟัน (ดาเมจของร่าง) แทนยิง/ชาร์จ
-- ลูกใหญ่: ทะลุมอน (โดนแต่ละตัว/บอสครั้งเดียว), หยุดที่กำแพงและประตูปิด, ทำลายกระสุนศัตรูที่โดน, บนจอได้ทีละลูก · ปล่อยก่อน 45 เฟรม = ไม่มีลูกใหญ่ (ได้แค่นัดเร็วตอนกด) · ร่าง 4 ไม่ยิงซ้ำอัตโนมัติ
+- ลูกใหญ่: หยุดเมื่อโดนมอน/บอสตัวแรก (ไม่ทะลุแล้ว, W3), หยุดที่กำแพงและประตูปิด, ทำลายกระสุนศัตรูที่โดน, บนจอได้ทีละลูก · ปล่อยก่อน 45 เฟรม = ไม่มีลูกใหญ่ (ได้แค่นัดเร็วตอนกด) · ร่าง 4 ไม่ยิงซ้ำอัตโนมัติ
 - **กระสุนชนกัน**: กระสุนผู้เล่นโดนกระสุนศัตรู = หายทั้งคู่ (ยกเว้นลูกใหญ่ ไปต่อ)
 - กระสุนผู้เล่นมี 6 slot (กระจาย 2 ชุดพอดี) · ทแยงตรวจ tile ปลายทาง + ช่องที่ขยับแกน x (ไม่ลอดมุมกำแพง)
-- ค่าทั้งหมดใน `rtl/params.vh` (`SPREAD_*`, `TAP_*`, `CHARGE_FRAMES`, `BIG_*`) · SW15 sprint +1 px/เฟรม ใช้ได้ทุกร่างเหมือนเดิม (LED14)
+- ค่าทั้งหมดใน `rtl/params.vh` (`SPREAD_*`, `TAP_*`, `CHARGE_FRAMES`, `BIG_*`) · SW14 sprint +1 px/เฟรม ใช้ได้ทุกร่างเหมือนเดิม (LED14; เดิมเป็น SW15)
 - **Sokoban ล็อกเมื่อแก้สำเร็จ**: gate เปิดแล้วกล่องดันไม่ได้อีก (เป็นกำแพง), SW13 ไม่ทำอะไร; ทางจาก gate กลับประตูออกยังเปิด (ผ่านช่อง (7, 9) ระหว่างแผ่น)
 
 ## เสียง (P6 sound)
@@ -156,7 +173,7 @@ Development line: branch `sprite-zip` (tag `board-test-2` = the build for the bo
 
 - sprite 64×64, ชนตัว = HP −1, โดนกระสุน/ฟันแล้วกะพริบ, กระสุนผู้เล่นผ่านรั้ว `F` (ร่าง 2–4 ยิงบอส 2 ข้ามรั้วได้) · ค่าทั้งหมดอยู่ใน `rtl/params.vh`
 - เข้าห้องบอสตอนบอสยังอยู่ = ประตูปิด ออกไม่ได้จนบอสตาย (หรือผู้เล่นตาย) · บอสที่ตายแล้วตายถาวรจนเริ่มเกมใหม่
-- บอส 1, 2 ตาย → FLOOR CLEAR 2 วิ → ชั้นถัดไป · บอส 3 ตาย → **ESCAPE**: 30 วิ วิ่งกลับ ห้องบอส → C1 → START → ประตู `E` (ต้องร่าง 4 จากไอเทมชั้น 3) = WIN, หมดเวลา = GAME OVER
+- บอส 1, 2 ตาย → FLOOR CLEAR 2 วิ → ชั้นถัดไป · บอส 3 ตาย → **ได้กุญแจ** (W7: ประตู E ที่ START ชั้น 3 เปิด, เดินเข้า = เกม Ball in a Maze 60 วิ เอียงบอร์ด (ADXL362) หรือปุ่ม / SW10, ถึงเส้นชัย = WIN) · (ระบบเก่า: ESCAPE 30 วิ วิ่งกลับ ห้องบอส → C1 → START → ประตู `E` (ต้องร่าง 4 จากไอเทมชั้น 3) = WIN, หมดเวลา = GAME OVER
 - ไมค์บอร์ด: `M_CLK` J5 (2.5 MHz), `M_DATA` H5, `M_LRSEL` F5 (= 0, อ่านขอบขาขึ้น) · นับ bit 1 ทุก 4096 sample, |ones − 2048| > `MIC_TH` (600) = ตบมือ แล้วไม่สน 200 ms (`rtl/pdm_mic.v`) — ยังไม่ได้ลองกับไมค์จริง
 - ชื่อเกม (ตอนนี้ `DUNGEON`) แก้ที่ `GAME_NAME` ใน `scripts/make_font.py` ที่เดียว แล้วรันสคริปต์ใหม่
 

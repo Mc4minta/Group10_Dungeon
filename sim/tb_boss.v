@@ -15,6 +15,7 @@ module tb_boss;
         if (tick) frame_no <= frame_no + 1;
     end
 
+    reg goal_t = 0, auto_b = 0;
     reg up = 0, down = 0, left = 0, right = 0, atk_press = 0, atk_hold = 0, fsm_btnc = 0, clap = 0;
     reg tb_load = 0; reg [9:0] lx = 40, ly = 240;
 
@@ -26,47 +27,55 @@ module tb_boss;
     wire [1:0] kb_dir, melee_dir; wire [5:0] pb_act; wire [11:0] pb_kind; wire charged; wire [2:0] alive;
     wire [5:0] mon_act, mon_type, mon_flash; wire [59:0] mon_x, mon_y;
     wire [59:0] pb_x, pb_y; wire [15:0] eb_act; wire [159:0] eb_x, eb_y;
-    wire b_act, b_flash, b_stun, b_fire, b_died, b_anim, b_busy, b_dmg; wire [9:0] b_x, b_y;
+    wire b_act, b_flash, b_stun, b_fire, b_died, b_anim, b_busy, b_dmg, b_big, b_summon, b_kill, b_shield, b_tele, b_vuln; wire [9:0] b_x, b_y; wire [1:0] b_pat; wire b_warn, b_heavy; wire [1:0] b_lvl; wire [6:0] b_chgw;
     wire [1:0] b_kind; wire [2:0] b_amt; wire [2:0] b_dead; wire [4:0] b_hp; wire [7:0] b_bar;
 
     wire ld = w_load | tb_load;
+    wire esc_t = exit_evt & fsm.has_key;
+    wire key_vis, key_pick; wire [9:0] key_x, key_y;
+    keyitem kit (.clk(clk), .rst(rst), .restart(restart), .died3(b_died && b_kind == 2), .bx(b_x), .by(b_y), .px(px), .py(py),
+                 .floor(floor), .room(room), .play(state == 3'd1), .vis(key_vis), .kx(key_x), .ky(key_y), .pick(key_pick));       // W7: door E with the key starts the maze
     wire run = (state == 3'd1) || (state == 3'd4);
 
-    world wld (.clk(clk), .rst(rst), .restart(restart), .next_floor(next_floor), .door_evt(door_evt), .door_dir(door_dir),
+    wire retry_w;
+    world wld (.clk(clk), .rst(rst), .restart(restart), .retry(retry_w), .next_floor(next_floor), .door_evt(door_evt), .door_dir(door_dir),
                .floor(floor), .room(room), .grid(grid), .load(w_load), .load_x(w_lx), .load_y(w_ly), .exit_evt(exit_evt));
-    game_fsm fsm (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(fsm_btnc), .got_item(1'b0),
+    game_fsm #(.PROLOGUE(0)) fsm (.clk(clk), .rst(rst), .frame_tick(tick), .btnc_rise(fsm_btnc), .btnl_rise(1'b0), .floor_in(floor), .retry(retry_w), .got_item(1'b0),
                   .take_hit(obj_hit), .floor_done(b_died && b_kind != 2), .exit_evt(exit_evt),
-                  .escape_start(b_died && b_kind == 2), .exit_direct(1'b0), .sprint(1'b0),
+                  .exit_direct(1'b0), .sprint(1'b0), .key_get(key_pick), .goal(goal_t), .escape_start(esc_t), .has_key(), .kill(b_kill),
                   .state(state), .restart(restart), .next_floor(next_floor), .form(form), .hp(hp),
                   .hp_max(hp_max), .speed(speed), .damage(damage), .rgb(rgb), .freeze(freeze),
                   .hide_player(fsm_hide), .m_t(m_t), .m_o(m_o), .s_t(s_t), .s_o(s_o),
                   .e_s_t(es1), .e_s_o(es0), .e_f_t(ef1), .e_f_o(ef0), .esc_banner(banner));
-    player pl (.clk(clk), .rst(rst), .frame_tick(tick), .up(up), .down(down), .left(left), .right(right),
+    player pl (.open_E(fsm.has_key), .brk(8'd0), .clk(clk), .rst(rst), .frame_tick(tick), .up(up), .down(down), .left(left), .right(right),
                .hold_facing(atk_hold), .form(form), .speed(speed), .freeze(freeze), .grid(grid),
                .doors_open(doors_open), .open_L(1'b1), .load(ld), .load_x(tb_load ? lx : w_lx), .load_y(tb_load ? ly : w_ly),
                .blk0(12'd0), .blk1(12'd0), .blk2(12'd0), .blk_en(3'd0),
                .kb_start(kb_start), .kb_dir(kb_dir), .px(px), .py(py), .facing(facing), .pose(pose),
                .door_evt(door_evt), .door_dir(door_dir));
-    objects ob (.clk(clk), .rst(rst), .frame_tick(tick), .run(run), .restart(restart),
+    objects ob (.brk(8'd0), .brk_set(), .brk_idx(), .clk(clk), .rst(rst), .frame_tick(tick), .run(run), .restart(restart),
                 .room_load(ld), .floor(floor), .room(room), .grid(grid), .open_L(1'b1),
                 .px(px), .py(py), .facing(facing), .form(form), .damage(damage),
                 .atk_press(atk_press), .atk_hold(atk_hold), .dbg_clear(1'b0),
                 .blk0(12'd0), .blk1(12'd0), .blk2(12'd0), .blk_en(3'd0),
-                .boss_act(b_act), .boss_x(b_x), .boss_y(b_y), .boss_fire(b_fire), .boss_dmg(b_dmg), .boss_dmg_amt(b_amt),
+                .boss_act(b_act), .boss_x(b_x), .boss_y(b_y), .boss_fire(b_fire), .boss_pat(b_pat), .boss_heavy(b_heavy), .auto_lock(auto_b), .lock_use(), .lock_face(), .summon(b_summon), .boss_dmg(b_dmg), .boss_dmg_amt(b_amt), .boss_dmg_big(b_big),
                 .doors_open(doors_open), .alive(alive), .hit(obj_hit), .kb_start(kb_start), .kb_dir(kb_dir),
                 .invuln(invuln), .player_blink(blink), .busy(obj_busy),
                 .mon_act(mon_act), .mon_type(mon_type), .mon_flash(mon_flash), .mon_x(mon_x), .mon_y(mon_y),
                 .mon_anim(mon_anim), .pb_act(pb_act), .pb_x(pb_x), .pb_y(pb_y), .pb_kind(pb_kind), .charged(charged),
                 .eb_act(eb_act), .eb_x(eb_x), .eb_y(eb_y), .melee_on(melee_on), .melee_dir(melee_dir));
-    boss bs (.clk(clk), .rst(rst), .frame_tick(tick), .run(run), .restart(restart), .room_load(ld),
-             .floor(floor), .room(room), .grid(grid), .px(px), .py(py), .dmg(b_dmg), .dmg_amt(b_amt), .clap(clap),
-             .act(b_act), .bx(b_x), .by(b_y), .kind(b_kind), .flash(b_flash), .stunned(b_stun), .fire(b_fire),
+    boss bs (.brk(8'd0), .clk(clk), .rst(rst), .frame_tick(tick), .run(run), .restart(restart), .room_load(ld),
+             .floor(floor), .room(room), .grid(grid), .px(px), .py(py), .dmg(b_dmg), .dmg_amt(b_amt), .dmg_big(b_big), .minions(alive), .clap(clap),
+             .act(b_act), .bx(b_x), .by(b_y), .kind(b_kind), .flash(b_flash), .stunned(b_stun), .fire(b_fire), .fire_pat(b_pat), .fire_heavy(b_heavy), .tele_lvl(b_lvl), .chg_w(b_chgw), .warn(b_warn), .summon(b_summon), .kill(b_kill), .shield(b_shield), .tele(b_tele), .vuln(b_vuln),
              .died(b_died), .dead(b_dead), .hp(b_hp), .hp_bar(b_bar), .anim(b_anim), .busy(b_busy));
 
+    reg [1:0] last_pat = 0, first_pat = 0; integer mask = 0, nb = 0, jj;
     integer errors = 0, checks = 0, fires = 0, nexts = 0, lastfire = -1, per_ok = 1, nper = 0, exits = 0;
     always @(posedge clk) begin
         if (b_fire) begin
             if (lastfire >= 0) begin nper = frame_no - lastfire; end
+            if (fires == 0) first_pat = b_pat;
+            last_pat = b_pat;
             lastfire = frame_no; fires = fires + 1;
         end
         if (next_floor) nexts = nexts + 1;
@@ -92,55 +101,84 @@ module tb_boss;
         wld.floor = f; wld.room = r; lx = x; ly = y;
         @(posedge clk) tb_load <= 1; @(posedge clk) tb_load <= 0;
         repeat (40) @(posedge clk);
-        while (obj_busy || b_busy) @(posedge clk);
+        while (obj_busy || b_busy || bs.spawn_req || ob.spawn_req) @(posedge clk);   // also wait for a spawn that is still pending (frame timing dependent)
+        repeat (3) @(posedge clk);
+        while (obj_busy || b_busy || bs.spawn_req || ob.spawn_req) @(posedge clk);
     end endtask
     task safe; begin while (obj_busy || b_busy) @(posedge clk); fsm.hp = 3'd4; ob.hurt_cnt = 7'd100; end endtask
     task press; begin @(posedge clk); atk_press <= 1; @(posedge clk); atk_press <= 0; end endtask
     task do_clap; begin @(posedge clk); clap <= 1; @(posedge clk); clap <= 0; end endtask
 
-    integer n, x0, y0, inring, moved_x, moved_y, sx0, sy0, hp0;
+    // กระสุน/ฟันปลอม: บังคับ pulse ดาเมจเข้าบอส (ตรวจกฎ shield / VULNERABLE / เกราะ โดยไม่ต้องยิงจริง)
+    task poke(input [2:0] amt, input big); begin
+        @(negedge clk); force bs.dmg = 1'b1; force bs.dmg_amt = amt; force bs.dmg_big = big;     // negedge: exactly one rising edge sees it (no race)
+        @(negedge clk); release bs.dmg; release bs.dmg_amt; release bs.dmg_big; @(posedge clk);
+    end endtask
+
+    integer n, x0, y0, hp0, nmin;
     initial begin
         repeat (5) @(posedge clk); rst <= 0; repeat (5) @(posedge clk);
         @(posedge clk) fsm_btnc <= 1; @(posedge clk) fsm_btnc <= 0;
         frames(3);
         check(state == 1 && floor == 0 && room == 0, "game started: floor 1 START");
 
-        // ================= บอส 1 =================
+        // ================= W10 boss 1: fast + clap stun =================
         go_room(0, 4, 40, 240);
         check(b_act && b_kind == 0 && b_hp == BOSS1_HP && b_x == 304 && b_y == 208, "boss 1 spawns at B with HP 10");
         frames(2);
         check(!doors_open, "boss room locks while boss alive");
         x0 = b_x;
-        for (n = 0; n < 40; n = n + 1) begin safe; frames(1); end
-        check(x0 - b_x >= 18 && x0 - b_x <= 21, "boss 1 chases slowly: ~1 px every 2 frames");
-        $display("      boss 1 moved %0d px in 40 frames", x0 - b_x);
-        check(fires == 0 && eb_act == 0, "boss 1 never shoots");
-        // ยิงด้วยร่าง 2 (ดาเมจ 1)
-        fsm.form = 2'd1;
-        right = 1; frames(1); right = 0;
-        hp0 = b_hp;
-        press;
-        for (n = 0; n < 90 && b_hp == hp0; n = n + 1) begin safe; frames(1); end
-        check(b_hp == hp0 - 1 && (b_flash || bs.fl != 0), "player bullet hits boss 1: HP -1, flashes");
+        for (n = 0; n < 30; n = n + 1) begin safe; frames(1); end
+        check(x0 - b_x >= 14 && x0 - b_x <= 16, "W20: boss 1 is slow: 1 px every 2nd frame");
+        $display("      boss 1 moved %0d px in 30 frames", x0 - b_x);
+        check(fires == 0 && eb_act == 0, "boss 1 does not shoot at once (first volley a full period after entering)");
+        // W20 volley 1 = aimed fan (3 bullets: aim left, +-45 degrees), preceded by the telegraph blink
+        for (n = 0; n < BOSS1_FIRE && !b_warn; n = n + 1) begin safe; frames(1); end
+        check(b_warn && fires == 0, "W20: the boss blinks (warn) before it fires");
+        for (n = 0; n < BOSS1_FIRE + 10 && fires == 0; n = n + 1) begin safe; frames(1); end
+        frames(2);
+        mask = 0; nb = 0;
+        for (jj = 0; jj < 16; jj = jj + 1) if (eb_act[jj]) begin mask = mask | (1 << ob.e_dirv[jj*3 +: 3]); nb = nb + 1; end
+        check(fires == 1 && last_pat == 2'd3 && nb == 3 && mask == 8'h54, "W20: boss 1 volley 1 = aimed fan (3 bullets: left, up-left, down-left)");
+        // volley 3 = ring of 8 directions
+        for (n = 0; n < 400 && fires < 3; n = n + 1) begin safe; frames(1); end
+        ob.e_act = 16'd0; frames(2);
+        mask = 0; nb = 0;
+        for (jj = 0; jj < 16; jj = jj + 1) if (eb_act[jj]) begin mask = mask | (1 << ob.e_dirv[jj*3 +: 3]); nb = nb + 1; end
+        check(fires == 3 && last_pat == 2'd1 && nb == 8 && mask == 8'hFF, "W20: boss 1 volley 3 = ring (8 bullets, 8 directions)");
+        ob.e_act = 16'd0;
+        go_room(0, 4, 120, 240);
+        auto_b = 1; frames(3);
+        check(ob.lock_use && ob.lock_face == 2'd3, "W18: the boss is a lock target (it is to the right of the hero)");
+        auto_b = 0; frames(2);
+        check(!ob.lock_use, "W18: lock off again with the switch");
+        go_room(0, 4, 40, 240);
+        hp0 = b_hp; poke(3'd1, 1'b0);
+        check(b_hp == hp0 - 1 && (b_flash || bs.fl != 0), "boss 1 takes damage at any time: HP -1, flashes");
         frames(1);
         check(b_bar == {b_hp*8 > 7*BOSS1_HP, b_hp*8 > 6*BOSS1_HP, b_hp*8 > 5*BOSS1_HP, b_hp*8 > 4*BOSS1_HP,
                         b_hp*8 > 3*BOSS1_HP, b_hp*8 > 2*BOSS1_HP, b_hp*8 > BOSS1_HP, b_hp != 0}, "boss HP bar = ceil(HP*8/maxHP) LEDs");
-        // ชนตัว: ผู้เล่นโดน HP -1 + knockback
+        do_clap; frames(2);
+        check(b_stun, "clap -> boss 1 stunned");
+        x0 = b_x; y0 = b_y;
+        for (n = 0; n < 150; n = n + 1) begin safe; frames(1); end
+        check(b_stun && b_x == x0 && b_y == y0, "stunned: no movement");
+        for (n = 0; n < 60 && b_stun; n = n + 1) begin safe; frames(1); end
+        check(!b_stun && n >= 28 && n <= 32, "stun ends after 180 frames");
+        do_clap; frames(2);
+        check(!b_stun, "clap during the 240-frame cooldown is ignored");
+        for (n = 0; n < 240; n = n + 1) begin safe; frames(1); end
+        do_clap; frames(2);
+        check(b_stun, "after the cooldown a clap stuns again");
         while (obj_busy || b_busy) @(posedge clk);
         ob.hurt_cnt = 0; fsm.hp = 3'd3;
-        lx = b_x + 16; ly = b_y + 16; @(posedge clk) begin end
-        while (obj_busy || b_busy) @(posedge clk);
         pl.px = b_x + 16; pl.py = b_y + 20;
         frames(2);
         check(hp == 2 && invuln, "boss contact: player HP -1 (knockback + invulnerable)");
-        // เหลือ HP 1 แล้วยิงอีกนัด -> ตาย -> FLOOR_CLEAR -> ชั้นถัดไป
         go_room(0, 4, 40, 240);
-        check(b_act && b_hp == BOSS1_HP && b_x == 304, "re-entering (only possible via debug: doors are locked) respawns the boss at B with full HP");
         while (b_busy) @(posedge clk);
-        bs.hp = 5'd1;
-        right = 1; frames(1); right = 0; nexts = 0;
-        press;
-        for (n = 0; n < 90 && b_act; n = n + 1) begin safe; frames(1); end
+        bs.hp = 5'd1; nexts = 0;
+        poke(3'd1, 1'b0);
         frames(2);
         check(!b_act && b_dead[0] && state == 3'd3, "boss 1 HP 0 -> removed, dead[0], FLOOR_CLEAR");
         check(doors_open, "boss room unlocks after the boss dies");
@@ -149,96 +187,145 @@ module tb_boss;
         go_room(0, 4, 40, 240);
         check(!b_act && doors_open, "defeated boss 1 stays defeated (room open)");
 
-        // ================= บอส 2 =================
+        // ================= W11 / W17 boss 2: summons waves of minions, can ALWAYS be hit =================
         go_room(1, 4, 40, 240);
         check(b_act && b_kind == 1 && b_hp == BOSS2_HP && grid == 3, "boss 2 spawns in the fence room with HP 16");
-        inring = 1; sx0 = b_x; sy0 = b_y; moved_x = 0; moved_y = 0; fires = 0; lastfire = -1; per_ok = 1;
-        for (n = 0; n < 400; n = n + 1) begin
-            safe; frames(1);
-            if (b_x + 8 < 160 || b_x + 56 > 480 || b_y + 8 < 128 || b_y + 56 > 352) inring = 0;
-            if (b_x != sx0) moved_x = 1;
-            if (b_y != sy0) moved_y = 1;
-            if (fires >= 2 && nper != BOSS2_FIRE) per_ok = 0;
-        end
-        check(inring, "boss 2 stays inside the fence ring (400 frames)");
-        check(moved_x && moved_y, "boss 2 moves diagonally (both axes)");
-        check(fires >= 3 && per_ok, "boss 2 fires every 120 frames");
-        $display("      boss 2 fired %0d times, last period %0d", fires, nper);
-        // ตบมือ -> มึน 120 เฟรม
-        do_clap; frames(2);
-        check(b_stun, "clap -> boss 2 stunned");
+        check(bs.bs2 == 0 && b_shield, "W42: boss 2 is immune (shield blink) before the first summon");
+        hp0 = b_hp; poke(3'd2, 1'b0);
+        check(b_hp == hp0, "W42: damage rejected before the first summon");
         x0 = b_x; y0 = b_y; fires = 0;
-        for (n = 0; n < 100; n = n + 1) begin safe; frames(1); end
-        check(b_stun && b_x == x0 && b_y == y0 && fires == 0, "stunned: no movement, no shots");
-        for (n = 0; n < 25 && b_stun; n = n + 1) begin safe; frames(1); end
-        check(!b_stun && n >= 17 && n <= 21, "stun ends after 120 frames");
-        do_clap; frames(2);
-        check(!b_stun, "clap during the 300-frame cooldown is ignored");
-        for (n = 0; n < 300; n = n + 1) begin safe; frames(1); end
-        do_clap; frames(2);
-        check(b_stun, "after the cooldown a clap stuns again");
-        // ยิงทะลุรั้ว: ผู้เล่นร่าง 3 (ดาเมจ 2) อยู่นอกวง ยิงเข้าไปตอนบอสมึน
-        fsm.form = 2'd2;
-        while (obj_busy || b_busy) @(posedge clk);
-        lx = 10'd40; ly = b_y + 20; @(posedge clk) begin end
-        go_room(1, 4, 40, b_y + 20);
-        // (go_room spawn ใหม่ = บอสกลับจุดเกิด: ยิงจากแถวเดียวกับบอสหลังเข้าห้องใหม่)
-        hp0 = b_hp; while (b_busy) @(posedge clk);
-        bs.stn = STUN_FRAMES + STUN_COOLDOWN;              // ให้บอสมึนอยู่กับที่
-        lx = 10'd40; ly = b_y + 20;
-        @(posedge clk) tb_load <= 0;
-        pl.py = b_y + 20; pl.px = 10'd40;
-        right = 1; frames(1); right = 0;
-        press;
-        for (n = 0; n < 80 && b_hp == hp0; n = n + 1) begin safe; frames(1); end
-        check(b_hp == hp0 - 2, "player bullet passes the fence and hits boss 2 (damage 2)");
-        // บอส 2 ตาย -> FLOOR_CLEAR -> ชั้น 3
+        for (n = 0; n < 40; n = n + 1) begin safe; frames(1); end
+        check(b_x == x0 && b_y == y0 && fires == 0 && alive == 0, "boss 2 is stationary, no volley yet, no minions yet");
+        for (n = 0; n < 80 && alive == 0; n = n + 1) begin safe; frames(1); end
+        check(alive == BOSS2_MINIONS && bs.bs2 == 1, "SUMMON: 3 minions appear");
+        $display("      first summon after ~%0d frames", 40 + n);
+        hp0 = b_hp; poke(3'd2, 1'b0);
+        check(b_hp == hp0 && b_shield, "W42: damage rejected while the minions live (shield)");
+        hp0 = b_hp; poke(3'd4, 1'b1);
+        check(b_hp == hp0, "W42: a charged shot is rejected too while the minions live");
+        for (n = 0; n < 20; n = n + 1) begin safe; frames(1); end
+        check(alive == BOSS2_MINIONS && bs.bs2 == 1, "the minions stay (boss waits for them)");
+        for (n = 0; n < BOSS2_FIRE && fires == 0 && bs.bs2 == 1; n = n + 1) begin safe; frames(1); end
+        check(fires >= 1 && first_pat == 2'd0 && b_x == x0 && b_y == y0, "W20: boss 2 shoots a cross pattern while it summons, and stays put");
+        ob.m_act = 6'd0; frames(4);
+        check(bs.bs2 == 2 && b_vuln && !b_shield, "all minions dead -> vulnerable window (BOSS2_VULN_FRAMES), shield off");
+        hp0 = b_hp; poke(3'd2, 1'b0);
+        check(b_hp == hp0 - 2, "damage accepted in that state too");
+        for (n = 0; n < 300 && bs.bs2 == 2; n = n + 1) begin safe; frames(1); end
+        check(bs.bs2 == 0 && n >= 232 && n <= 244 && b_shield, "after BOSS2_VULN_FRAMES the shield is back (breather)");
+        for (n = 0; n < 120 && bs.bs2 == 0; n = n + 1) begin safe; frames(1); end
+        check(bs.bs2 == 1 && n >= 68 && n <= 80, "after BOSS2_REST the next wave is summoned");
+        frames(4);
+        check(alive == BOSS2_MINIONS, "new wave: 3 more minions");
+        ob.m_act = 6'd0; frames(4);
         while (b_busy) @(posedge clk);
         bs.hp = 5'd2; nexts = 0;
-        frames(16); press;
-        for (n = 0; n < 80 && b_act; n = n + 1) begin safe; frames(1); end
+        poke(3'd2, 1'b0);
+        frames(2);
+        check(!b_act && b_dead[1] && state == 3'd3, "boss 2 dies -> FLOOR_CLEAR");
         frames(128);
-        check(b_dead[1] && nexts == 1 && floor == 2, "boss 2 dead -> FLOOR_CLEAR -> floor 3");
+        check(nexts == 1 && floor == 2, "boss 2 dead -> floor 3");
 
-        // ================= บอส 1 / 3 ไม่สนตบมือ, บอส 3 =================
+        // ================= W12 boss 3: armour, charge, big attack, interrupt =================
         go_room(2, 4, 40, 240);
-        check(b_act && b_kind == 2 && b_hp == BOSS3_HP && grid == 2, "boss 3 spawns with HP 24 (floor 3 boss room)");
+        check(b_act && b_kind == 2 && b_hp == BOSS3_HP && grid == 2, "boss 3 spawns with its full HP (floor 3 boss room)");
         do_clap; frames(2);
         check(!b_stun, "clap does nothing to boss 3");
+        hp0 = b_hp; poke(3'd4, 1'b0); poke(3'd1, 1'b0);
+        check(b_hp == hp0, "ARMOUR: normal damage (even 4) does nothing");
         x0 = b_x; fires = 0; lastfire = -1; per_ok = 1;
         for (n = 0; n < 10; n = n + 1) begin safe; frames(1); end
-        check(x0 - b_x >= 18 && x0 - b_x <= 20, "boss 3 chases fast: 2 px/frame");
-        for (n = 0; n < 200; n = n + 1) begin safe; frames(1); if (fires >= 2 && nper != BOSS3_FIRE) per_ok = 0; end
-        check(fires >= 3 && per_ok, "boss 3 fires every 60 frames");
-        // บอส 3 ตาย -> ESCAPE
-        while (b_busy) @(posedge clk);
-        bs.hp = 5'd1;
+        check(x0 - b_x >= 4 && x0 - b_x <= 6, "W20: boss 3 chases slowly: 1 px every 2nd frame");
+        for (n = 0; n < 100; n = n + 1) begin safe; frames(1); if (fires >= 2 && nper != BOSS3_FIRE) per_ok = 0; end
+        check(fires >= 1 && per_ok && first_pat == 2'd0, "boss 3 fires a cross first, one volley every BOSS3_FIRE frames while chasing");
+        poke(3'd4, 1'b1);
+        check(b_hp == hp0 - 1, "charged shot hurts boss 3 by exactly 1 (3 hits to kill)");
+        for (n = 0; n < 200 && !b_tele; n = n + 1) begin safe; frames(1); end
+        check(b_tele, "boss 3 starts charging the big attack");
+        x0 = b_x; y0 = b_y; fires = 0;
+        for (n = 0; n < 30; n = n + 1) begin safe; frames(1); end
+        check(b_tele && b_x == x0 && b_y == y0 && fires == 0, "CHARGING: boss stands still, no shots");
+        hp0 = b_hp; poke(3'd4, 1'b1);
+        check(!b_tele && b_hp == hp0 - 1, "charged hit interrupts the attack (and hurts)");
+        for (n = 0; n < BOSS3_CHASE - 10; n = n + 1) begin safe; frames(1); end
+        check(!b_tele, "cycle restarted: chasing again");
+        for (n = 0; n < 200 && !b_tele; n = n + 1) begin safe; frames(1); end
+        check(b_tele, "charging again");
+        // W21: the charge is a visible progression: bar grows, blink level steps 0 -> 3
+        check(b_lvl == 2'd0 && b_chgw < 7'd8, "W21: charge starts at level 0 with an empty bar");
+        for (n = 0; n < 130; n = n + 1) begin safe; frames(1); end
+        check(b_tele && b_lvl == 2'd2 && b_chgw >= 7'd55 && b_chgw <= 7'd75, "W21: after about 130 frames: level 2, the bar is about half full");
+        n = 0;
+        while (bs.s3 != 2'd1 && n < BOSS3_CHARGE + 20) begin safe; frames(1); n = n + 1; end
+        check(bs.s3 == 2'd1 && state == 3'd1 && !b_tele, "W24: the charge ends in the storm, the player is NOT killed");
+        check(n + 130 >= BOSS3_CHARGE - 12 && n + 130 <= BOSS3_CHARGE + 12, "W21: the whole charge lasts BOSS3_CHARGE frames (4 s)");
+        // W24: the storm fires heavy volleys in many directions (cross, X, ring ...)
+        fires = 0; mask = 0;
+        for (n = 0; n < BOSS3_STORM_PERIOD * 3 && fires < 3; n = n + 1) begin
+            safe; frames(1);
+            for (jj = 0; jj < 16; jj = jj + 1) if (eb_act[jj]) mask = mask | (1 << ob.e_dirv[jj*3 +: 3]);
+        end
+        check(fires >= 3 && mask == 8'hFF, "W24: the storm sends bullets in all 8 directions");
+        check(ob.e_heavy != 16'd0, "W24: storm bullets are marked heavy");
+        // after the storm: rest. no new bullets; clear the field and test the damage of one heavy bullet
+        for (n = 0; n < BOSS3_STORM + 20 && bs.s3 != 2'd2; n = n + 1) begin safe; frames(1); end
+        check(bs.s3 == 2'd2, "W24: storm over -> the boss rests");
+        ob.e_act = 16'd0; while (obj_busy || b_busy) @(posedge clk);
+        ob.hurt_cnt = 7'd0; fsm.hp = 3'd4;
+        ob.e_xv[9:0] = pl.px + 10'd12; ob.e_yv[9:0] = pl.py + 10'd12; ob.e_dirv[2:0] = 3'd0; ob.e_heavy[0] = 1'b1; ob.e_act[0] = 1'b1;
+        frames(2);
+        check(fsm.hp == 3'd2 && state == 3'd1, "W24: one heavy storm bullet takes 2 HP (not a game over)");
+        ob.e_act = 16'd0; ob.hurt_cnt = 7'd0; fsm.hp = 3'd4;
+        ob.e_xv[9:0] = pl.px + 10'd12; ob.e_yv[9:0] = pl.py + 10'd12; ob.e_dirv[2:0] = 3'd0; ob.e_heavy[0] = 1'b0; ob.e_act[0] = 1'b1;
+        frames(2);
+        check(fsm.hp == 3'd3, "an ordinary enemy bullet still takes 1 HP");
+        bs.hp = 5'd3; frames(1);
+        hp0 = b_hp; poke(3'd1, 1'b0);
+        check(b_hp == hp0 - 1, "W24: during the rest a normal hit hurts boss 3 (armour is off)");
+        for (n = 0; n < BOSS3_REST + 10 && bs.s3 != 2'd0; n = n + 1) begin safe; frames(1); end
+        check(bs.s3 == 2'd0 && !b_tele, "rest over -> chasing again");
+        hp0 = b_hp; poke(3'd1, 1'b0);
+        check(b_hp == hp0, "armour is back: a normal hit does nothing again");
+        while (obj_busy || b_busy) @(posedge clk);
+        fsm.state = 3'd6; frames(2);                      // game over (forced) to test the restart
+        @(posedge clk) fsm_btnc <= 1; @(posedge clk) fsm_btnc <= 0; frames(3);
+        check(b_dead == 0 && floor == 2 && state == 1, "W43: BTNC after GAME OVER retries the CURRENT floor (floor 3): all bosses alive again");
         go_room(2, 4, 40, 240);
         while (b_busy) @(posedge clk);
-        bs.hp = 5'd1;
-        right = 1; frames(1); right = 0; press;
-        for (n = 0; n < 80 && b_act; n = n + 1) begin safe; frames(1); end
+        bs.hp = 5'd3; frames(1);                                // W44: boss 3 has 9 HP now; start the kill sequence from 3
+        poke(3'd4, 1'b1); poke(3'd4, 1'b1);
+        check(b_act && b_hp == 1, "two charged hits: HP 1");
+        poke(3'd4, 1'b1);
         frames(2);
-        check(b_dead[2] && state == 3'd4 && !freeze, "boss 3 dead -> ESCAPE (player not frozen)");
-        // วิ่งไปประตู E ในห้อง START ชั้น 3 (ร่าง 4 ผ่าน E ได้)
-        fsm.form = 2'd3;
+        check(!b_act && b_dead[2] && state == 3'd1 && !fsm.has_key && key_vis, "boss 3 dead (3 charged hits) -> the key lies on the floor, game goes on (no ESCAPE yet)");
+        check(key_x == b_x + 16 && key_y == b_y + 16, "the key lies where the boss stood");
+        frames(3);
+        check(!fsm.has_key, "standing away from the key does not pick it up");
+        pl.px = key_x; pl.py = key_y; frames(2);
+        check(fsm.has_key && !key_vis, "walking over the key picks it up: has_key, the key is gone"); 
         go_room(2, 0, 100, 240);
         safe; left = 1; frames(60); left = 0; frames(2);
-        check(state == 3'd5, "reach the E door during ESCAPE -> WIN");
+        check(state == 3'd4 && freeze, "walk into door E with the key -> the maze starts (ESCAPE, hero frozen)");
+        @(posedge clk) goal_t <= 1; @(posedge clk) goal_t <= 0; frames(2);
+        check(state == 3'd5, "ball reaches the goal -> WIN");
 
-        // ================= ESCAPE หมดเวลา =================
-        @(posedge clk) fsm_btnc <= 1; @(posedge clk) fsm_btnc <= 0; frames(2);   // WIN -> TITLE
-        @(posedge clk) fsm_btnc <= 1; @(posedge clk) fsm_btnc <= 0; frames(3);   // TITLE -> PLAY (restart)
-        check(b_dead == 0 && floor == 0, "restart: all bosses alive again");
+        // ================= ESCAPE timeout =================
+        @(posedge clk) fsm_btnc <= 1; @(posedge clk) fsm_btnc <= 0; frames(2);
+        @(posedge clk) fsm_btnc <= 1; @(posedge clk) fsm_btnc <= 0; frames(3);
         go_room(2, 4, 40, 240);
         while (b_busy) @(posedge clk);
         bs.hp = 5'd1; fsm.form = 2'd1;
-        right = 1; frames(1); right = 0; press;
-        for (n = 0; n < 80 && b_act; n = n + 1) begin safe; frames(1); end
+        poke(3'd4, 1'b1);
         frames(2);
-        check(state == 3'd4, "ESCAPE again");
-        for (n = 0; n < 1900 && state == 3'd4; n = n + 1) begin safe; frames(1); end
-        check(state == 3'd6 && n >= 1795 && n <= 1801, "ESCAPE countdown hits 0 -> GAME_OVER");
+        check(state == 3'd1 && key_vis, "key dropped again");
+        pl.px = key_x; pl.py = key_y; frames(2);
+        check(fsm.has_key, "key picked up again");
+        go_room(2, 0, 100, 240);
+        safe; left = 1; frames(60); left = 0; frames(2);
+        check(state == 3'd4, "maze again");
+        for (n = 0; n < 3700 && state == 3'd4; n = n + 1) begin safe; frames(1); end
+        $display("      maze timed out after %0d frames (state %0d)", n, state);
+        check(state == 3'd6 && n >= 3560 && n <= 3601, "maze countdown (60 s) hits 0 -> GAME_OVER");
         $display("      ESCAPE timed out after %0d frames", n);
 
         $display("checks = %0d  errors = %0d", checks, errors);

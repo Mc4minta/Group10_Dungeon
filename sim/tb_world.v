@@ -8,7 +8,7 @@ module tb_world;
     wire [9:0] load_x, load_y;
     integer errors = 0, checks = 0, exits = 0, loads = 0;
 
-    world dut (.clk(clk), .rst(rst), .restart(restart), .next_floor(next_floor),
+    world dut (.clk(clk), .rst(rst), .restart(restart), .retry(1'b0), .next_floor(next_floor),
                .door_evt(door_evt), .door_dir(door_dir), .floor(floor), .room(room), .grid(grid),
                .load(load), .load_x(load_x), .load_y(load_y), .exit_evt(exit_evt));
 
