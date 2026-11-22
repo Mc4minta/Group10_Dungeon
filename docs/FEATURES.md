@@ -1,6 +1,6 @@
 # Feature catalogue - everything the game does today, by category
 
-State: branch `sprite-zip` + the plates work on `feature/plates` (marked **[plates]**). "OFF" = built but switched off. Planned items are NOT here: see `docs/DESIGN_PLAN.md`.
+State: 23/11/2026, code of `main` = `dev` (`3e908a3`); everything marked **[plates]** is merged too. "OFF" = built but switched off. Planned items are NOT here: see `docs/DESIGN_PLAN.md`.
 Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `docs/SOUND_PLAN.md` (sound), `docs/CHANGE_REVIEW.md` (what changed vs the first version and how it was verified).
 
 ---
@@ -9,11 +9,11 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 | Feature | Details | Code |
 |---|---|---|
 | States | TITLE -> PROLOGUE (4 black pages of story text, BTNC = next page, 6 s per page) -> PLAY -> EVOLVE (60 frames) -> FLOOR CLEAR (120 frames) -> (boss 3 drops the key) -> door E at floor 3 START -> **MAZE** (state ESCAPE, 60 s) -> WIN; GAME OVER from any HP 0 or maze timeout | `rtl/game_fsm.v` |
-| 3 floors, 13 rooms | start, 2 combat rooms, 1 puzzle room, 1 boss room per floor (+ extra start/boss variants) | `maps/*.txt`, `rtl/world.v` |
+| 3 floors, 5 rooms each (15 rooms in play, 13 map files) | start, 2 combat rooms, 1 puzzle room, 1 boss room per floor; the start map of floors 1+2 and the boss map of floors 1+3 are shared, floor 3 has its own start map (maze door) | `maps/*.txt`, `rtl/world.v` |
 | 4 forms (evolution) | form 1 Human (melee), 2 Orc (shot), 3 Angel (3-way spread; a bullet that hits a monster splits into 4 short child bullets), 4 gold (fast shot + charged big ball); each puzzle item evolves the hero and opens that floor's boss door | `game_fsm.v`, `objects.v` |
 | Health | HP 4 on every form, invulnerable 90 frames after a hit, knockback | `params.vh` (`HP1..4`, `INV_FRAMES`) |
 | Timer | mm.ss on the 7-segment display, runs from START | `game_fsm.v`, `seg7.v` |
-| Debug shortcuts | SW0-SW4 (open boss door, skip floor, clear room, evolve, hurt) only when `DEBUG = 1`; off in the hand-in build | `top.v` |
+| Debug shortcuts | SW0-SW4 (open boss door, skip floor, clear room, evolve, hurt) only when `DEBUG = 1`. **`rtl/top.v` defaults to `DEBUG = 1`; the hand-in build must set 0** | `top.v` |
 
 ## 2. Player
 | Feature | Details | Code |
@@ -49,6 +49,7 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 | Charge ball (W25) | form 4: while BTNC is held a ball appears in front of the hero (18 px away, follows the drawn facing) and grows in 4 steps at 1/4, 1/2, 3/4 and full charge (radius 2 / 4 / 6 / 7-8, colour orange -> yellow -> pale yellow -> white, bright core + darker rim, pulses at full); gone on release, when the big 16x16 shot leaves | `rtl/objects.v` (`chg_lvl`), `rtl/renderer.v` (procedural disc, no ROM), `sprite_cfg.vh` (`ORB_DIST`), `tb_orb`, `tb_objects` |
 | Boss 3 charge (W21) | 4 s charge: HUD bar under the boss bar (yellow / orange / red), the boss blinks faster each quarter **and in a colour that climbs pale blue -> yellow -> orange -> red** (`boss_fcol` in `objline.v`), and a **rising beep at each step** (SFX 13, `SFX_CHG_*`) | `boss.v` (`tele_lvl`, `chg_w`), `hud.v`, `objline.v`, `audio.v`, `top.v` |
 | Boss bullet patterns (W20) | enemy bullets fly in 8 directions (3 bit, diagonal = 2 px per axis, straight = 3 px/frame); `fire_pat` 0 cross, 1 ring of 8, 2 X, 3 aimed fan (aim = 8 directions toward the hero, +-45 degrees); `warn` makes the boss blink for `BOSS_WARN` frames before a volley; numbers in `params.vh` (`BOSS*_SPEED / EVERY / FIRE`, `EB_DIAG`) | `rtl/boss.v`, `rtl/objects.v` (`S_BFIRE`), `rtl/top.v`, `tb_boss` |
+| Boss 3 kill count | `BOSS3_HP` = 9 and every accepted hit takes 1 HP, so 9 hits (charged shots, or any hit while it rests); the HUD bar fills hp / 9 (not 3 slots); second phase below HP 3 | `params.vh`, `boss.v`, `hud.v` |
 | Shared | 64x64 sprite, hit flash, boss room locks while alive, boss HP bar on screen (+ LED0-7) | `boss.v`, `hud.v` |
 
 ## 6. Puzzles and items
@@ -94,7 +95,7 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 | VGA 640x480 | 4-stage pixel pipeline, 20x15 tiles of 32 px, layers: tile < objects < player < HUD < text | `rtl/renderer.v`, `objline.v`, `vga_sync.v` |
 | Player hearts | one heart per max HP (full = HP left), top left, 2x | `rtl/hud.v`, `mem/hud.mem` |
 | Boss health bar | top right, boss room only, fill = hp / max hp | `hud.v` |
-| **Story text (W16)** | **`docs/STORY.md` is the source of truth** for every sentence (game name THE CHOSEN ONE, prologue, NEW FORM banners, FLOOR CLEAR, maze banner, WIN / timeout / GAME OVER, and 49 dialogue boxes); `python scripts/build_story.py` regenerates the ROMs. Dialogue boxes: black band at the bottom, colour = speaker (Player white, Voice yellow, System cyan), timed 2.5 s or blocking (game frozen) until BTNC; 36 game events trigger them, each shown once per game | `scripts/story.py`, `make_font.py`, `rtl/dialog.v`, `rtl/top.v`, `renderer.v` |
+| **Story text (W16)** | **`docs/STORY.md` is the source of truth** for every sentence (game name THE CHOSEN ONE, prologue, NEW FORM banners, FLOOR CLEAR, maze banner, WIN / timeout / GAME OVER, and 51 dialogue boxes + 16 hint lines); `python scripts/build_story.py` regenerates the ROMs. Dialogue boxes: black band at the bottom, colour = speaker (Player white, Voice yellow, System cyan), timed 2.5 s or blocking (game frozen) until BTNC; 37 game events trigger them, each shown once per game | `scripts/story.py`, `make_font.py`, `rtl/dialog.v`, `rtl/top.v`, `renderer.v` |
 | Text | 8x8 font; screens: TITLE, FLOOR CLEAR, maze banner (TILT THE BOARD TO / ROLL THE BALL OUT!), WIN, GAME OVER, PAUSED, 4 prologue pages, 3 NEW FORM banners (2 lines max, A-Z 0-9 `- : ! .`); wording in `docs/STORY.md` | `renderer.v`, `scripts/make_font.py` -> `text_layout.vh`, `text_select.vh`, `mem/text.mem` |
 | Look (20/11) | wall torches (animated flame) + shields in every room, vignette (darker screen edges) + a 6-frame fade-in after each room change, darker floors with brighter walls (maroon / indigo / moss per floor), monsters at hero size, 3x bosses, priest boss 2, title scene (hero vs vampire between two torches) | `rtl/renderer.v`, `maps/*.txt`, `sprites/*.json` |
 | Screens | title (navy-to-blue gradient + hero), prologue (black), game over (dark red + death), win (gold) | `renderer.v` |
@@ -103,7 +104,7 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 ## 10. Audio
 | Feature | Details | Code |
 |---|---|---|
-| 12 sound effects | hurt, stun, die, item, clear, wrong, ok, monster hit, 4 shoot sounds, melee, door, boss appear | `rtl/audio.v`, `params.vh` |
+| 13 sound effects | hurt, stun, die, item, clear, wrong, ok, monster hit, 4 shoot sounds, melee, boss appear, door, boss-3 charge beep | `rtl/audio.v`, `params.vh` |
 | Simon notes | 4 tones played with the sequence | `audio.v` |
 | Music | 8-track BGM ROM, floors 1-3 play the Connect melody (melody only, no recording), track 6 loops | `audio.v`, `mem/music.mem` |
 | Tools | `audio_to_music.py` (melody from mp3 / wav), `make_music.py` | `scripts/` |
@@ -113,7 +114,7 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 | Control | Function |
 |---|---|
 | BTNU / D / L / R | walk (two together = diagonal) |
-| BTNC | start (TITLE) / attack (PLAY) / back to TITLE (WIN, GAME OVER) |
+| BTNC | start (TITLE) / attack (PLAY) / back to TITLE (WIN) / retry the current floor (GAME OVER; BTNL = title) |
 | **USB keyboard (W22)** | plugged into the Nexys USB-HID port (arrives as PS/2 on `PS2_CLK` F4 / `PS2_DATA` B2; `rtl/ps2_kbd.v`, `tb_ps2`), works together with the buttons (logical OR): arrows or **W A S D** = walk, **Space / J / Enter** = attack / start (= BTNC), **Shift** = sprint (= SW14), **P or Esc** = pause toggle (= SW15), **L** = auto-lock toggle (= SW9), **R** = Sokoban box reset (= SW13), **C** = clap fallback (= SW11) |
 | SW9 | **auto aim (W18 / W46) is ON by default**: SW9 up = OFF (down = on). On: attacks aim at the nearest enemy within 240 px (form 2 / 4 shots and the big ball at a free angle, form 3's spread in 8 directions, melee swings turn toward it), with a target marker; also key L toggles |
 | SW5-SW7 | clap level override (0 = the title SETTINGS value, otherwise 128 x the 3 bit number) |
@@ -125,7 +126,7 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 | SW12 | facing lock |
 | SW13 | Sokoban box reset |
 | SW0-SW4 | debug (only `DEBUG = 1`) |
-| Story boxes freeze the game (W31) | every story box (50) freezes the game and the input except pause; timed boxes close on a press or after 2.5 s; boxes show in arrival order (FIFO 8); after a box the attack button must be released once; claps are dropped during a box; a blinking arrow in the box = press the attack button; holding the attack button 1.5 s fast-forwards (W33); the full intro is told once per power-on, later games get one box | `rtl/dialog.v`, `rtl/top.v`, `rtl/renderer.v` |
+| Story boxes freeze the game (W31) | every story box (51) freezes the game and the input except pause; timed boxes close on a press or after 2.5 s; boxes show in arrival order (FIFO 8); after a box the attack button must be released once; claps are dropped during a box; a blinking arrow in the box = press the attack button; holding the attack button 1.5 s fast-forwards (W33); the full intro is told once per power-on, later games get one box | `rtl/dialog.v`, `rtl/top.v`, `rtl/renderer.v` |
 | Hint strip (W32 / W28) | top centre, never freezes the game: the objective of the room (defeat all enemies / doors open / puzzle goal / defeat the boss / take the door / go back to the start) and the tutorial prompts in the floor 1 start room (move, attack, sprint, pause, auto aim) with keyboard AND button names; texts `docs/STORY.md` H-01..H-16 | `rtl/top.v`, `rtl/renderer.v`, `rtl/dialog.v` (hint ROM read) |
 | Title pages (W29) | BTNR / right arrow = next page, BTNL / left arrow = previous: TITLE -> CONTROLS 1-5 -> CREDITS 1-3; BTNC starts from any page; credits names are placeholders | `rtl/top.v` (`tpage`), `docs/STORY.md` |
 | Input edge cases (W34) | stuck keyboard keys clear after 2 s of silence, opposite directions cancel, pause = SW15 xor key toggle, PAUSED screen says how to go on | `rtl/ps2_kbd.v`, `rtl/top.v` |
@@ -164,4 +165,4 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 | Backups | `mem/*_v1.mem`, `maps_v1/` (originals, never edited; rollback = copy back) |
 
 ## 14. Planned (not implemented)
-See `docs/DESIGN_PLAN.md`: boss rework (boss 1 fast + clap stun, boss 2 summons minions and is hurt only when all minions are dead, boss 3 armour + charge), form 3 AOE, charged shot stops, key + Ball in a Maze (accelerometer), breakable blocks / traps, pause switch, new start screen, prologue + story, door spike traps, Orc / Angel animations.
+Everything the old list named here is now built (sim): boss rework, form 3 AOE, charged shot stops, key + Ball in a Maze, breakable blocks / traps, pause switch, start screen, prologue + story, door spike traps. Still planned / not built: wall variants, sample playback, Human idle / hurt / death animations switched on, ranged / charger enemy types; see the FUTURE BACKLOG in `docs/DESIGN_PLAN.md`.

@@ -1,5 +1,7 @@
 # Map design (W23) - every object has a purpose
 
+Status 23/11: matches `maps/` and `rtl/world.v`. Layout reminder: 3 floors x 5 room roles = 15 rooms in play, 13 map files (grid 0 = START floors 1+2, grid 1 = START floor 3, grid 2 = BOSS floors 1+3, grid 3 = BOSS floor 2, grids 4-12 = combat 1 / combat 2 / puzzle per floor).
+
 Rule from the owner (20/11): nothing is placed only to fill space. Redrawn 20/11-21/11: combat rooms 4, 5, 7, 8, 10, 11, start room 1, boss rooms 2 and 3, and the light-bulb puzzle room 6 (levers and bulbs moved to the bottom rows 11 / 13). Deliberately NOT redrawn: start room 0 (the `tb_objects` tests use its exact tiles:
 pillars, fences, row 7), and the puzzle rooms 6 (light bulbs), 9 (Sokoban, solved by `solve_sokoban.py`, the walls are the puzzle) and 12 (Simon): every wall there already serves the puzzle and the tests pin the geometry.
 Source: `maps/*.txt` (generated for this pass by a one-off script, now edited by hand), `maps_v1/` stays as the first version.

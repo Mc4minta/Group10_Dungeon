@@ -2,6 +2,8 @@
 
 อัปเดต: 2026-11-18 23:57
 
+> **Status 23/11/2026 (code is the source of truth; this checklist is HISTORICAL where it disagrees):** HP is 4 on all forms (was 3/3/4/4), sprint = SW14 and pause = SW15, clap stuns boss 1, boss HP 10 / 16 / 9, ESCAPE = 60 s maze (the 30 s run-back was replaced), SFX = 13. Nothing is board-tested except the USB keyboard; Vivado run of 22/11: WNS -4.045 ns / TNS -2904.290 ns (timing NOT met, 1853 failing endpoints) and Block RAM Tile 103.5 / 135, from the local git-ignored Vivado run of 22/11/2026 (`vivado/Group10_Dungeon.runs/impl_1/top_timing_summary_routed.rpt`, `top_utilization_placed.rpt`; the source commit of that run is not recorded). Details: `docs/DOC_UPDATE_REPORT.md`.
+>
 > **Newer status (21/11): see `docs/README.md`, `docs/DESIGN_PLAN.md` (W1-W46 + FUTURE BACKLOG) and `docs/CHANGE_REVIEW.md`.** Phases P0-P6 are complete; the work after them is tracked as W-items in the design plan. This file is the original Thai phase checklist (P0-P6).
 
 ## วิธีใช้
@@ -41,7 +43,7 @@
 - [x] 2.2 Evolution + ตารางค่าต่อร่าง (ความเร็ว, Max HP, ดาเมจ, สี RGB) + กะพริบ 1 วิ (sim)
 - [x] 2.3 HP บน LED8–11, 7-seg ชั้น/HP/เวลา mm.ss (sim) — ตรวจจากภาพ Verilator `docs/p2_*.png`
 - [x] 2.4 หน้า Title / Game Over แบบง่าย (sim) — ยังไม่มีข้อความ รอ font P5
-- [x] 2.5 Sprint SW15: ความเร็ว +1 ตอนเปิด (sim) — `tb_player` speed 4, `tb_game_fsm`
+- [x] 2.5 Sprint SW14 (เดิมเขียน SW15 — ตอนนี้ SW15 = pause): ความเร็ว +1 ตอนเปิด (sim) — `tb_player` speed 4, `tb_game_fsm`
 - [ ] **เช็คบนบอร์ด:** กด BTNC เริ่มเกม, HP 0 กลับ Title, เปลี่ยน 4 ร่างแล้ว RGB16 เปลี่ยนสี
 
 ### P3 การต่อสู้ (21–23/11)
@@ -49,7 +51,7 @@
 - [x] 3.2 AABB ทุกคู่ช่วง vblank (≤ 36,000 clock) (sim) — วัดได้สูงสุด 88 clock/เฟรม, ขอบแตะ = ไม่ชน
 - [x] 3.3 ตีประชิด + ยิง + cooldown + strafe (sim)
 - [x] 3.4 มอน A (ไล่) + มอน B (ยิง 4 ทิศ เหลื่อมเฟส) (sim)
-- [x] 3.5 โดนตี: knockback + อมตะ 60 เฟรม (sim)
+- [x] 3.5 โดนตี: knockback + อมตะ (ตอนนี้ 90 เฟรม, `INV_FRAMES`) (sim)
 - [x] 3.6 ห้อง Combat ล็อก + cleared[room] + ประตู L/E จริง (เอา SW0/SW2 debug ออก) (sim) — SW2 เอาออกแล้ว; SW0 ยังแทน has_item[floor] จนกว่า P4 จะให้ไอเทมจริง
 - [x] 3.7 อาวุธต่างกันต่อร่าง (ร่าง 3 กระจาย 3 ทาง, ร่าง 4 ชาร์จ) (sim) — `tb_objects`; ร่าง 4 นัดเร็ว + ชาร์จ 45 เฟรมยิงลูกใหญ่ทะลุ
 - [x] 3.8 ตีประชิดได้ทุกร่างเมื่อศัตรูอยู่ใกล้ (sim)
@@ -64,13 +66,13 @@
 ### P5 บอส + ไมค์ + ฉากหนี (23–25/11)
 - [x] 5.1 Boss module + ROM พารามิเตอร์ 3 ตัว (sim) — `boss.v`, `tb_boss`
 - [x] 5.2 FLOOR_CLEAR → ชั้นถัดไป (เอา SW1 debug ออก) (sim) — บอส 1, 2 ตาย = FLOOR_CLEAR; SW1 เหลือเป็นทางลัด DEBUG เท่านั้น
-- [x] 5.3 ไมค์: clap_pulse → STUN บอส 2 (sim) — logic ไมค์ + ตบมือจำลองใน sim เท่านั้น ยังไม่ได้ลองไมค์จริง และขอบที่ใช้อ่าน (ขาขึ้น) ยังไม่ได้ยืนยันบนบอร์ด
+- [x] 5.3 ไมค์: clap_pulse → STUN บอส 1 (ตอนนี้; เดิมเขียนบอส 2) (sim) — logic ไมค์ + ตบมือจำลองใน sim เท่านั้น ยังไม่ได้ลองไมค์จริง และขอบที่ใช้อ่าน (ขาขึ้น) ยังไม่ได้ยืนยันบนบอร์ด
 - [x] 5.3a ตัวทดสอบไมค์แยก `mic_test_top` (sim) — `tb_mic_test_top`, `scripts/create_mic_project.tcl`; ยังไม่ได้ลงบอร์ด (ดู `docs/BOARD_DAY.md`)
-- [x] 5.4 ESCAPE: นับถอยหลัง 30 วิ, จอสั่น, LED กะพริบ, WIN (sim)
+- [x] 5.4 ESCAPE: (ตอนนี้ = เขาวงกต Ball in a Maze 60 วิ; เดิม 30 วิ วิ่งกลับ) จอสั่น, LED กะพริบ, WIN (sim)
 - [x] 5.5 Font ROM + ข้อความหน้าจอ (sim) — `scripts/make_font.py`, TITLE / FLOOR CLEAR / ESCAPE! / YOU WIN + เวลา / GAME OVER
 
 ### P6 เสียง + รวม (25–26/11)
-- [x] 6.1 SFX 10 แบบ + priority mux (sim) — `audio.v`, `tb_audio`, `docs/audio/*.wav`; ยังไม่ได้ลองบนบอร์ด (ระดับ AUD_SD ยังไม่ยืนยันกับ manual)
+- [x] 6.1 SFX (ตอนนี้ 13 แบบ) + priority mux (sim) — `audio.v`, `tb_audio`, `docs/audio/*.wav`; ยังไม่ได้ลองบนบอร์ด (ระดับ AUD_SD ยังไม่ยืนยันกับ manual)
 - [x] 6.2 BGM 4 ทำนอง (ตัดก่อนถ้าไม่ทัน) (sim) — ชั้น 1-3 + ESCAPE + jingle WIN / GAME OVER
 - [ ] 6.3 สลับ sprite จริงแทน placeholder ทั้งหมด
 - [ ] 6.4 เล่นทดสอบจบเกม 3 รอบ, ปรับ HP/ความเร็ว
@@ -109,8 +111,8 @@ placeholder ตอนนี้มาจาก `scripts/make_placeholders.py` (ti
 - [x] 2 ห้อง Puzzle ชั้น 3 ใหม่ แผ่น Simon (`maps/12_f3_puzzle_simon.txt`)
 - [x] 3 ตารางประตู + จุดเกิดหน้าประตู (ใน `top.v`)
 - [x] 4 ตาราง object ต่อห้อง (`mem/objects.txt`; มอนอ่านเข้า Verilog แล้วผ่าน `mem/monsters.mem`)
-- [x] 5 พารามิเตอร์บอส 3 ตัว (HP 10/16/24, ความเร็ว, แบบเคลื่อนที่, fire_timer) · P5 (`rtl/params.vh` + `boss_rom` ใน `boss.v`)
-- [x] 6 ค่าต่อร่าง (ความเร็ว 2/2/3/3, Max HP 3/3/4/4, ดาเมจ 1/1/2/2, สี) · P2, ค่ายังรอยืนยัน (ตาราง `localparam` ใน `rtl/game_fsm.v`)
+- [x] 5 พารามิเตอร์บอส 3 ตัว (HP ตอนนี้ 10/16/9; เดิม 10/16/24, ความเร็ว, แบบเคลื่อนที่, fire_timer) · P5 (`rtl/params.vh` + `boss_rom` ใน `boss.v`)
+- [x] 6 ค่าต่อร่าง (ความเร็ว 2/2/3/3, Max HP ตอนนี้ 4/4/4/4 เดิม 3/3/4/4, ดาเมจ 1/1/2/2, สี) · P2, ค่ายังรอยืนยัน (ตาราง `localparam` ใน `rtl/game_fsm.v`)
 - [x] 7 mask Light Bulb 0111/1011/1101/1110 · P4 (`rtl/params.vh`, ตรวจแล้วแก้ได้ทุกแบบ)
 - [x] 8 ตำแหน่งกล่อง Sokoban + เฉลย 24 ครั้ง · P4 (`maps/09_*`, `scripts/solve_sokoban.py` ยืนยันน้อยสุด 24)
 - [x] 9 โน้ต Simon 4 โน้ต (ค่า divider) · P4 (`SIMON_HP0..3` ใน `params.vh`: C5 E5 G5 C6)

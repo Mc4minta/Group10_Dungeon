@@ -1,5 +1,18 @@
 # Change review
 
+## Update 23/11/2026 - documentation refresh (no behaviour change)
+
+All documents were checked against the code (`main` = `dev` = `3e908a3`). Full list of wrong facts, comment-only code edits and open questions: `docs/DOC_UPDATE_REPORT.md`.
+
+| Area | What changed | Verified |
+|---|---|---|
+| Docs | README rewritten (status, controls, per-form table, bosses, rooms, build + simulation commands, folder list, Known gaps); docs index lists every file; FEATURES / CONTROLS / NEXT_STEPS / PROGRESS / STORY / BOARD_* / SOUND_* / DESIGN_PLAN corrected | links and paths grep-checked |
+| Code comments | 6 comment-only edits in `rtl/` (sprint is SW14, boss 3 has 9 HP, SFX count 13, FSM states, BTNC on GAME OVER) | iverilog `world fsm hud dialog ps2 mic audio puzzles boss objects`: results equal to the run before the edits (sim) |
+
+Known gaps (23/11): nothing is board-tested except the USB keyboard; the local Vivado run of 22/11 reports **WNS -4.045 ns (timing not met)**, Block RAM 103.5 / 135 (git-ignored reports, source commit unknown); `DEBUG` defaults to 1 in `rtl/top.v` (hand-in build must set 0); the Verilator Makefile passes an undefined `PROLOGUE_V`; `tb_puzzles` passes (42 checks) so the old "lever-XOR fails" note is obsolete; the full-system `tb_top` and the Verilator full-game run were not repeated in this refresh.
+
+---
+
 ## Update 20-21/11/2026 (branches `dev` = `main`)
 
 Everything below is committed on `dev` and merged into `main`. "sim" = verified with a testbench / Python test, "board" = not yet tried on the board.
@@ -16,13 +29,13 @@ Everything below is committed on `dev` and merged into `main`. "sim" = verified 
 | Art | plate with box (W26), Human attack animation ON (W35), clearer lever art, flickering torch bulbs | `test_tileset_pipeline`, `test_sprite_pipeline` |
 | Fixed in synthesis | `ORB_DIST` wiped from a generated file; `dlg_ev` bit bound and `lock_seen` multi-driver (Vivado kept constant 0: the intro-again box and the room-cleared boxes never fired) | Vivado synth warnings, rerun pending |
 
-Known gaps: `tb_puzzles` lever-XOR check fails (unexplained, same before the changes); the full-system `tb_top` was not rerun on the last commit; nothing from W19 onwards is board-tested.
+Known gaps (as written 21/11; the `tb_puzzles` note is obsolete, it passes on 23/11): `tb_puzzles` lever-XOR check fails (unexplained, same before the changes); the full-system `tb_top` was not rerun on the last commit; nothing from W19 onwards is board-tested.
 
 ---
 
 # Change review (older text, 19/11)
 
-## Everything on branch `sprite-zip` compared with `main` (19/11)
+## Everything on branch `sprite-zip` compared with `main` (19/11) - HISTORICAL: merged long ago; HP is 4 on all forms now, SW15 = pause, SW14 = sprint
 
 Branch `sprite-zip`, tag `board-test-2`. Nothing of this is in `main` yet (main waits for an explicit "merge"). All feature branches that existed during development are merged into `sprite-zip` and deleted
 (history is kept in `sprite-zip`; the old phase branches are kept as tags `archive/p2-game-fsm` ... `archive/p6-tweaks`; unfinished work is on `wip/wall-variants`).

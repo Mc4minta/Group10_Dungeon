@@ -1,5 +1,7 @@
 # Plan: how to turn ANY sound into the game (for you to edit and approve)
 
+**Status 23/11/2026: PLANNED ONLY - none of the tools in this plan exist (no `scripts/audio_to_sfx.py`, no MIDI converter, no sample player in `rtl/`).** Only `scripts/audio_to_music.py` and `scripts/make_music.py` are built.
+
 Edit this file, tick `[x]` on what you approve, answer the questions at the bottom, then tell me "approved".
 Background: `docs/SOUND_PLAN.md` (what the game sounds like now and why MP3 cannot play directly).
 

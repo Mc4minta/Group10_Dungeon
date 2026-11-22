@@ -1,6 +1,6 @@
 # Sound plan - what every sound is now, where it lives, and how to change it
 
-**Update this file every time a sound changes** (same rule as `docs/SPRITE_STATUS.md`). Last update: project cleanup (branch `sprite-zip`, tag `board-test-2`): custom music track 6 (Connect) on floors 1-3, sounds 11 (boss appears) and 12 (room change).
+**Update this file every time a sound changes** (same rule as `docs/SPRITE_STATUS.md`). (`scripts/make_samples.py` named below is planned, not built.) Checked against `rtl/audio.v` / `params.vh` on 23/11/2026: 13 effects, board: not tested. Last content update: project cleanup (branch `sprite-zip`, tag `board-test-2`): custom music track 6 (Connect) on floors 1-3, sounds 11 (boss appears) and 12 (room change).
 
 Legend: **FINAL** = you are happy with it. **PLACEHOLDER** = a programmer test tone (all sound effects are tones, none have been designed by you yet).
 
@@ -80,7 +80,7 @@ C5 523 Hz, E5 659 Hz, G5 784 Hz, C6 1047 Hz (`SIMON_HP0..3` in `params.vh`). Alw
 | 3 | Boss music (different from the floor track) | floor track continues | a heavier loop for boss rooms |
 | 4 | Player attack variety | one tone per weapon | a noise-like "swish" for melee |
 | 5 | Story / dialogue sounds | none | a short blip per text line, or a jingle between floors |
-| 6 | Better versions of the 12 effects | tones | adjust pitch/length until they sound right on the board speaker |
+| 6 | Better versions of the 13 effects | tones | adjust pitch/length until they sound right on the board speaker |
 
 ---
 

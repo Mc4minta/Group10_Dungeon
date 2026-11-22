@@ -1,6 +1,8 @@
 # Board test - what is in this build and exactly what to do
 
-Branch: `sprite-zip` (it contains everything merged: art, difficulty, sound, animations OFF). Tag of THIS build: `board-test-2`. Tag of the previous known-good build: `board-test-1`.
+**Status 23/11/2026:** code is on `main` = `dev` (`3e908a3`); `sprite-zip` below is historical. Board-confirmed so far: the USB keyboard only; everything else = board: not tested. A local Vivado run (22/11, reports git-ignored, source commit unknown) gave WNS -4.045 ns (timing NOT met, 1853 failing endpoints) and Block RAM 103.5 / 135; step 6 below expects WNS >= 0, so timing must be fixed or accepted first. Set `DEBUG = 0` in `rtl/top.v` for the hand-in build (default is 1).
+
+Branch (older text): `sprite-zip` (it contains everything merged: art, difficulty, sound, animations OFF). Tag of THIS build: `board-test-2`. Tag of the previous known-good build: `board-test-1`.
 Before building, `scripts/check_all.sh --fast` should print `CHECK_ALL: PASS` (it proves the generated files are current).
 
 ## 1a. What is new since 20/11 (W19-W46) - the short list

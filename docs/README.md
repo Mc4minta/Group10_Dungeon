@@ -1,7 +1,7 @@
 # Project guide - start here
 
 Group 10 Dungeon: a VGA dungeon game in Verilog for the Nexys A7-100T (Vivado 2024.2), with a Python pipeline that builds all art, map and music ROMs from files you edit.
-This page is the index. Last full refresh: branches `main` / `dev` (21/11).
+This page is the index. Last full refresh: 23/11/2026 against the code of `main` = `dev` (`3e908a3`); see `docs/DOC_UPDATE_REPORT.md`.
 
 ## 1. Which document do I read?
 
@@ -30,9 +30,10 @@ This page is the index. Last full refresh: branches `main` / `dev` (21/11).
 | `my_asset/` | your art: `Character/`, `enemies/`, `props/`, `tileset/`, `new_switch.png`, the two asset zips | **yes** (source of truth) |
 | `my_audio/` | your source audio (mp3 / wav). **Not committed** (ignored) | yes |
 | `sprites/` | the settings: `sprites.json` (player), `tileset.json`, `monsters.json`, `bosses.json`, `puzzle.json`, `music.json`, `music/*.txt` | **yes** |
-| `maps/` | the 13 room layouts (text). `maps_v1/` = untouched originals | yes (carefully, see sprites/README.md) |
+| `maps/` | the 13 room layouts (text; 3 floors x 5 room roles = 15 rooms in play, START of floors 1+2 and BOSS of floors 1+3 share a map) + `maps/maze/maze.txt`. `maps_v1/` = untouched originals | yes (carefully, see sprites/README.md) |
 | `mem/` | **generated** ROM files (`player.mem`, `tileset.mem`, `music.mem`, ...) and the `*_v1.mem` backups of the original art (never edit) | **no** |
 | `scripts/` | the builders (`build_*_mem.py`, `make_music.py`, `audio_to_music.py`, `build_maps.py`), `check_all.sh`, `run_sim.sh`, Vivado Tcl | run them |
+| `report_shots/` | (untracked) WSL helper scripts that take Verilator screenshots (`env.sh`, `_build.sh`, `run.sh`, `convert.py`) | no |
 | `tests/` | Python tests (one per pipeline) and the fallback drill | add tests with every change |
 | `sim/` | iverilog testbenches (`tb_*.v`) and the Verilator player (`sim/verilator`) | add tests with every change |
 | `preview/` | generated pictures (contact sheets, screenshots). Git-ignored except `layout_guide.png` | no |
@@ -66,9 +67,33 @@ Rule for new work: `git checkout dev && git checkout -b feature/<name>`, keep it
 ## 5. What exists / what does not (one line each)
 
 - Art: player forms 1-3 real, form 4 = gold recolour of the Human (placeholder), tiles, 2 enemies, 3 bosses, puzzle objects: see `docs/SPRITE_STATUS.md`.
-- Gameplay changes from the original: HP 4 (forms 1-2), invulnerable 90 frames, chasing monster at half speed, BTNC face lock, SW14 facing lock, screen shake when hit, two new sound effects, Connect melody as BGM on floors 1-3.
+- Gameplay changes from the original: HP 4 (all four forms), invulnerable 90 frames, chasing monster at half speed, BTNC face lock, SW12 facing lock (SW15 = pause, SW14 = sprint), screen shake when hit, two new sound effects, Connect melody as BGM on floors 1-3.
 - Human **attack** animation is ON since 21/11 (W35); still OFF (need Block RAM, flags in `sprites/sprites.json` -> `animations`): Human idle / hurt / death animations.
 - Not built: wall variants (WIP branch), sample playback, ranged / charger enemy types, a path-finding distance field, bullet / slash art. Story screens, dialogue boxes, hint strip and title pages DO exist now (`docs/STORY.md`).
 - `docs/CONTROLS.md` - the player's control guide (board buttons / switches and keyboard)
 - `docs/MAP_DESIGN.md` - what every object of a redrawn room is for
 - `docs/GAMEPLAY_REVIEW.md` - story / gameplay review (W31-W34)
+
+## 6. Every file in docs/ (one line each)
+
+| File | What it is |
+|---|---|
+| `README.md` | this index |
+| `CONTROLS.md` | player guide: every button, switch and key (English) |
+| `FEATURES.md` | catalogue of what the game does today (English) |
+| `GAMEPLAY_REVIEW.md` | story / hint / input review of 20/11 (W28-W34), all approved and built |
+| `MAP_DESIGN.md` | purpose of every object in the redrawn rooms, waves |
+| `STORY.md` | source of truth for all on-screen text (Thai notes); `scripts/build_story.py` builds the ROMs from it |
+| `SPRITE_STATUS.md` | which sprites are final / placeholder / missing |
+| `SOUND_PLAN.md` | every sound effect and music track (13 effects, tracks, how to change them) |
+| `SOUND_PIPELINE_PLAN.md` | PLAN ONLY: routes for using other sounds (none of the new tools exist yet) |
+| `BOARD_TEST_STEPS.md` | exact Vivado + board steps and the numbered board checks (none confirmed except the USB keyboard) |
+| `BOARD_DAY.md` | Thai board-day checklist (build, timing, mic test project, what to send back) |
+| `NEXT_STEPS.md` | backlog by priority |
+| `PROGRESS.md` | original Thai P0-P7 phase checklist (historical, with a 23/11 status note) |
+| `CHANGE_REVIEW.md` | what changed and how it was verified (newest entry first) |
+| `DESIGN_PLAN.md` | master design W1-W46 + FUTURE BACKLOG (original text kept, status per section) |
+| `DOC_UPDATE_REPORT.md` | report of the 23/11 documentation refresh: wrong facts, comment edits, open decisions |
+| `archive/SPRITE_PLAN.md` | old sprite plan (history only) |
+| `audio/*.wav` | sample recordings from the Verilator run (`WAVS=1 ./scripts/run_full_game.sh`) |
+| `*.png` | pictures from simulation (`p2_` .. `p6t_`, `*_preview`, `verilator_screen`); most were taken before W19-W46 and may not match the current look |
