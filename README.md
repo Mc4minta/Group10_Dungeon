@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/course-CPE222%20KMUTT-lightgrey" alt="Course: CPE222, KMUTT">
 </p>
 
-The game name on screen is *The Chosen One*; the repository folder is `Group10_Dungeon`.
+The game name on screen is *The Chosen One*. This repository (`cpe222-the-chosen-one`) is the code of the final project report "Developing the Game The Chosen One on an FPGA", CPE222, KMUTT, Group 10. It was renamed from `Group10_Dungeon`; the Vivado project it creates is still named `Group10_Dungeon`.
 
 ## Contents
 
@@ -178,6 +178,13 @@ Other inputs:
 
 ## Quick start
 
+### Get the code
+
+```bash
+git clone https://github.com/Mc4minta/cpe222-the-chosen-one.git
+cd cpe222-the-chosen-one
+```
+
 ### Build for the board (Vivado)
 
 Create the project, synthesise and write the bitstream in one step:
@@ -316,11 +323,11 @@ The `vivado/` folder is created by `scripts/create_project.tcl` and is not part 
 | Art ROMs | `sprites`, `tileset`, `monster`, `bosssprites`, `puzzleart`, `animroms` |
 | Whole system | `debug`, `top`, `topanim` |
 
-**Python tests.** `tests/` has one test file per generation pipeline (sprites, tiles, monsters, bosses, puzzle objects, HUD, overlay, maps, story, music) and a fallback drill. `scripts/check_all.sh` runs them.
+**Python tests.** `tests/` has one test file per generation pipeline (sprites, tiles, monsters, bosses, puzzle objects, HUD, overlay, maps, story, music) and a fallback drill. The files use `unittest`, so both `python3 -m pytest tests -q` (needs `pip install pytest`) and `python3 -m unittest discover -s tests -p 'test_*.py'` run them. `scripts/check_all.sh` runs them too. Running the tests regenerates `mem/*.mem` and `rtl/puzzle_layout.vh`; check `git status` afterwards.
 
 **Full-game simulation.** A scripted run from title to win exists (`scripts/run_full_game.sh`). It was not rerun on the latest code (see limitations).
 
-**Board.** The full game was played on a Nexys A7-100T and works. The per-feature board checklist is `docs/BOARD_TEST_STEPS.md`.
+**Board.** The project team reports that the full game was played on a Nexys A7-100T and works. The repository itself records board results only for the USB keyboard (`docs/BOARD_TEST_STEPS.md`, `docs/CHANGE_REVIEW.md`); everything else listed there is marked "board: not tested" and is verified in simulation only.
 
 ## Known limitations
 
@@ -334,13 +341,14 @@ The `vivado/` folder is created by `scripts/create_project.tcl` and is not part 
    | Worst hold slack (WHS) | +0.046 ns (hold is met) |
 
    The same run reports 18,182 of 63,400 slice LUTs and 103.5 of 135 block RAM tiles. The worst path ends in the renderer text address. Despite the failed constraint, the design ran on the board. Timing has not been fixed.
-2. **`DEBUG` defaults to 1.** The debug switches SW0 to SW4 are active in a default build. Set `DEBUG = 0` for the submission build.
-3. **Verilator build.** With Verilator 5.054, the unmodified `sim/verilator/Makefile` did not build in our WSL setup. The identifier `inside` in `rtl/renderer.v` is read as a SystemVerilog keyword, and the Makefile passes `-GPROLOGUE=$(PROLOGUE_V)` while `PROLOGUE_V` is never defined. The screenshots were made with a command-line override (`--default-language 1364-2005`, `-GPROLOGUE=0`); see `report_shots/_build.sh`.
-4. **Old replay scripts.** The scripts in `sim/verilator/scripts/` (including `full_game.txt`) were written before the story boxes and the room redesign. They no longer reach the end of the game. The scripts used for the report pictures are in `report_shots/scripts/`.
-5. **Not confirmed on the board:** the `AUD_SD` level against the board manual, and the tilt direction of the maze (`MAZE_SIGN_X`, `MAZE_SIGN_Y` in `rtl/params.vh`). Both are open items in `docs/BOARD_TEST_STEPS.md`.
-6. **Art.** The form 4 hero sprite is a recoloured placeholder. Bullets and the melee slash use the original simple art. See `docs/SPRITE_STATUS.md`.
-7. **Music.** The background music uses the melody of the song "Connect", which is copyrighted. Check this before making the repository public (`mem/music.mem`, `sprites/music/connect.txt`).
-8. The pictures `docs/p*.png` were taken before the latest changes and may not match the current look of the game. The pictures in `docs/images/` are current.
+2. **Test status of the last run (23/11/2026, Icarus Verilog 13.0).** `tb_player` reports 2 failed checks (`form1 blocked by hole`, `spd4: form1 still blocked by hole`). Six targets (`simonplate`, `ovrender`, `text`, `orb`, `debug`, `top`) do not compile with Icarus 13.0, because `rtl/renderer.v:162` uses the name `inside`, which is a keyword in SystemVerilog mode. The other 12 targets pass. Of 165 Python tests, one fails (`test_overlay_pipeline`, a byte comparison of `mem/ovtile.mem`; the checkout has CRLF line endings and the regenerated file has LF). The results are in `test_output_full.txt`.
+3. **`DEBUG` defaults to 1.** The debug switches SW0 to SW4 are active in a default build. Set `DEBUG = 0` for the submission build.
+4. **Verilator build.** With Verilator 5.054, the unmodified `sim/verilator/Makefile` did not build in our WSL setup. The identifier `inside` in `rtl/renderer.v` is read as a SystemVerilog keyword, and the Makefile passes `-GPROLOGUE=$(PROLOGUE_V)` while `PROLOGUE_V` is never defined. The screenshots were made with a command-line override (`--default-language 1364-2005`, `-GPROLOGUE=0`); see `report_shots/_build.sh`.
+5. **Old replay scripts.** The scripts in `sim/verilator/scripts/` (including `full_game.txt`) were written before the story boxes and the room redesign. They no longer reach the end of the game. The scripts used for the report pictures are in `report_shots/scripts/`.
+6. **Not confirmed on the board:** the `AUD_SD` level against the board manual, and the tilt direction of the maze (`MAZE_SIGN_X`, `MAZE_SIGN_Y` in `rtl/params.vh`). Both are open items in `docs/BOARD_TEST_STEPS.md`.
+7. **Art.** The form 4 hero sprite is a recoloured placeholder. Bullets and the melee slash use the original simple art. See `docs/SPRITE_STATUS.md`.
+8. **Music.** The background music uses the melody of the song "Connect", which is copyrighted. Check this before making the repository public (`mem/music.mem`, `sprites/music/connect.txt`).
+9. The pictures `docs/p*.png` were taken before the latest changes and may not match the current look of the game. The pictures in `docs/images/` are current.
 
 ## Team
 

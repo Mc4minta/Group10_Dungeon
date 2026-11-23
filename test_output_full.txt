@@ -1,0 +1,871 @@
+=== environment ===
+Mon Nov 23 04:05:22 PM +07 2026
+Icarus Verilog version 13.0 (stable) (v13_0)
+Python 3.14.7
+
+=== scripts/run_sim.sh all ===
+PASS  walk up stops at top wall  (px=288 py=28)
+PASS  facing up  (px=288 py=28)
+PASS  right door event  (px=592 py=240)
+PASS  closed door blocks  (px=580 py=240)
+PASS  diagonal slides along wall  (px=368 py=28)
+PASS  corner slide past pillar edge  (px=188 py=88)
+FAIL  form1 blocked by hole  (px=304 py=40)
+PASS  form3 flies over hole to top door (frozen)  (px=304 py=15)
+PASS  boss door L locked  (px=580 py=240)
+PASS  boss door L opens with item  (px=592 py=240)
+PASS  walk animation uses pose 1 and 2  (px=208 py=224)
+PASS  idle pose when stopped  (px=208 py=224)
+PASS  spd4: walk up stops at top wall  (px=288 py=28)
+PASS  spd4: right door event  (px=592 py=240)
+PASS  spd4: closed door blocks  (px=580 py=240)
+PASS  spd4: diagonal slides along wall  (px=448 py=28)
+PASS  spd4: corner slide past pillar edge  (px=188 py=28)
+PASS  spd4: no tunnelling into pillar  (px=144 py=156)
+PASS  spd4: right wall no tunnelling  (px=580 py=36)
+FAIL  spd4: form1 still blocked by hole  (px=304 py=12)
+PASS  spd4: form3 over hole to top door  (px=304 py=12)
+PASS  spd4: form4 E door (left edge), no wrap  (px=12 py=240)
+PASS  spd4: left E door closed for form1  (px=28 py=240)
+PASS  freeze: no movement, idle pose  (px=288 py=224)
+PASS  unfreeze: moves again  (px=308 py=224)
+errors = 2
+../sim/tb_player.v:111: $finish called at 374265000 (1ps)
+== tb_player: FAILED
+run_sim.sh all exit code: 1
+
+=== python3 -m pytest tests -q ===
+/usr/bin/python3: No module named pytest
+pytest exit code: 1
+
+=== python3 -m unittest discover -s tests -p 'test_*.py' (pytest is not installed; the tests are unittest based) ===
+test_all_disabled_is_byte_identical (test_boss_pipeline.Fallbacks.test_all_disabled_is_byte_identical) ... ok
+test_bad_config (test_boss_pipeline.Fallbacks.test_bad_config) ... ok
+test_check_writes_nothing (test_boss_pipeline.Fallbacks.test_check_writes_nothing) ... ok
+test_clean (test_boss_pipeline.Fallbacks.test_clean) ... ok
+test_corrupt_sheet_is_error_but_builds (test_boss_pipeline.Fallbacks.test_corrupt_sheet_is_error_but_builds) ... ok
+test_missing_fallback_file (test_boss_pipeline.Fallbacks.test_missing_fallback_file) ... ok
+test_sheet_missing_only_that_boss_falls_back (test_boss_pipeline.Fallbacks.test_sheet_missing_only_that_boss_falls_back) ... ok
+test_sheet_too_small (test_boss_pipeline.Fallbacks.test_sheet_too_small) ... ok
+test_skip (test_boss_pipeline.Fallbacks.test_skip) ... ok
+test_transparent_cell (test_boss_pipeline.Fallbacks.test_transparent_cell) ... ok
+test_fallback_identical_to_v1 (test_boss_pipeline.RealProject.test_fallback_identical_to_v1) ... ok
+test_frames_are_exact_2x_of_sources (test_boss_pipeline.RealProject.test_frames_are_exact_2x_of_sources) ... ok
+test_key_colour_in_every_used_frame (test_boss_pipeline.RealProject.test_key_colour_in_every_used_frame) ... ok
+test_line_count (test_boss_pipeline.RealProject.test_line_count) ... ok
+test_mem_is_up_to_date (test_boss_pipeline.RealProject.test_mem_is_up_to_date) ... ok
+test_scale2_frames_are_2x2_blocks (test_boss_pipeline.RealProject.test_scale2_frames_are_2x2_blocks) ... ok
+test_scale3_frames_are_centred_exact_3x_windows (test_boss_pipeline.RealProject.test_scale3_frames_are_centred_exact_3x_windows)
+scale 3 (the bosses are 1.5x bigger than at 2x): each source pixel is a 3x3 block, the art is centred in the 64x64 box, nothing is cut ... ok
+test_spare_frames_unchanged (test_boss_pipeline.RealProject.test_spare_frames_unchanged) ... ok
+test_broken_config_exit_2 (test_hud_pipeline.HudTests.test_broken_config_exit_2) ... ok
+test_committed_mem_is_current (test_hud_pipeline.HudTests.test_committed_mem_is_current) ... ok
+test_key_colour_never_used_for_opaque (test_hud_pipeline.HudTests.test_key_colour_never_used_for_opaque) ... ok
+test_missing_art_falls_back_with_warning (test_hud_pipeline.HudTests.test_missing_art_falls_back_with_warning) ... ok
+test_oversize_picture_falls_back (test_hud_pipeline.HudTests.test_oversize_picture_falls_back) ... ok
+test_real_art_builds_clean (test_hud_pipeline.HudTests.test_real_art_builds_clean) ... ok
+test_backup_exists (test_maps.Maps.test_backup_exists) ... ok
+test_build_maps_is_reproducible (test_maps.Maps.test_build_maps_is_reproducible)
+running build_maps.py again must not change any generated file ... ok
+test_decoration_only_in_allowed_rooms (test_maps.Maps.test_decoration_only_in_allowed_rooms) ... ok
+test_map_files_only_differ_by_decoration (test_maps.Maps.test_map_files_only_differ_by_decoration) ... ok
+test_non_tile_outputs_identical_to_v1 (test_maps.Maps.test_non_tile_outputs_identical_to_v1) ... ok
+test_overlay_rules (test_maps.Maps.test_overlay_rules)
+W5 overlay.mem: codes 0..3, only on plain floor, only in allowed rooms, <= 8 breakable blocks with unique indices 0..n-1 per room, ... ok
+test_redesigned_rooms (test_maps.Maps.test_redesigned_rooms)
+W23: the redrawn rooms keep what the game logic needs (door tiles, spawn pockets, monster limit, the 6 monsters / order that tb_objects uses in ... ok
+test_simon_plates_are_even_blocks (test_maps.Maps.test_simon_plates_are_even_blocks)
+each Simon plate is a 2x2 block of tiles starting on an even column and an even row (the renderer draws it as ONE big plate); ... ok
+test_sokoban_room_unchanged_and_solvable (test_maps.Maps.test_sokoban_room_unchanged_and_solvable) ... ok
+test_tilemap_equals_v1_except_decoration (test_maps.Maps.test_tilemap_equals_v1_except_decoration) ... ok
+test_all_disabled_is_byte_identical (test_monster_pipeline.Fallbacks.test_all_disabled_is_byte_identical) ... ok
+test_bad_config (test_monster_pipeline.Fallbacks.test_bad_config) ... ok
+test_check_writes_nothing (test_monster_pipeline.Fallbacks.test_check_writes_nothing) ... ok
+test_clean (test_monster_pipeline.Fallbacks.test_clean) ... ok
+test_corrupt_sheet_is_error_but_builds (test_monster_pipeline.Fallbacks.test_corrupt_sheet_is_error_but_builds) ... ok
+test_disabled_and_skip (test_monster_pipeline.Fallbacks.test_disabled_and_skip) ... ok
+test_missing_fallback_file (test_monster_pipeline.Fallbacks.test_missing_fallback_file) ... ok
+test_sheet_missing_only_that_monster_falls_back (test_monster_pipeline.Fallbacks.test_sheet_missing_only_that_monster_falls_back) ... ok
+test_sheet_too_small (test_monster_pipeline.Fallbacks.test_sheet_too_small) ... ok
+test_sheets_never_modified (test_monster_pipeline.Fallbacks.test_sheets_never_modified) ... ok
+test_transparent_cell (test_monster_pipeline.Fallbacks.test_transparent_cell) ... ok
+test_wrong_size_not_multiple_of_32 (test_monster_pipeline.Fallbacks.test_wrong_size_not_multiple_of_32) ... ok
+test_fallback_identical_to_v1 (test_monster_pipeline.RealProject.test_fallback_identical_to_v1) ... ok
+test_frames_match_sources (test_monster_pipeline.RealProject.test_frames_match_sources) ... ok
+test_key_colour_in_every_frame (test_monster_pipeline.RealProject.test_key_colour_in_every_frame) ... ok
+test_line_count (test_monster_pipeline.RealProject.test_line_count) ... ok
+test_mem_is_up_to_date (test_monster_pipeline.RealProject.test_mem_is_up_to_date) ... ok
+test_scale2_windows (test_monster_pipeline.RealProject.test_scale2_windows)
+scale 2: the 16x16 source window centred on the art (one anchor per monster) is doubled to 32x32 - the monster is as big as the hero ... ok
+test_bad_inputs_are_errors_not_crashes (test_music_pipeline.AudioToMusic.test_bad_inputs_are_errors_not_crashes) ... ok
+test_fits_the_rom_by_merging_fast_notes (test_music_pipeline.AudioToMusic.test_fits_the_rom_by_merging_fast_notes) ... ok
+test_grid_snaps_rhythm (test_music_pipeline.AudioToMusic.test_grid_snaps_rhythm) ... ok
+test_output_is_accepted_by_the_music_engine_parser (test_music_pipeline.AudioToMusic.test_output_is_accepted_by_the_music_engine_parser) ... ok
+test_preview_wav_is_written (test_music_pipeline.AudioToMusic.test_preview_wav_is_written) ... ok
+test_simple_melody_is_recognised (test_music_pipeline.AudioToMusic.test_simple_melody_is_recognised) ... ok
+test_transpose_and_octave_fold (test_music_pipeline.AudioToMusic.test_transpose_and_octave_fold) ... ok
+test_bad_config_is_a_clear_error (test_music_pipeline.MusicExtra.test_bad_config_is_a_clear_error) ... ok
+test_custom_track_is_used_where_configured (test_music_pipeline.MusicExtra.test_custom_track_is_used_where_configured) ... ok
+test_hp_matches_the_builtin_formula (test_music_pipeline.MusicExtra.test_hp_matches_the_builtin_formula) ... ok
+test_missing_or_bad_file_falls_back_with_warning (test_music_pipeline.MusicExtra.test_missing_or_bad_file_falls_back_with_warning) ... ok
+test_no_config_means_default_music (test_music_pipeline.MusicExtra.test_no_config_means_default_music) ... ok
+test_real_project_music_mem_matches_the_config (test_music_pipeline.MusicExtra.test_real_project_music_mem_matches_the_config)
+mem/music.mem has 1024 entries and track 6 equals the custom track (or is empty when none is configured) ... ok
+test_too_many_entries_falls_back (test_music_pipeline.MusicExtra.test_too_many_entries_falls_back) ... ok
+test_missing_file_uses_placeholder (test_overlay_pipeline.Fallback.test_missing_file_uses_placeholder)
+Rule 1: a missing picture -> placeholder + warning, exit code 0, other pictures unchanged ... ok
+test_pictures_match_independent_conversion (test_overlay_pipeline.Real.test_pictures_match_independent_conversion) ... ok
+test_shape (test_overlay_pipeline.Real.test_shape) ... ok
+test_spare_is_see_through_and_pictures_have_art (test_overlay_pipeline.Real.test_spare_is_see_through_and_pictures_have_art) ... ok
+test_up_to_date (test_overlay_pipeline.Real.test_up_to_date) ... FAIL
+test_clean (test_puzzle_pipeline.Fallbacks.test_clean) ... ok
+test_corrupt_png_is_error_but_builds (test_puzzle_pipeline.Fallbacks.test_corrupt_png_is_error_but_builds) ... ok
+test_mem_source_missing_corrupt_or_bad_frame_falls_back (test_puzzle_pipeline.Fallbacks.test_mem_source_missing_corrupt_or_bad_frame_falls_back) ... ok
+test_missing_fallback_and_check (test_puzzle_pipeline.Fallbacks.test_missing_fallback_and_check) ... ok
+test_missing_file_only_that_frame_falls_back (test_puzzle_pipeline.Fallbacks.test_missing_file_only_that_frame_falls_back) ... ok
+test_skip_and_bad_config (test_puzzle_pipeline.Fallbacks.test_skip_and_bad_config) ... ok
+test_sources_never_modified (test_puzzle_pipeline.Fallbacks.test_sources_never_modified) ... ok
+test_switch_cell_outside_sheet_falls_back (test_puzzle_pipeline.Fallbacks.test_switch_cell_outside_sheet_falls_back) ... ok
+test_too_big_png_falls_back_not_scrambled (test_puzzle_pipeline.Fallbacks.test_too_big_png_falls_back_not_scrambled) ... ok
+test_transparent_png (test_puzzle_pipeline.Fallbacks.test_transparent_png) ... ok
+test_bulbs_come_from_the_torch_mem_and_differ (test_puzzle_pipeline.RealProject.test_bulbs_come_from_the_torch_mem_and_differ) ... ok
+test_fallback_identical_to_v1 (test_puzzle_pipeline.RealProject.test_fallback_identical_to_v1) ... ok
+test_frames_not_empty (test_puzzle_pipeline.RealProject.test_frames_not_empty) ... ok
+test_line_count (test_puzzle_pipeline.RealProject.test_line_count) ... ok
+test_mem_is_up_to_date (test_puzzle_pipeline.RealProject.test_mem_is_up_to_date) ... ok
+test_spare_frames_unchanged (test_puzzle_pipeline.RealProject.test_spare_frames_unchanged) ... ok
+test_untinted_frames_match_sources (test_puzzle_pipeline.RealProject.test_untinted_frames_match_sources) ... /mnt/e/vivado/Group10_Dungeon/Group10_Dungeon/tests/test_puzzle_pipeline.py:74: ResourceWarning: unclosed file <_io.TextIOWrapper name='/mnt/e/vivado/Group10_Dungeon/Group10_Dungeon/my_asset/props/torch.mem' mode='r' encoding='utf-8'>
+  lines = [ln for ln in open(path, encoding="utf-8").read().splitlines()]
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_all_disabled_is_byte_identical_to_v1 (test_sprite_pipeline.Fallbacks.test_all_disabled_is_byte_identical_to_v1) ... ok
+test_anim_flags_are_written_to_the_header_and_validated (test_sprite_pipeline.Fallbacks.test_anim_flags_are_written_to_the_header_and_validated) ... /mnt/e/vivado/Group10_Dungeon/Group10_Dungeon/tests/test_sprite_pipeline.py:472: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/sprite_test_nsvb9gss/rtl/sprite_cfg.vh' mode='r' encoding='utf-8'>
+  vh = open(os.path.join(self.t, "rtl", "sprite_cfg.vh"), encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_anim_frames_come_from_the_right_cells (test_sprite_pipeline.Fallbacks.test_anim_frames_come_from_the_right_cells) ... ok
+test_anim_roms_have_the_right_sizes_and_header_is_off_by_default (test_sprite_pipeline.Fallbacks.test_anim_roms_have_the_right_sizes_and_header_is_off_by_default) ... /mnt/e/vivado/Group10_Dungeon/Group10_Dungeon/tests/test_sprite_pipeline.py:412: ResourceWarning: unclosed file <_io.TextIOWrapper name='/tmp/sprite_test_zrkqivic/rtl/sprite_cfg.vh' mode='r' encoding='utf-8'>
+  vh = open(os.path.join(self.t, "rtl", "sprite_cfg.vh"), encoding="utf-8").read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+ok
+test_bad_config (test_sprite_pipeline.Fallbacks.test_bad_config) ... ok
+test_bad_scale_is_config_error (test_sprite_pipeline.Fallbacks.test_bad_scale_is_config_error) ... ok
+test_bigger_sheet_ok (test_sprite_pipeline.Fallbacks.test_bigger_sheet_ok) ... ok
+test_check_writes_nothing (test_sprite_pipeline.Fallbacks.test_check_writes_nothing) ... ok
+test_clean (test_sprite_pipeline.Fallbacks.test_clean) ... ok
+test_corrupt_png_is_error_but_still_builds (test_sprite_pipeline.Fallbacks.test_corrupt_png_is_error_but_still_builds) ... ok
+test_empty_last_death_picture_is_valid_not_a_fallback (test_sprite_pipeline.Fallbacks.test_empty_last_death_picture_is_valid_not_a_fallback) ... ok
+test_idle_comes_from_idle_sheet (test_sprite_pipeline.Fallbacks.test_idle_comes_from_idle_sheet) ... ok
+test_idle_sheet_missing_uses_walk_col0_without_warning (test_sprite_pipeline.Fallbacks.test_idle_sheet_missing_uses_walk_col0_without_warning) ... ok
+test_idle_sheet_too_small_uses_walk (test_sprite_pipeline.Fallbacks.test_idle_sheet_too_small_uses_walk) ... ok
+test_missing_anim_sheet_falls_back_to_walk_idle_frame (test_sprite_pipeline.Fallbacks.test_missing_anim_sheet_falls_back_to_walk_idle_frame) ... ok
+test_missing_fallback_file_is_error (test_sprite_pipeline.Fallbacks.test_missing_fallback_file_is_error) ... ok
+test_missing_file (test_sprite_pipeline.Fallbacks.test_missing_file) ... ok
+test_picture_never_modified (test_sprite_pipeline.Fallbacks.test_picture_never_modified) ... ok
+test_scale2_is_exact_integer_upscale (test_sprite_pipeline.Fallbacks.test_scale2_is_exact_integer_upscale) ... ok
+test_scale_too_big_reports_cut_off_pixels (test_sprite_pipeline.Fallbacks.test_scale_too_big_reports_cut_off_pixels) ... ok
+test_skip_and_override (test_sprite_pipeline.Fallbacks.test_skip_and_override) ... ok
+test_small_sheet_only_missing_cells_fall_back (test_sprite_pipeline.Fallbacks.test_small_sheet_only_missing_cells_fall_back) ... ok
+test_tint_keeps_shape_and_changes_colour (test_sprite_pipeline.Fallbacks.test_tint_keeps_shape_and_changes_colour) ... ok
+test_transparent_cell (test_sprite_pipeline.Fallbacks.test_transparent_cell) ... ok
+test_undefined_or_bad_tint_is_config_error (test_sprite_pipeline.Fallbacks.test_undefined_or_bad_tint_is_config_error) ... ok
+test_wrong_size_not_multiple (test_sprite_pipeline.Fallbacks.test_wrong_size_not_multiple) ... ok
+test_default_mapping_sources (test_sprite_pipeline.RealProject.test_default_mapping_sources)
+A-1 / A-2: idle <- Idle.png col0 (form 1) else Walk col0; A <- Walk col1; B <- Walk col3; row 4 unused ... ok
+test_disabled_forms_identical_to_v1 (test_sprite_pipeline.RealProject.test_disabled_forms_identical_to_v1) ... ok
+test_fallback_frames_identical_to_v1 (test_sprite_pipeline.RealProject.test_fallback_frames_identical_to_v1) ... ok
+test_key_colour_in_every_frame (test_sprite_pipeline.RealProject.test_key_colour_in_every_frame) ... ok
+test_line_count (test_sprite_pipeline.RealProject.test_line_count) ... ok
+test_mem_is_up_to_date (test_sprite_pipeline.RealProject.test_mem_is_up_to_date) ... ok
+test_no_frame_shifted (test_sprite_pipeline.RealProject.test_no_frame_shifted)
+every new-art frame equals an independent conversion of its source cell ... ok
+test_v1_is_original_size (test_sprite_pipeline.RealProject.test_v1_is_original_size) ... ok
+test_after_chain_loop (test_story.Mistakes.test_after_chain_loop) ... ok
+test_after_unknown_id (test_story.Mistakes.test_after_unknown_id) ... ok
+test_bad_character (test_story.Mistakes.test_bad_character) ... ok
+test_duplicate_id (test_story.Mistakes.test_duplicate_id) ... ok
+test_line_too_long (test_story.Mistakes.test_line_too_long) ... ok
+test_lowercase_is_rejected (test_story.Mistakes.test_lowercase_is_rejected) ... ok
+test_none_trigger_is_ignored_not_an_error (test_story.Mistakes.test_none_trigger_is_ignored_not_an_error) ... ok
+test_unknown_event (test_story.Mistakes.test_unknown_event) ... ok
+test_unknown_speaker (test_story.Mistakes.test_unknown_speaker) ... ok
+test_valid_minimal_file (test_story.Mistakes.test_valid_minimal_file) ... ok
+test_all_approved_lines_are_in_the_file (test_story.RealStory.test_all_approved_lines_are_in_the_file) ... ok
+test_every_event_is_used_by_the_game_or_story (test_story.RealStory.test_every_event_is_used_by_the_game_or_story)
+each event name in the story must exist in rtl/top.v as a dlg_ev[] assignment (so no message can silently never appear) ... ok
+test_floor_clear_uses_the_live_floor_number (test_story.RealStory.test_floor_clear_uses_the_live_floor_number) ... ok
+test_game_title_is_the_chosen_one (test_story.RealStory.test_game_title_is_the_chosen_one) ... ok
+test_generated_text_rom_matches (test_story.RealStory.test_generated_text_rom_matches)
+mem/text.mem: every dialogue line is stored where mem/dlg.mem says, character by character ... ok
+test_no_warnings_and_everything_present (test_story.RealStory.test_no_warnings_and_everything_present) ... ok
+test_screen_text_fits_the_screen (test_story.RealStory.test_screen_text_fits_the_screen) ... ok
+test_trigger_table_matches (test_story.RealStory.test_trigger_table_matches) ... ok
+test_broken_file_falls_back_to_default_texts (test_story.Rule1.test_broken_file_falls_back_to_default_texts) ... ok
+test_missing_file_falls_back_to_default_texts (test_story.Rule1.test_missing_file_falls_back_to_default_texts) ... ok
+test_all_floors_disabled_is_byte_identical (test_tileset_pipeline.Fallbacks.test_all_floors_disabled_is_byte_identical) ... ok
+test_bad_config (test_tileset_pipeline.Fallbacks.test_bad_config) ... ok
+test_check_writes_nothing (test_tileset_pipeline.Fallbacks.test_check_writes_nothing) ... ok
+test_clean (test_tileset_pipeline.Fallbacks.test_clean) ... ok
+test_missing_base_is_not_scrambled (test_tileset_pipeline.Fallbacks.test_missing_base_is_not_scrambled) ... ok
+test_missing_fallback_file (test_tileset_pipeline.Fallbacks.test_missing_fallback_file) ... ok
+test_sheet_corrupt_is_error_but_builds (test_tileset_pipeline.Fallbacks.test_sheet_corrupt_is_error_but_builds) ... ok
+test_sheet_missing_all_fallback (test_tileset_pipeline.Fallbacks.test_sheet_missing_all_fallback) ... ok
+test_sheet_never_modified (test_tileset_pipeline.Fallbacks.test_sheet_never_modified) ... ok
+test_sheet_too_small (test_tileset_pipeline.Fallbacks.test_sheet_too_small) ... ok
+test_skip_override_and_floor_disable (test_tileset_pipeline.Fallbacks.test_skip_override_and_floor_disable) ... ok
+test_transparent_cell (test_tileset_pipeline.Fallbacks.test_transparent_cell) ... ok
+test_all_values_rgb444 (test_tileset_pipeline.RealProject.test_all_values_rgb444) ... ok
+test_bad_cut_is_config_error (test_tileset_pipeline.RealProject.test_bad_cut_is_config_error) ... ok
+test_bad_tint_is_config_error (test_tileset_pipeline.RealProject.test_bad_tint_is_config_error) ... ok
+test_base_tiles_composite (test_tileset_pipeline.RealProject.test_base_tiles_composite)
+a tile with a base shows the base tile wherever its cell is see-through (door 2 = spikes up, cut colour = see-through) ... ok
+test_disabled_floors_identical_to_v1 (test_tileset_pipeline.RealProject.test_disabled_floors_identical_to_v1) ... ok
+test_doors_are_spike_traps_and_maze_door_is_a_wall (test_tileset_pipeline.RealProject.test_doors_are_spike_traps_and_maze_door_is_a_wall)
+W1: D / L doors (tiles 2, 3 closed = spikes up; 8, 9 open = spikes down) show the floor through the cut colour; ... ok
+test_fallback_tiles_identical_to_v1 (test_tileset_pipeline.RealProject.test_fallback_tiles_identical_to_v1) ... ok
+test_line_count (test_tileset_pipeline.RealProject.test_line_count) ... ok
+test_mem_is_up_to_date (test_tileset_pipeline.RealProject.test_mem_is_up_to_date) ... ok
+test_no_tile_shifted (test_tileset_pipeline.RealProject.test_no_tile_shifted)
+every non-base tile equals an independent conversion of its source cell ... ok
+test_plate_tiles_from_own_picture (test_tileset_pipeline.RealProject.test_plate_tiles_from_own_picture)
+tiles 7 / 11 (Sokoban plate raised / pressed) and 12-15 (Simon plates, tinted) come from my_asset/props/plate.png at 1:1 ... ok
+
+======================================================================
+FAIL: test_up_to_date (test_overlay_pipeline.Real.test_up_to_date)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/mnt/e/vivado/Group10_Dungeon/Group10_Dungeon/tests/test_overlay_pipeline.py", line 90, in test_up_to_date
+    self.assertEqual(read(), before, "mem/ovtile.mem was stale")
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: b'f0f\nf0f\nf0f\nf0f\nf0f\nf0f\nf0f\nf0f\nf0f\n[81871 chars]0f\n' != b'f0f\r\nf0f\r\nf0f\r\nf0f\r\nf0f\r\nf0f\r\nf0f[114639 chars]\r\n' : mem/ovtile.mem was stale
+
+----------------------------------------------------------------------
+Ran 165 tests in 34.236s
+
+FAILED (failures=1)
+unittest exit code: 1
+FINISHED
+
+=== per-target runs (each target run separately, because 'run_sim.sh all' stops at the first failing target) ===
+##### target: player
+PASS  walk up stops at top wall  (px=288 py=28)
+PASS  facing up  (px=288 py=28)
+PASS  right door event  (px=592 py=240)
+PASS  closed door blocks  (px=580 py=240)
+PASS  diagonal slides along wall  (px=368 py=28)
+PASS  corner slide past pillar edge  (px=188 py=88)
+FAIL  form1 blocked by hole  (px=304 py=40)
+PASS  form3 flies over hole to top door (frozen)  (px=304 py=15)
+PASS  boss door L locked  (px=580 py=240)
+PASS  boss door L opens with item  (px=592 py=240)
+PASS  walk animation uses pose 1 and 2  (px=208 py=224)
+PASS  idle pose when stopped  (px=208 py=224)
+PASS  spd4: walk up stops at top wall  (px=288 py=28)
+PASS  spd4: right door event  (px=592 py=240)
+PASS  spd4: closed door blocks  (px=580 py=240)
+PASS  spd4: diagonal slides along wall  (px=448 py=28)
+PASS  spd4: corner slide past pillar edge  (px=188 py=28)
+PASS  spd4: no tunnelling into pillar  (px=144 py=156)
+PASS  spd4: right wall no tunnelling  (px=580 py=36)
+FAIL  spd4: form1 still blocked by hole  (px=304 py=12)
+PASS  spd4: form3 over hole to top door  (px=304 py=12)
+PASS  spd4: form4 E door (left edge), no wrap  (px=12 py=240)
+PASS  spd4: left E door closed for form1  (px=28 py=240)
+PASS  freeze: no movement, idle pose  (px=288 py=224)
+PASS  unfreeze: moves again  (px=308 py=224)
+errors = 2
+../sim/tb_player.v:111: $finish called at 374265000 (1ps)
+== tb_player: FAILED
+##### exit code player: 1
+##### target: world
+checks = 52  errors = 0
+ALL PASS
+../sim/tb_world.v:116: $finish called at 1496000 (1ps)
+##### exit code world: 0
+##### target: fsm
+PASS  reset -> TITLE (frozen)
+PASS  timer stopped in TITLE
+PASS  prologue fsm: reset -> TITLE
+PASS  TITLE + BTNC -> PROLOGUE page 0 (frozen)
+PASS  BTNC in PROLOGUE -> next page
+PASS  a page times out after 360 frames
+PASS  page 3 (last)
+PASS  BTNC on the last page -> PLAY
+PASS  BTNC in TITLE -> PLAY
+PASS  restart pulsed once
+PASS  form 1, HP full (HP1)
+PASS  form 1 table: spd 2 dmg 1 green
+PASS  sprint on: speed 2 -> 3
+PASS  sprint off: speed back to 2
+PASS  timer 00:01 after 60 frames
+PASS  timer reaches 00:59
+PASS  timer rolls 00:59 -> 01:00
+PASS  EVOLVE #1 lasts exactly 60 frames
+PASS  EVOLVE blink: 4 frames visible / 4 hidden (14 toggles)
+PASS  form 2, HP refilled to HP2
+PASS  form 2 table: spd 2 cyan
+PASS  take_hit: HP -1
+PASS  EVOLVE #2 lasts exactly 60 frames
+PASS  form 3, HP refilled to HP3
+PASS  form 3 table: spd 3 dmg 2 purple
+PASS  EVOLVE #3 lasts exactly 60 frames
+PASS  form 4, HP 4
+PASS  form 4 table: spd 3 dmg 2 gold
+PASS  sprint form 4: speed 4
+PASS  got_item at form 4 ignored
+PASS  floor_done -> FLOOR_CLEAR (frozen)
+PASS  FLOOR_CLEAR lasts exactly 120 frames
+PASS  next_floor pulsed once, back to PLAY
+PASS  timer runs during FLOOR_CLEAR
+PASS  HP 4 -> 1 after 3 hits (form 4 hp 4)
+PASS  HP 0 -> GAME_OVER
+PASS  timer stopped in GAME_OVER
+PASS   GAME_OVER = retry the current floor (PLAY, full hearts)
+PASS  dead again
+PASS  W43: BTNL in GAME_OVER -> TITLE
+PASS  new game: form 1, HP1, timer 00:00
+PASS  EVOLVE: RGB white, player frozen
+PASS  take_hit ignored during EVOLVE
+PASS  EVOLVE finished
+PASS  exit_evt -> WIN
+PASS  timer stopped in WIN
+PASS  BTNC in WIN -> TITLE
+PASS  TITLE -> PLAY again
+PASS  timer saturates at 99:59
+PASS  timer stays 99:59
+PASS  BTNC in PLAY does not change state/form
+PASS  full HP before the kill pulse
+PASS  kill pulse -> HP 0 -> GAME_OVER (even from full HP)
+PASS  back in PLAY after the kill test
+PASS  no key at the start of a game
+PASS  key_get -> has_key (state unchanged: no ESCAPE any more)
+PASS  the key -> maze: 60.00 countdown, hero frozen, banner on
+PASS  countdown 60.00 -> 59.59 (ss.ff)
+PASS  maze banner gone after 2 s
+PASS  take_hit works in ESCAPE
+PASS  exit_evt is ignored inside the maze
+PASS  ball reaches the goal -> WIN
+PASS  new game (the key is gone)
+PASS  maze timeout after 3600 frames (60 s) -> GAME_OVER
+PASS  maze timeout is remembered (W16: its own GAME OVER text)
+      ESCAPE lasted 3600 frames
+PASS  play timer kept running during ESCAPE
+PASS  new game clears the timeout flag
+checks = 67  errors = 0
+ALL PASS
+../sim/tb_game_fsm.v:239: $finish called at 342525000 (1ps)
+##### exit code fsm: 0
+##### target: objects
+PASS  PLAY in START: no monsters, doors open
+PASS  AABB: bullet touching left edge (x+8 == hitbox x) -> no hit
+PASS  AABB: bullet touching top edge -> no hit
+PASS  AABB: 1 px overlap from above -> hit, bullet removed
+PASS  knockback direction away from source (down)
+PASS  hurt: HP -1 via game_fsm take_hit
+PASS  knockback: moved 16 px away over 8 frames
+PASS  still invulnerable after knockback
+PASS  no damage while invulnerable (bullet passes)
+PASS  invulnerable lasts KB_FRAMES + INV_FRAMES
+PASS  player sprite blinks while invulnerable
+PASS  damage again after invulnerability ends
+PASS  knockback into wall: stops at wall (no tunnelling)
+PASS  knockback toward open door: no door event, stops at wall
+PASS  monster contact: HP-1, knockback right (away from monster)
+PASS  form 1 facing down
+PASS  melee hits monster in front (HP 3 -> 2)
+PASS  melee does not hit behind / beside
+PASS  hit monster flashes
+PASS  one hit per swing, hit box gone after 8 frames
+PASS  cooldown: press again too early does nothing
+PASS  after 20-frame cooldown melee hits again
+PASS  HP 0 -> monster removed
+PASS  evolved to form 2
+PASS  facing right
+      spawn at frame 589 (pb_act=000001)
+      spawn at frame 604 (pb_act=000011)
+      spawn at frame 619 (pb_act=000111)
+      spawn at frame 634 (pb_act=001111)
+      spawn at frame 649 (pb_act=011111)
+      spawn at frame 664 (pb_act=111111)
+      spawn at frame 679 (pb_act=111111)
+      spawn at frame 694 (pb_act=111111)
+      spawn at frame 709 (pb_act=111111)
+      spawn at frame 724 (pb_act=111111)
+      spawn at frame 739 (pb_act=111111)
+PASS  form 2 hold: several bullets in flight, never more than 6 slots
+PASS  hold BTNC: refire every 15 frames
+PASS  player bullet stops at # wall
+PASS  player bullet flies through fence F, stops at wall
+PASS  player bullet flies over holes H
+PASS  player bullets (damage 1) kill HP-2 monster
+PASS  W45: monster A slides along the pillar instead of freezing, and never overlaps the wall
+PASS  monster A diagonal chase never enters wall tiles
+PASS  enter C1 floor 2 with 6 monsters: doors locked
+PASS  spawn types from monsters.mem (T T S S T T)
+PASS  turret 0 first shot 60 frames after entering
+PASS  turrets phase-shifted by 30 frames
+PASS  each turret fires every 120 frames
+PASS  W45: each shot = 4 cross bullets + 1 aimed bullet
+      turret first shots (frames after entry): 60 90 120 150
+PASS  still locked while turrets alive
+PASS  1 monster left: still locked
+PASS  last monster dies (shot) -> doors open
+PASS  room marked cleared
+PASS  other combat room (C2 floor 2) locks with its own monsters
+PASS  come back to cleared room: no respawn, doors open
+PASS  puzzle room never locks
+PASS  restart clears cleared bits: monsters respawn
+PASS  W43: room 4 wave 1 = 4 monsters, doors locked
+PASS  W43: wave 1 dead but the doors stay shut (another wave is coming)
+PASS  W43: wave 2 appears about 1 s later: 2 chasers, doors still locked
+PASS  W43: last wave dead -> doors open
+PASS  form 3 press: 3 bullets right / up-right / down-right
+PASS  spread / diagonal bullets never enter # tiles, all stop at walls
+PASS  diagonal bullets fly over fences F, stop at #
+PASS  form 3 hold: player bullets fill all 6 slots, never more
+PASS  form 4 press: one fast shot (tap)
+PASS  tap shot moves 6 px/frame
+PASS  held 44 frames: released without a big shot
+PASS  W25: the charge ball appears at once (step 1)
+PASS  W25: after about half the charge: step 2
+PASS  W25: after about 3/4: step 3
+PASS  held 45 frames: charged (player flashes), ball at full size
+PASS  W25: the ball is gone after the release
+PASS  release after 45 frames: one big 16x16 shot
+PASS  big shot (damage 4) kills the first monster
+PASS  W3: big shot stops on hit, the second monster behind is untouched
+PASS  W3: big shot is gone after the hit
+PASS  forms 2-4: enemy in front box -> melee instead of shooting
+PASS  forms 2-4: nobody in front -> shoot
+PASS  forms 2-4: enemy in front box -> melee instead of shooting
+PASS  forms 2-4: nobody in front -> shoot
+PASS  forms 2-4: enemy in front box -> melee instead of shooting
+PASS  forms 2-4: nobody in front -> shoot
+PASS  player bullet + enemy bullet collide: both disappear
+PASS  split: the parent bullet hit monster 1
+PASS  split: a hit makes 4 child bullets (down, up, left, right)
+PASS  split: the child going down hits the monster below it
+PASS  split: children expire after SPLIT_LIFE frames / stop at walls
+PASS  split: children never split again
+PASS  summon pulse: 3 minions spawn
+PASS  summoned minions are type A with full HP
+PASS  minion 1 appears on the SUMMON0 tile (then starts chasing)
+PASS  second summon fills the remaining 3 slots
+PASS  third summon: no free slot, nothing breaks
+PASS  no block broken yet
+PASS  W5: a bullet hitting a breakable block breaks it
+PASS  W5: the unbroken block stopped the bullet before tile 12
+PASS  W5: after it broke, bullets fly through the tile
+PASS  other room has its own (empty) block state
+PASS  broken block stays broken after leaving and re-entering the room
+PASS  new game: all blocks are back
+PASS  W5: a melee swing breaks the block in front of the player
+PASS  W5: a solid decoration stops the player (tile 10 is a wall for him)
+PASS  W5: standing on a spike trap hurts the player once (form 1)
+PASS  W5: the trap cannot chain-hit during invulnerability
+PASS  W39b: every form is hurt by a spike trap (form 3 included)
+PASS  W19: spikes down = safe
+PASS  W19: warning phase = safe
+PASS  W19: spikes up hurt (2 hit pulses)
+PASS  W19: the timed trap takes 2 HP
+PASS  W19: no chain hit during invulnerability
+PASS  W19: spikes rising under a standing player hurt him
+PASS  W19: the cycle wraps to spikes down
+PASS  W19: spikes stay safe during the room-entry grace
+PASS  W19: group B is up while group A is down
+PASS  W39b: form 3 is hurt by timed spikes too (2 HP)
+PASS  W18 off: the shot follows the facing (right)
+PASS  W18 on: enemy up-left -> the shot flies up-left (diagonal)
+PASS  W18 level 2: free angle: the shot toward (-88, -74) flies (-4, -3) px per frame
+PASS  W18 level 2: the free-angle shot is moving up-left
+PASS  W18: enemy straight above -> shot up, hero turns up (lock_face = 1)
+PASS  W18: enemy beyond LOCK_RANGE is ignored
+PASS  W18: the nearest enemy is chosen
+PASS  W18: nobody to lock -> facing
+PASS  W18 + form 3: the 3-way spread is centred on the target (up, up-left, up-right)
+PASS  W18: the melee swing goes up (toward the enemy)
+PASS  W18 off: the melee swing follows the facing (right)
+      objects busy max = 143 clocks per frame (budget 36000)
+PASS  objects update fits in vblank (CE_DIV = 1)
+checks = 118  errors = 0
+ALL PASS
+../sim/tb_objects.v:711: $finish called at 12453375000 (1ps)
+##### exit code objects: 0
+##### target: puzzles
+PASS  every bulb pattern is solvable with masks 0111/1011/1101/1110 (invertible over GF(2))
+PASS  the 16 lever subsets give 16 different XOR results (unique solution)
+PASS  game in PLAY
+PASS  40 random start patterns all need >= 2 lever hits
+PASS  start patterns vary; 1111 and 1-hit patterns never generated
+      11 different start patterns seen
+PASS  LED0-3 show the bulbs in this room
+PASS  levers + bulbs drawn, item hidden while unsolved
+PASS  melee on lever a: bulbs ^= 0111 once, lever flips
+PASS  second hit on lever a toggles back
+PASS  form 2 (shooter) for the bullet test
+PASS  player bullet through lever b: bulbs ^= 1011 exactly once
+      bulbs=0110 -> hit levers 1001
+PASS  Light Bulb solved: all 4 bulbs on
+PASS  item 1 appears at I when solved
+PASS  walk over item 1: got_item -> EVOLVE, has_item[0] = 1
+PASS  evolved to form 3, item gone
+PASS  boss door L opens with has_item[0] (no SW0)
+PASS  Light Bulb state kept after leaving and coming back
+PASS  boxes at start (8,5) (11,6), gate closed
+PASS  box against wall does not move; box blocks player
+PASS  diagonal input does not push
+PASS  straight push down moves the box 1 tile
+PASS  slide finished after 8 frames
+PASS  box stops next to the other box (box cannot push box)
+PASS  box cannot be pushed into the closed gate
+PASS  closed gate blocks the player
+PASS  SW13 resets both boxes to start
+PASS  solver solution (24 pushes) replayed as button presses opens the gate
+      replay took 1292 frames; Verilator script (frames from standing at (1,7)):
+SCRIPT D:0:15,R:16:31,R:32:47,R:48:63,R:64:79,R:80:95,D:96:111,R:112:127,R:128:143,R:144:159,R:160:175,U:176:191,U:192:207,U:208:223,L:224:239,L:240:255,U:256:271,L:272:287,U:288:303,R:304:319,R:320:335,U:336:351,R:352:367,D:368:383,D:384:399,D:400:415,D:416:431,D:432:447,D:448:463,U:464:479,R:480:495,R:496:511,D:512:527,D:528:543,L:544:559,L:560:575,L:576:591,L:592:607,U:608:623,L:624:639,L:640:655,D:656:671,D:672:687,R:688:703,U:704:719,L:720:735,U:736:751,R:752:767,D:768:783,R:784:799,R:800:815,U:816:831,R:832:847,U:848:863,U:864:879,U:880:895,U:896:911,R:912:927,D:928:943,D:944:959,R:960:975,D:976:991,L:992:1007,U:1008:1023,L:1024:1039,D:1040:1055,D:1056:1071,U:1072:1087,R:1088:1103,R:1104:1119,D:1120:1135,D:1136:1151,L:1152:1167,L:1168:1183,L:1184:1199,L:1200:1215,L:1216:1231,D:1232:1247,L:1248:1263,U:1264:1279
+PASS  both boxes resting on plates show tile 11
+PASS  SW13 ignored once the gate is open
+PASS  after the gate opens the boxes are locked (pushing does nothing)
+PASS  walk through the open gate, pick item 2: has_item[1]
+PASS  Sokoban state kept after leaving and coming back
+PASS  Simon shows round 1 then waits for input
+      Simon sequence (first plate = bits 1:0): 1111110001
+PASS  standing still on a plate counts once
+PASS  wrong plate: HP -1 (no knockback), red flash
+PASS  Simon mistake has no knockback / invulnerability
+PASS  same round replayed after a mistake
+PASS  3 rounds done: Simon solved, item 3 appears
+PASS  LED0-2 show 3 rounds done
+PASS  item 3 picked: has_item[2]
+PASS  Simon stays solved after leaving and coming back
+PASS  restart resets all puzzles and items
+checks = 42  errors = 0
+ALL PASS
+../sim/tb_puzzles.v:357: $finish called at 19118715000 (1ps)
+##### exit code puzzles: 0
+##### target: mic
+PASS  M_LRSEL = 0 (left channel)
+PASS  30 ms of silence: no clap
+      max amplitude while quiet = 0 (TH = 448)
+      clap at 31.130 ms (amplitude 1856)
+PASS  loud burst (100 ms): exactly one clap_pulse
+PASS  second burst inside 200 ms: ignored
+      clap at 301.466 ms (amplitude 1856)
+PASS  burst after 200 ms: another clap_pulse
+PASS  back to silence: no extra clap
+checks = 6  errors = 0
+ALL PASS
+../sim/tb_pdm_mic.v:66: $finish called at 340000100000 (1ps)
+##### exit code mic: 0
+##### target: mictop
+PASS  silence: small amplitude, no clap
+PASS  peak follows the quiet noise floor
+PASS  LED bar: upper LEDs off in silence
+PASS  RGB17 (holdoff) off
+PASS  loud: amplitude > 1000, LED bar lights up to the 512/640 steps
+PASS  left 4 digits show the amplitude in decimal (BCD matches)
+PASS  one clap counted (TH_DEFAULT = 600, holdoff blocks the rest)
+PASS  holdoff active after the clap (RGB17)
+PASS  peak captured the loud level
+PASS  peak holds after the sound stops
+PASS  RGB16 flash follows clap_pulse
+PASS  BTNC clears the peak (then follows the quiet floor)
+PASS  BTND held: right 4 digits show the clap count = 1
+PASS  BTNC while BTND: clap counter cleared
+PASS  SW[10:0] = 1900: burst below threshold is not counted
+PASS  SW[10:0] = 1000: same burst now counts
+PASS  all switches down: TH_DEFAULT (600) is used
+checks = 17  errors = 0
+ALL PASS
+../sim/tb_mic_test_top.v:84: $finish called at 85197315000 (1ps)
+##### exit code mictop: 0
+##### target: audio
+PASS  AUD_SD enables the amplifier (level AUD_SD_ON = 1)
+PASS  silent: sample 128, PWM duty 50%
+      sfx 1 hurt: half-period 2367 clk (start 2367), 18 frames (spec 18)
+PASS  sfx 1 hurt
+PASS     ...length in frames
+      sfx 2 boss stunned: half-period 651 clk (start 651), 24 frames (spec 24)
+PASS  sfx 2 boss stunned
+PASS     ...length in frames
+      sfx 3 monster/boss dies: half-period 1562 clk (start 1562), 14 frames (spec 14)
+PASS  sfx 3 monster/boss dies
+PASS     ...length in frames
+      sfx 4 item: half-period 976 clk (start 976), 28 frames (spec 28)
+PASS  sfx 4 item
+PASS     ...length in frames
+      sfx 5 room clear / door: half-period 1302 clk (start 1302), 20 frames (spec 20)
+PASS  sfx 5 room clear / door
+PASS     ...length in frames
+      sfx 6 puzzle wrong: half-period 3906 clk (start 3906), 24 frames (spec 24)
+PASS  sfx 6 puzzle wrong
+PASS     ...length in frames
+      sfx 7 puzzle ok: half-period 520 clk (start 520), 5 frames (spec 5)
+PASS  sfx 7 puzzle ok
+PASS     ...length in frames
+      sfx 8 enemy hit: half-period 868 clk (start 868), 4 frames (spec 4)
+PASS  sfx 8 enemy hit
+PASS     ...length in frames
+      sfx 9 shoot form 2: half-period 434 clk (start 434), 5 frames (spec 5)
+PASS  sfx 9 shoot form 2
+PASS     ...length in frames
+      sfx 9 shoot form 3 (spread): half-period 558 clk (start 558), 6 frames (spec 6)
+PASS  sfx 9 shoot form 3 (spread)
+PASS     ...length in frames
+      sfx 9 shoot form 4 tap: half-period 325 clk (start 325), 4 frames (spec 4)
+PASS  sfx 9 shoot form 4 tap
+PASS     ...length in frames
+      sfx 9 big shot (lower, longer): half-period 1302 clk (start 1302), 16 frames (spec 16)
+PASS  sfx 9 big shot (lower, longer)
+PASS     ...length in frames
+      sfx 10 melee: half-period 1736 clk (start 1736), 7 frames (spec 7)
+PASS  sfx 10 melee
+PASS     ...length in frames
+      sfx 11 boss appears: half-period 3125 clk (start 3125), 30 frames (spec 30)
+PASS  sfx 11 boss appears
+PASS     ...length in frames
+      sfx 12 door / room change: half-period 781 clk (start 781), 4 frames (spec 4)
+PASS  sfx 12 door / room change
+PASS     ...length in frames
+PASS  big shot is lower and longer than the normal shot
+PASS  melee playing
+PASS  higher priority (hurt) interrupts melee
+PASS  lower priority while hurt plays is dropped
+PASS  same priority is dropped (hurt not restarted)
+PASS  sfx ends after its length
+PASS  door sound playing
+PASS  boss sound interrupts the door sound (boss enters right after the door)
+PASS  door sound (lower priority) does not interrupt the boss sound
+PASS  melee (higher priority) interrupts the boss sound
+      simon note 0: half-period 1493 clk (expect 1493)
+PASS  Simon note tone
+      simon note 1: half-period 1185 clk (expect 1185)
+PASS  Simon note tone
+      simon note 2: half-period 996 clk (expect 996)
+PASS  Simon note tone
+      simon note 3: half-period 746 clk (expect 746)
+PASS  Simon note tone
+PASS  BGM track 0 starts with its first note (C5)
+      first note lasted 32 frames (ROM says 32)
+PASS  first note lasts its ROM duration, then the second note plays
+PASS  BGM square wave at the note's frequency
+PASS  BGM reaches the last note
+PASS  BGM loops back to the first note
+PASS  track switches immediately (floor -> ESCAPE)
+PASS  ESCAPE track plays its own first note
+PASS  ESCAPE notes are short (urgent)
+PASS  custom track 6 selected immediately
+PASS  custom track plays its first note
+PASS  custom track reaches its last note
+PASS  custom track loops back to the first note
+      WIN jingle finished after 197 frames
+PASS  WIN jingle plays once and stops
+PASS  pause: BGM position holds for 6 frames
+PASS  pause: audio output is silent (sample = 128)
+PASS  pause released: BGM continues
+PASS  BGM stops when disabled
+PASS  SFX louder than BGM in the mix
+checks = 64  errors = 0
+ALL PASS
+../sim/tb_audio.v:199: $finish called at 159862555000 (1ps)
+##### exit code audio: 0
+##### target: boss
+PASS  game started: floor 1 START
+PASS  boss 1 spawns at B with HP 10
+PASS  boss room locks while boss alive
+PASS  W20: boss 1 is slow: 1 px every 2nd frame
+      boss 1 moved 15 px in 30 frames
+PASS  boss 1 does not shoot at once (first volley a full period after entering)
+PASS  W20: the boss blinks (warn) before it fires
+PASS  W20: boss 1 volley 1 = aimed fan (3 bullets: left, up-left, down-left)
+PASS  W20: boss 1 volley 3 = ring (8 bullets, 8 directions)
+PASS  W18: the boss is a lock target (it is to the right of the hero)
+PASS  W18: lock off again with the switch
+PASS  boss 1 takes damage at any time: HP -1, flashes
+PASS  boss HP bar = ceil(HP*8/maxHP) LEDs
+PASS  clap -> boss 1 stunned
+PASS  stunned: no movement
+PASS  stun ends after 180 frames
+PASS  clap during the 240-frame cooldown is ignored
+PASS  after the cooldown a clap stuns again
+PASS  boss contact: player HP -1 (knockback + invulnerable)
+PASS  boss 1 HP 0 -> removed, dead[0], FLOOR_CLEAR
+PASS  boss room unlocks after the boss dies
+PASS  FLOOR_CLEAR -> next_floor -> floor 2 START
+PASS  defeated boss 1 stays defeated (room open)
+PASS  boss 2 spawns in the fence room with HP 16
+PASS  W42: boss 2 is immune (shield blink) before the first summon
+PASS  W42: damage rejected before the first summon
+PASS  boss 2 is stationary, no volley yet, no minions yet
+PASS  SUMMON: 3 minions appear
+      first summon after ~91 frames
+PASS  W42: damage rejected while the minions live (shield)
+PASS  W42: a charged shot is rejected too while the minions live
+PASS  the minions stay (boss waits for them)
+PASS  W20: boss 2 shoots a cross pattern while it summons, and stays put
+PASS  all minions dead -> vulnerable window (BOSS2_VULN_FRAMES), shield off
+PASS  damage accepted in that state too
+PASS  after BOSS2_VULN_FRAMES the shield is back (breather)
+PASS  after BOSS2_REST the next wave is summoned
+PASS  new wave: 3 more minions
+PASS  boss 2 dies -> FLOOR_CLEAR
+PASS  boss 2 dead -> floor 3
+PASS  boss 3 spawns with its full HP (floor 3 boss room)
+PASS  clap does nothing to boss 3
+PASS  ARMOUR: normal damage (even 4) does nothing
+PASS  W20: boss 3 chases slowly: 1 px every 2nd frame
+PASS  boss 3 fires a cross first, one volley every BOSS3_FIRE frames while chasing
+PASS  charged shot hurts boss 3 by exactly 1 (3 hits to kill)
+PASS  boss 3 starts charging the big attack
+PASS  CHARGING: boss stands still, no shots
+PASS  charged hit interrupts the attack (and hurts)
+PASS  cycle restarted: chasing again
+PASS  charging again
+PASS  W21: charge starts at level 0 with an empty bar
+PASS  W21: after about 130 frames: level 2, the bar is about half full
+PASS  W24: the charge ends in the storm, the player is NOT killed
+PASS  W21: the whole charge lasts BOSS3_CHARGE frames (4 s)
+PASS  W24: the storm sends bullets in all 8 directions
+PASS  W24: storm bullets are marked heavy
+PASS  W24: storm over -> the boss rests
+PASS  W24: one heavy storm bullet takes 2 HP (not a game over)
+PASS  an ordinary enemy bullet still takes 1 HP
+PASS  W24: during the rest a normal hit hurts boss 3 (armour is off)
+PASS  rest over -> chasing again
+PASS  armour is back: a normal hit does nothing again
+PASS  W43: BTNC after GAME OVER retries the CURRENT floor (floor 3): all bosses alive again
+PASS  two charged hits: HP 1
+PASS  boss 3 dead (3 charged hits) -> the key lies on the floor, game goes on (no ESCAPE yet)
+PASS  the key lies where the boss stood
+PASS  standing away from the key does not pick it up
+PASS  walking over the key picks it up: has_key, the key is gone
+PASS  walk into door E with the key -> the maze starts (ESCAPE, hero frozen)
+PASS  ball reaches the goal -> WIN
+PASS  key dropped again
+PASS  key picked up again
+PASS  maze again
+      maze timed out after 3581 frames (state 6)
+PASS  maze countdown (60 s) hits 0 -> GAME_OVER
+      ESCAPE timed out after 3581 frames
+checks = 73  errors = 0
+ALL PASS
+../sim/tb_boss.v:333: $finish called at 48049225000 (1ps)
+##### exit code boss: 0
+##### target: hud
+hud: 126369 pixels checked, errors = 0
+ALL PASS
+../sim/tb_hud.v:71: $finish called at 5054756000 (1ps)
+##### exit code hud: 0
+##### target: simonplate
+../rtl/renderer.v:162: syntax error
+../rtl/renderer.v:1: error: Syntax error in variable list.
+../rtl/renderer.v:164: syntax error
+../rtl/renderer.v:164: Syntax in assignment statement l-value.
+../rtl/renderer.v:165: syntax error
+../rtl/renderer.v:165: error: Malformed statement
+##### exit code simonplate: 6
+##### target: dialog
+PASS  nothing shown at the start
+PASS  event start -> F1-01 appears, blocking, speaker Player
+PASS  F1-01 text is read from the text ROM
+PASS  line 2 length = 19 (WHAT IS THIS PLACE!)
+PASS  a blocking message waits for BTNC (no timeout)
+PASS  BTNC closes F1-01, its chain continues
+PASS  each message is shown once per game (start again does not reopen F1-01)
+PASS  F1-01 ends -> F1-02 (after:F1-01!) appears at once, blocking
+PASS  BTNC -> F1-03 (Voice)
+PASS  BTNC -> F1-04 (Player)
+PASS  the chain reaches F1-12
+PASS  chain finished: the game is free again
+PASS  en = 0: nothing is shown
+PASS  en = 1: the waiting F1-13 appears and freezes the game (W31), System = cyan
+PASS  a timed box still freezes the game just before DLG_FRAMES
+PASS  timed message closes by itself after DLG_FRAMES
+PASS  W31: another timed box (F1-17) appears
+PASS  W31: a press closes a timed box at once
+PASS  a message appears
+PASS  the second queued message follows the first (arrival order, W31)
+PASS  queue empty
+PASS  after restart F1-01 can appear again
+checks = 22  errors = 0
+ALL PASS
+../sim/tb_dialog.v:87: $finish called at 49315000 (1ps)
+##### exit code dialog: 0
+##### target: ovrender
+../rtl/renderer.v:162: syntax error
+../rtl/renderer.v:1: error: Syntax error in variable list.
+../rtl/renderer.v:164: syntax error
+../rtl/renderer.v:164: Syntax in assignment statement l-value.
+../rtl/renderer.v:165: syntax error
+../rtl/renderer.v:165: error: Malformed statement
+##### exit code ovrender: 6
+##### target: text
+../rtl/renderer.v:162: syntax error
+../rtl/renderer.v:1: error: Syntax error in variable list.
+../rtl/renderer.v:164: syntax error
+../rtl/renderer.v:164: Syntax in assignment statement l-value.
+../rtl/renderer.v:165: syntax error
+../rtl/renderer.v:165: error: Malformed statement
+##### exit code text: 6
+##### target: ps2
+PASS  idle: nothing held
+PASS  W held = up
+PASS  W + A = diagonal up-left
+PASS  release W: only left
+PASS  release A: idle
+PASS  S + D = down-right
+PASS  arrow up (E0 75)
+PASS  arrow left (E0 6B)
+PASS  arrows released (E0 F0 code)
+PASS  arrow down + right
+PASS  keypad 8 (75 without E0) is ignored
+PASS  Space = attack
+PASS  Space released
+PASS  J = attack
+PASS  Enter = attack / start
+PASS  Enter released
+PASS  Left Shift = sprint
+PASS  Shift released
+PASS  Space + W together, repeated makes keep them held
+PASS  P: one pause pulse for a held key (repeats ignored)
+PASS  P again after release: second pulse
+PASS  Esc = pause pulse
+PASS  L = auto-lock pulse
+PASS  R = reset pulse
+PASS  C = clap pulse
+PASS  wrong parity: frame ignored
+PASS  wrong stop bit: frame ignored
+PASS  a good frame still works after bad ones
+PASS  after a stalled half frame the next frame is received
+PASS  reset clears the held keys
+checks = 30  errors = 0
+ALL PASS
+../sim/tb_ps2.v:89: $finish called at 76250600000 (1ps)
+##### exit code ps2: 0
+##### target: orb
+../rtl/renderer.v:162: syntax error
+../rtl/renderer.v:1: error: Syntax error in variable list.
+../rtl/renderer.v:164: syntax error
+../rtl/renderer.v:164: Syntax in assignment statement l-value.
+../rtl/renderer.v:165: syntax error
+../rtl/renderer.v:165: error: Malformed statement
+##### exit code orb: 6
+##### target: debug
+../rtl/renderer.v:162: syntax error
+../rtl/renderer.v:1: error: Syntax error in variable list.
+../rtl/renderer.v:164: syntax error
+../rtl/renderer.v:164: Syntax in assignment statement l-value.
+../rtl/renderer.v:165: syntax error
+../rtl/renderer.v:165: error: Malformed statement
+##### exit code debug: 6
+##### target: top
+../rtl/renderer.v:162: syntax error
+../rtl/renderer.v:1: error: Syntax error in variable list.
+../rtl/renderer.v:164: syntax error
+../rtl/renderer.v:164: Syntax in assignment statement l-value.
+../rtl/renderer.v:165: syntax error
+../rtl/renderer.v:165: error: Malformed statement
+##### exit code top: 6
+FINISHED
+
+=== note: the unittest run regenerates mem/*.mem and rtl/puzzle_layout.vh; those files were restored with 'git checkout -- mem rtl' afterwards (no source change kept) ===

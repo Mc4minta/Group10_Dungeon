@@ -9,7 +9,7 @@ All documents were checked against the code (`main` = `dev` = `3e908a3`). Full l
 | Docs | README rewritten (status, controls, per-form table, bosses, rooms, build + simulation commands, folder list, Known gaps); docs index lists every file; FEATURES / CONTROLS / NEXT_STEPS / PROGRESS / STORY / BOARD_* / SOUND_* / DESIGN_PLAN corrected | links and paths grep-checked |
 | Code comments | 6 comment-only edits in `rtl/` (sprint is SW14, boss 3 has 9 HP, SFX count 13, FSM states, BTNC on GAME OVER) | iverilog `world fsm hud dialog ps2 mic audio puzzles boss objects`: results equal to the run before the edits (sim) |
 
-Known gaps (23/11): nothing is board-tested except the USB keyboard; the local Vivado run of 22/11 reports **WNS -4.045 ns (timing not met)**, Block RAM 103.5 / 135 (git-ignored reports, source commit unknown); `DEBUG` defaults to 1 in `rtl/top.v` (hand-in build must set 0); the Verilator Makefile passes an undefined `PROLOGUE_V`; `tb_puzzles` passes (42 checks) so the old "lever-XOR fails" note is obsolete; the full-system `tb_top` and the Verilator full-game run were not repeated in this refresh.
+Known gaps (23/11): nothing is board-tested except the USB keyboard; the local Vivado run of 22/11 reports **WNS -4.045 ns, TNS -2904.290 ns, 1853 failing endpoints of 9926 (timing not met at 100 MHz; hold met, WHS +0.046 ns)**, Block RAM 103.5 / 135, Slice LUT 18,182 / 63,400 (git-ignored reports, source commit unknown); `DEBUG` defaults to 1 in `rtl/top.v` (hand-in build must set 0); the Verilator Makefile passes an undefined `PROLOGUE_V`; `tb_puzzles` passes (42 checks) so the old "lever-XOR fails" note is obsolete; the full-system `tb_top` and the Verilator full-game run were not repeated in this refresh.
 
 ---
 
@@ -109,7 +109,7 @@ All four flags are `false` in `sprites/sprites.json`, so the build is exactly th
 | Fallback drill on the real tree (4 scenarios) | PASS |
 | Verilator `full_game.txt` script | NOT valid any more after the W7 maze: the run used to end with the ESCAPE dash to door E; now boss 3 gives a key and door E starts the tilt maze (the script has no maze solution; extend it with button moves or use `SW10`) |
 | Verilator full game to WIN | last passed on the commit before the tuning / face lock / SW14 / music RTL changes (screenshots in `preview/game`); NOT repeated on the newest RTL because Verilator cannot be rebuilt on the build machine |
-| Vivado synthesis and board run | pending: the owner builds in the GUI (`docs/BOARD_TEST_STEPS.md`); Block RAM and WNS numbers are still to be recorded |
+| Vivado synthesis and board run | local run of 22/11: **timing not met** (WNS -4.045 ns, TNS -2904.290 ns, 1853 of 9926 endpoints failing, WHS +0.046 ns), Block RAM 103.5 / 135, Slice LUT 18,182 / 63,400 (reports git-ignored, source commit unknown). The project team reports that the full game ran on the board; no per-item board results beyond the USB keyboard are recorded in this repository |
 
 ## 3. Things to know (honest notes)
 

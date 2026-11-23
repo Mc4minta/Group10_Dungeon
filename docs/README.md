@@ -19,7 +19,8 @@ This page is the index. Last full refresh: 23/11/2026 against the code of `main`
 | **What every object of a redrawn room is for** (map design rules, waves) | `docs/MAP_DESIGN.md` |
 | **Story / gameplay review** (story boxes, hint strip, edge cases) | `docs/GAMEPLAY_REVIEW.md` |
 | **The master design and the status of every item W1-W46** (implemented items keep their original text) | `docs/DESIGN_PLAN.md` |
-| **Game rules, buttons, simulation, original design** (Thai) | `README.md` (root), `docs/PROGRESS.md`, `docs/BOARD_DAY.md` |
+| **Overview, build, tests, known limitations** (English) | `README.md` (root) |
+| **Original design checklists** (Thai) | `docs/PROGRESS.md`, `docs/BOARD_DAY.md` |
 | **Old plan documents** (history only) | `docs/archive/` |
 
 ## 2. Folder map
