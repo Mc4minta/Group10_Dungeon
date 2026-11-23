@@ -6,7 +6,7 @@
 ## 0. เตรียมของ
 - ☐ บอร์ด Nexys A7-100T + สาย USB (ไฟ + JTAG), สาย VGA + จอที่รับ 640×480 @ 60 Hz
 - ☐ ลำโพงหรือหูฟังเสียบช่อง **AUDIO OUT** (jack 3.5 mm สีเขียว บนบอร์ด)
-- ☐ คอมที่ลง Vivado (รุ่นเดียวกับที่ใช้ใน lab) + clone repo `Mc4minta/Group10_Dungeon` branch `main` (หลัง merge P6)
+- ☐ คอมที่ลง Vivado (รุ่นเดียวกับที่ใช้ใน lab) + clone repo `Mc4minta/cpe222-the-chosen-one` branch `main` (หลัง merge P6)
 - ☐ กล้องมือถือ (ถ่ายหน้าจอ / บอร์ด), ที่สำหรับจด
 
 ## 1. Build เกม

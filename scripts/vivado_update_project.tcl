@@ -1,6 +1,6 @@
 # Bring an OPEN Vivado project up to date with the files in the repository (adds every rtl/*.v and mem/*.mem that the project does not know yet).
 # Use it when synthesis says "module 'xxx' not found" (the project was created before that file existed).
-#   In the Vivado Tcl Console:   source E:/vivado/Group10_Dungeon/Group10_Dungeon/scripts/vivado_update_project.tcl
+#   In the Vivado Tcl Console:   source <path-to-your-clone>/scripts/vivado_update_project.tcl
 # Then click Generate Bitstream. (Alternative that rebuilds the whole project: scripts/create_project.tcl with the project closed.)
 set root [file normalize [file dirname [info script]]/..]
 set added 0

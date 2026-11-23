@@ -122,7 +122,7 @@ placeholder ตอนนี้มาจาก `scripts/make_placeholders.py` (ti
 - [x] 13 .xdc ครบ รวมไมค์ (ดู 0.6)
 
 ## ทีมและเรื่องค้าง
-- [x] สร้าง GitHub repo และ push โค้ด (`Mc4minta/Group10_Dungeon`)
+- [x] สร้าง GitHub repo และ push โค้ด (`Mc4minta/cpe222-the-chosen-one`)
 - [ ] แบ่งงาน 5 คน (บทบาท A–E) + ตกลง interface สัญญาณ · 18/11
 - [ ] ยืนยัน Max HP 3/3/4/4, ดาเมจ 1/1/2/2, stun 2 วิ / cooldown 5 วิ
 - [ ] ทดสอบไมค์ PDM แยกบนบอร์ด + จูน threshold · เริ่ม 18/11

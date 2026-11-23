@@ -1,5 +1,5 @@
 # สร้าง Vivado project จาก source ใน repo
-#   cd Group10_Dungeon
+#   cd cpe222-the-chosen-one
 #   vivado -mode batch -source scripts/create_project.tcl              (สร้าง project อย่างเดียว)
 #   vivado -mode batch -source scripts/create_project.tcl -tclargs build   (สร้าง + bitstream)
 # หรือใน Vivado GUI: Tools > Run Tcl Script... เลือกไฟล์นี้

@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/course-CPE222%20KMUTT-lightgrey" alt="Course: CPE222, KMUTT">
 </p>
 
-The game name on screen is *The Chosen One*; the repository folder is `Group10_Dungeon`.
+The game name on screen is *The Chosen One*. This repository (`cpe222-the-chosen-one`) is the code of the final project report "Developing the Game The Chosen One on an FPGA", CPE222, KMUTT, Group 10. It was renamed from `Group10_Dungeon`; the Vivado project it creates is still named `Group10_Dungeon`.
 
 ## Contents
 
@@ -115,7 +115,7 @@ Form 4 uses a placeholder sprite (the Human sheets with a gold tint), see `docs/
 | Boss 2 (floor 2) | 16 | Stays inside a fence and summons minions; it can be hurt only after all minions are dead |
 | Boss 3 (floor 3) | 9 | Armoured; hurt by the charged shot of form 4, or while it rests; it charges a large attack that can be interrupted |
 
-Obstacles: spike traps (permanent on floor 3, timed on floor 2), breakable crates, pits (form 3 flies over them) and locked doors that open when the room is clear.
+Obstacles: spike traps (permanent on floor 3, timed on floor 2), breakable crates, pits (forms 3 and 4 fly over them) and locked doors that open when the room is clear.
 
 ### Puzzles
 
@@ -177,6 +177,13 @@ Other inputs:
 | Art and ROM generation | Python 3 with Pillow |
 
 ## Quick start
+
+### Get the code
+
+```bash
+git clone https://github.com/Mc4minta/cpe222-the-chosen-one.git
+cd cpe222-the-chosen-one
+```
 
 ### Build for the board (Vivado)
 
@@ -279,6 +286,20 @@ buttons / switches / PS/2 keyboard / microphone / accelerometer
 
 `rtl/renderer.v` computes the colour of each pixel in a four-clock pipeline. Stage 0 applies the screen shake and computes the tile address and the text position. Stage 1 reads the tile map and registers the addresses of the tile set and of the hero sprite. Stage 2 reads the ROMs (block RAM) and takes the object layer from `objline.v`, a double line buffer that draws the objects of the next line. Stage 3 selects the layer and registers the colour. The layers, bottom to top, are tile, puzzle objects with monsters, bosses and bullets, hero, and text. The colour `F0F` marks a transparent pixel. `top.v` delays the sync signals by the same four clocks.
 
+### Sprites and ROMs
+
+All pictures are ROMs with 12-bit RGB444 words (`F0F` = transparent), loaded from `mem/*.mem`.
+
+| ROM | Contents |
+| --- | --- |
+| `mem/player.mem` | 48 hero frames of 32×32 (4 forms × 4 directions × 3 poses) |
+| `mem/monster.mem` | 4 frames of 32×32 (2 monsters × 2 frames) |
+| `mem/boss.mem` | 8 slots of 64×64 (6 used: 3 bosses × 2 frames) |
+| `mem/tileset.mem` | 48 tiles of 32×32 (3 floors × 16 tiles) |
+| `mem/ovtile.mem` | 16 overlay pictures of 32×32 (crate, spike trap, decoration, torches, timed spikes) |
+
+The local Vivado run of 22/11/2026 reports 103.5 of 135 block RAM tiles (101 RAMB36 and 5 RAMB18).
+
 ### Content pipeline
 
 Art, maps, text and music are built by Python scripts into `.mem` files that Vivado loads as ROM contents. If a source file is missing, the build falls back to the original art and prints a warning.
@@ -316,11 +337,11 @@ The `vivado/` folder is created by `scripts/create_project.tcl` and is not part 
 | Art ROMs | `sprites`, `tileset`, `monster`, `bosssprites`, `puzzleart`, `animroms` |
 | Whole system | `debug`, `top`, `topanim` |
 
-**Python tests.** `tests/` has one test file per generation pipeline (sprites, tiles, monsters, bosses, puzzle objects, HUD, overlay, maps, story, music) and a fallback drill. `scripts/check_all.sh` runs them.
+**Python tests.** `tests/` has one test file per generation pipeline (sprites, tiles, monsters, bosses, puzzle objects, HUD, overlay, maps, story, music) and a fallback drill. The files use `unittest`, so both `python3 -m pytest tests -q` (needs `pip install pytest`) and `python3 -m unittest discover -s tests -p 'test_*.py'` run them. `scripts/check_all.sh` runs them too. Running the tests regenerates `mem/*.mem` and `rtl/puzzle_layout.vh`; check `git status` afterwards.
 
 **Full-game simulation.** A scripted run from title to win exists (`scripts/run_full_game.sh`). It was not rerun on the latest code (see limitations).
 
-**Board.** The full game was played on a Nexys A7-100T and works. The per-feature board checklist is `docs/BOARD_TEST_STEPS.md`.
+**Board.** The project team reports that the full game was played on a Nexys A7-100T and works. The repository itself records board results only for the USB keyboard (`docs/BOARD_TEST_STEPS.md`, `docs/CHANGE_REVIEW.md`); everything else listed there is marked "board: not tested" and is verified in simulation only.
 
 ## Known limitations
 
@@ -334,13 +355,14 @@ The `vivado/` folder is created by `scripts/create_project.tcl` and is not part 
    | Worst hold slack (WHS) | +0.046 ns (hold is met) |
 
    The same run reports 18,182 of 63,400 slice LUTs and 103.5 of 135 block RAM tiles. The worst path ends in the renderer text address. Despite the failed constraint, the design ran on the board. Timing has not been fixed.
-2. **`DEBUG` defaults to 1.** The debug switches SW0 to SW4 are active in a default build. Set `DEBUG = 0` for the submission build.
-3. **Verilator build.** With Verilator 5.054, the unmodified `sim/verilator/Makefile` did not build in our WSL setup. The identifier `inside` in `rtl/renderer.v` is read as a SystemVerilog keyword, and the Makefile passes `-GPROLOGUE=$(PROLOGUE_V)` while `PROLOGUE_V` is never defined. The screenshots were made with a command-line override (`--default-language 1364-2005`, `-GPROLOGUE=0`); see `report_shots/_build.sh`.
-4. **Old replay scripts.** The scripts in `sim/verilator/scripts/` (including `full_game.txt`) were written before the story boxes and the room redesign. They no longer reach the end of the game. The scripts used for the report pictures are in `report_shots/scripts/`.
-5. **Not confirmed on the board:** the `AUD_SD` level against the board manual, and the tilt direction of the maze (`MAZE_SIGN_X`, `MAZE_SIGN_Y` in `rtl/params.vh`). Both are open items in `docs/BOARD_TEST_STEPS.md`.
-6. **Art.** The form 4 hero sprite is a recoloured placeholder. Bullets and the melee slash use the original simple art. See `docs/SPRITE_STATUS.md`.
-7. **Music.** The background music uses the melody of the song "Connect", which is copyrighted. Check this before making the repository public (`mem/music.mem`, `sprites/music/connect.txt`).
-8. The pictures `docs/p*.png` were taken before the latest changes and may not match the current look of the game. The pictures in `docs/images/` are current.
+2. **Test status of the last run (23/11/2026, Icarus Verilog 13.0).** `tb_player` reports 2 failed checks (`form1 blocked by hole`, `spd4: form1 still blocked by hole`). Six targets (`simonplate`, `ovrender`, `text`, `orb`, `debug`, `top`) do not compile with Icarus 13.0, because `rtl/renderer.v:162` uses the name `inside`, which is a keyword in SystemVerilog mode. The other 12 targets pass. Of 165 Python tests, one fails (`test_overlay_pipeline`, a byte comparison of `mem/ovtile.mem`; the checkout has CRLF line endings and the regenerated file has LF). The results are in `test_output_full.txt`.
+3. **`DEBUG` defaults to 1.** The debug switches SW0 to SW4 are active in a default build. Set `DEBUG = 0` for the submission build.
+4. **Verilator build.** With Verilator 5.054, the unmodified `sim/verilator/Makefile` did not build in our WSL setup. The identifier `inside` in `rtl/renderer.v` is read as a SystemVerilog keyword, and the Makefile passes `-GPROLOGUE=$(PROLOGUE_V)` while `PROLOGUE_V` is never defined. The screenshots were made with a command-line override (`--default-language 1364-2005`, `-GPROLOGUE=0`); see `report_shots/_build.sh`.
+5. **Old replay scripts.** The scripts in `sim/verilator/scripts/` (including `full_game.txt`) were written before the story boxes and the room redesign. They no longer reach the end of the game. The scripts used for the report pictures are in `report_shots/scripts/`.
+6. **Not confirmed on the board:** the `AUD_SD` level against the board manual, and the tilt direction of the maze (`MAZE_SIGN_X`, `MAZE_SIGN_Y` in `rtl/params.vh`). Both are open items in `docs/BOARD_TEST_STEPS.md`.
+7. **Art.** The form 4 hero sprite is a recoloured placeholder. Bullets and the melee slash use the original simple art. See `docs/SPRITE_STATUS.md`.
+8. **Music.** The background music uses the melody of the song "Connect", which is copyrighted. Check this before making the repository public (`mem/music.mem`, `sprites/music/connect.txt`).
+9. The pictures `docs/p*.png` were taken before the latest changes and may not match the current look of the game. The pictures in `docs/images/` are current.
 
 ## Credits and licences
 
