@@ -1,310 +1,399 @@
-# Group10_Dungeon — THE CHOSEN ONE (game name on screen; folder = Group10_Dungeon)
+<h1 align="center">The Chosen One</h1>
 
-A dungeon crawler with puzzle rooms for the Digilent Nexys A7-100T, VGA 640×480 @ 60 Hz, Verilog (Vivado 2024.2)
-This document was updated from the real code on 23/11/2026 (branch `dev` = `main` at commit `3e908a3`). Documentation update report: `docs/DOC_UPDATE_REPORT.md`
+<p align="center">
+  A dungeon crawler with puzzle rooms, three bosses and a tilt maze, written in Verilog for the Digilent Nexys A7-100T (VGA 640×480 @ 60 Hz).
+</p>
 
-Status words: **sim** = verified with a testbench / script · **board** = tried on the real Nexys A7 board · **board: not tested** = not tried yet
+<p align="center">
+  <img src="docs/images/title-screen.png" width="640" alt="Title screen of The Chosen One: the hero and a vampire between two torches">
+</p>
 
-## Current status — read this first
+<p align="center">
+  <img src="https://img.shields.io/badge/FPGA%20board-Nexys%20A7--100T-blue" alt="FPGA board: Nexys A7-100T">
+  <img src="https://img.shields.io/badge/language-Verilog-orange" alt="Language: Verilog">
+  <img src="https://img.shields.io/badge/simulator-Verilator%20%2F%20Icarus-green" alt="Simulators: Verilator and Icarus Verilog">
+  <img src="https://img.shields.io/badge/course-CPE222%20KMUTT-lightgrey" alt="Course: CPE222, KMUTT">
+</p>
 
-The game can be played from TITLE to WIN **in simulation (sim)**. What is confirmed on the real board (board) is only what is recorded in `docs/BOARD_TEST_STEPS.md`: **the USB keyboard works** (notes of the project owner, 20-21/11). Everything else is **board: not tested**.
+The game name on screen is *The Chosen One*; the repository folder is `Group10_Dungeon`.
 
-What the game has (details: `docs/FEATURES.md`, how to play: `docs/CONTROLS.md`):
+## Contents
 
-* **Game states** (`rtl/game_fsm.v`): TITLE → PROLOGUE (4 black-screen pages, BTNC = next page, or 6 s per page) → PLAY → EVOLVE (60 frames) → FLOOR_CLEAR (120 frames) → … → ESCAPE (= Ball in a Maze 60 s, tilt the board (ADXL362) or use the buttons) → WIN · death or time out = GAME_OVER (BTNC = retry the floor where the hero died, BTNL = TITLE) · **PAUSE is not a state**: SW15 or the P/Esc key gates the frame tick during PLAY/ESCAPE
-* **Map:** 3 floors × 5 room roles (START, Combat 1, Combat 2, Puzzle, Boss) = **15 rooms visited in play**, using **13 ASCII map files** (`maps/00..12`; START of floors 1+2 uses the same map, and BOSS of floors 1+3 uses the same map)
-* **4 forms** (melee swing / shot / 3-way spread that splits on hit / fast shot + charged big ball), auto aim (on by default), timed spike traps, breakable crates, pits, hint strip + tutorial, story boxes that pause the game, title pages (SETTINGS / CONTROLS / CREDITS)
-* **3 bosses with a second phase ("rage" at low HP):** boss 1 (HP 10, clap/SW11/key C = stunned for 3 s), boss 2 (HP 16, stands in the middle of a fence box, summons minions, can be hit when all minions are dead), boss 3 (HP 9, armour: hurt only by the charged shot of form 4 except while it rests, charges for 4 s, then a 2 s bullet storm) — boss 3 dead = get the key → door E at START of floor 3 → ESCAPE
-* **Inputs:** board buttons/switches **and** a USB keyboard (PS/2 through USB-HID) at the same time · PDM microphone (clap) · ADXL362 accelerometer (maze)
-* **Sound:** 13 SFX + Simon notes + BGM (floors 1-3 use the same track 6, ESCAPE, WIN / GAME OVER jingles) — output on `AUD_PWM`; **board: not tested** (the `AUD_SD` level is not confirmed against the manual)
-* **Real build:** local Vivado run of 22/11/2026 (`vivado/` is git-ignored, not in git). Report: Block RAM Tile **103.5 / 135**, Slice LUT 18,182 / 63,400, **WNS −4.045 ns (timing not met at 100 MHz, 1853 failing endpoints)**, see "Known gaps" — it is not known which commit that run came from
+1. [Overview](#overview)
+2. [Screenshots](#screenshots)
+3. [Game at a glance](#game-at-a-glance)
+4. [Controls](#controls)
+5. [Hardware and software requirements](#hardware-and-software-requirements)
+6. [Quick start](#quick-start)
+7. [Architecture](#architecture)
+8. [Repository structure](#repository-structure)
+9. [Testing and verification](#testing-and-verification)
+10. [Known limitations](#known-limitations)
+11. [Team](#team)
+12. [Credits and licences](#credits-and-licences)
+13. [Documentation index](#documentation-index)
 
-**Branch:** `main` and `dev` = the same commit (`3e908a3`) · new work goes to `dev` first, to `main` when the owner says "merge" · tag `board-test-2` = an older board build
+## Overview
 
-## Known gaps (not done / not confirmed)
+The hero explores three floors of a dungeon. Each floor has a start room, two combat rooms, a puzzle room and a boss room. The whole game, including the VGA picture, the sound and the input handling, is written in Verilog. There is no processor.
 
-1. **Not tested on the board** except the USB keyboard: screen/picture does not shift, sound, microphone (clap), tilt maze (axis direction), all buttons/switches after W19 — checklist in `docs/BOARD_TEST_STEPS.md` (items 6b–6f, 7)
-2. **Timing is not met in the latest run whose files are on this machine:** `vivado/Group10_Dungeon.runs/impl_1/top_timing_summary_routed.rpt` (22/11) WNS −4.045 ns, TNS −2904.290 ns; worst path `pz/b0x_reg[1]` → `rnd/a_bb_reg[11]` (the text address in `renderer.v`) · this file is not in git, so it must be run again after any fix. Timing has not been fixed yet
-3. `tb_puzzles`: the old documents recorded that the lever-XOR check fails, but a rerun on 23/11 (Icarus 13.0, WSL) gave 42 checks, errors = 0 and the line "16 lever subsets give 16 different XOR results" = PASS — it currently **does not fail** (sim)
-4. `DEBUG` in `rtl/top.v` has the default value **1** (SW0–SW4 are cheat switches) — **the hand-in build must set `DEBUG = 0`**; at the moment `create_project.tcl` does not set the generic
-5. The Verilator `sim/verilator/Makefile` passes `-GPROLOGUE=$(PROLOGUE_V)` but `PROLOGUE_V` is never defined (empty value), and `sim/verilator/scripts/full_game.txt` was written for `PROLOGUE=0` — see "Needs a human decision" in `docs/DOC_UPDATE_REPORT.md`; the latest full-game run (to WIN) was not rerun on the latest code in this documentation pass
-6. Story/credits text on screen is partly placeholder; art that is not final: see `docs/SPRITE_STATUS.md`; wall variants / sample playback are not done (planned)
-7. Most `docs/*.png` pictures were taken before the W19–W46 work (for example `p5_*.png`, `p4_*.png`) and may not match the current look of the game — they were not regenerated
-8. The song "Connect" is a copyrighted song (the melody is in `mem/music.mem`, `sprites/music/connect.txt`) — check whether the repo is public before sharing
+Main features:
 
-## Quick start for the art / map / sound pipelines (English)
+- **Movable player.** The hero walks in four directions with the board buttons or a USB keyboard, fights with melee or shots, and can use auto aim.
+- **Sprite evolution.** Each solved puzzle gives an item. The hero then evolves into a new form with a new sprite and a new weapon (four forms in total).
+- **Puzzles, bosses and a tilt maze.** Each floor has one puzzle (Light Bulb, Sokoban, Simon Says) and one boss. After the last boss, the hero rolls a ball through a maze by tilting the board.
 
-The sprites, tiles, enemies, bosses, puzzle objects, maps and music are generated from files you edit (`my_asset/`, `my_audio/` (not committed), `sprites/*.json`, `maps/*.txt`).
-**Start with `docs/README.md`** (index, folder map, workflow, branches). Handy commands:
+## Screenshots
 
-| What | Command |
-|---|---|
-| Rebuild all art + previews | `scripts/update_sprites.sh` (Windows: `scripts\update_sprites.bat`) |
-| Check everything before a commit | `scripts/check_all.sh` (`--fast` = no iverilog suite) |
-| Build and test on the board | `docs/BOARD_TEST_STEPS.md`, `docs/BOARD_DAY.md` |
-| Which sprites are final / still needed | `docs/SPRITE_STATUS.md` |
-| Sounds and music | `docs/SOUND_PLAN.md` |
-| What to do next | `docs/NEXT_STEPS.md` |
+All screenshots come from the **Verilator simulation of the real design**, not from the board. Some of them use debug switches (SW0 to SW4) to skip long stretches of play. The script and frame of each picture are listed in `report_shots/README.txt`.
 
-## Getting started (build for the board)
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/title-screen.png" width="320" alt="Title screen"><br>Title</td>
+    <td align="center"><img src="docs/images/combat.png" width="320" alt="Combat room with four skeleton monsters and the hint strip"><br>Combat</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/light-bulb-solved.png" width="320" alt="Light Bulb puzzle solved: all four bulbs lit and the item on the floor"><br>Light Bulb puzzle</td>
+    <td align="center"><img src="docs/images/sokoban-start.png" width="320" alt="Sokoban puzzle room at the start with two boxes and two plates"><br>Sokoban</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/simon-show.png" width="320" alt="Simon Says room while the pattern is shown: the red plate is lit"><br>Simon Says</td>
+    <td align="center"><img src="docs/images/boss-1.png" width="320" alt="Boss 1, a skeleton, in its room with the boss health bar"><br>Boss 1</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/boss-2.png" width="320" alt="Boss 2 inside its fence with skeleton minions around it"><br>Boss 2</td>
+    <td align="center"><img src="docs/images/boss-3.png" width="320" alt="Boss 3 charging an attack, with its charge bar under the health bar"><br>Boss 3</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/tilt-maze.png" width="320" alt="Tilt maze with the ball and the goal plate"><br>Tilt maze</td>
+    <td align="center"><img src="docs/images/win.png" width="320" alt="Win screen: You escaped, you win"><br>Win</td>
+  </tr>
+</table>
 
-1. Install Vivado 2024.2, then open a terminal in this folder
-2. Create the project:
-   ```
-   vivado -mode batch -source scripts/create_project.tcl
-   ```
-   or in the Vivado GUI: **Tools → Run Tcl Script…** and choose `scripts/create_project.tcl`
-3. Open `vivado/Group10_Dungeon.xpr` → Generate Bitstream → Program Device
-   (or build in one step: `vivado -mode batch -source scripts/create_project.tcl -tclargs build`)
-4. Connect a VGA monitor and speakers/headphones to the AUDIO OUT jack, then play
-5. **Before the hand-in build:** set `parameter DEBUG = 0` in `rtl/top.v` (the default is currently 1)
+More pictures are in `docs/images/` (melee, shooting, room cleared, Sokoban solved, Simon solved, floor clear, game over, hero forms, enemies and obstacles).
 
-Board day: [`docs/BOARD_DAY.md`](docs/BOARD_DAY.md) (separate microphone test: `scripts/create_mic_project.tcl`) · before the first build, compare the pins in `constraints/nexys_a7.xdc` with Digilent's Master XDC once more
+## Game at a glance
 
-## Buttons / switches / keyboard (according to the code `rtl/top.v`, `rtl/ps2_kbd.v`)
+### Structure
 
-Full player guide: **`docs/CONTROLS.md`**
-
-| Device | Keyboard | What it does |
-| --- | --- | --- |
-| BTNU/D/L/R | Arrow keys / WASD | Walk (2 buttons = diagonal; opposite directions cancel) |
-| BTNC | Space / J / Enter | Start the game (TITLE) · attack (PLAY) · close a story box · WIN = back to TITLE · GAME OVER = retry the floor where the hero died |
-| BTNL (during GAME OVER) | Left arrow | Back to TITLE |
-| BTNR / BTNL (during TITLE) | → / ← (D / A) | Next / previous page: 0 TITLE, 1 SETTINGS, 2–6 CONTROLS, 7–9 CREDITS |
-| BTNU / BTND (SETTINGS) | ↑ / ↓ (W / S) | Clap level, 5 steps (default MID = 448) |
-| **SW15** | **P or Esc** (toggle) | **PAUSE** — works during PLAY / ESCAPE (PAUSED screen, sound muted) |
-| **SW14** | **Shift** | **sprint** +1 px/frame (`SPRINT_BONUS`), LED14 |
-| SW12 | — | Hold the facing direction (strafe / step back without turning) · tapping BTNC already locks the facing for 24 frames |
-| SW13 (flip up) | R | Reset the Sokoban boxes (floor 2) |
-| SW9 | L (toggle) | auto aim: **on by default**, SW9 up / L = off |
-| SW10 | — | Maze: use the buttons instead of the tilt sensor (automatic if the ADXL does not answer) |
-| SW11 (flip up) | C | Backup clap (stun boss 1) |
-| SW5–SW7 | — | Adjust the clap level (0 = use the value from the SETTINGS page, otherwise 128 × the 3-bit value) |
-| SW8 | H (toggle) | Show the hit boxes (green = hero, red = monsters, orange = boss, yellow = bullets) |
-| CPU_RESETN | — | Reset everything (back to TITLE, resets the clap level, full intro again) |
-| PDM microphone | — | Clap = stun boss 1 (see the "microphone" item below) |
-| ADXL362 | — | Tilt the board = roll the ball in ESCAPE |
-
-The **debug** switches work only when `top.v` has `DEBUG = 1` (**default = 1** in both Vivado and Verilator) — the hand-in build must set it to 0:
-
-| Switch | What it does (DEBUG = 1) |
+| Item | Value |
 | --- | --- |
-| SW0 | Open the boss door L on every floor and door E (no key needed) |
-| SW1 flip up | `floor_done` → FLOOR_CLEAR · during PLAY, walking into door E without the key = WIN immediately |
-| SW2 flip up | Remove all monsters in the room |
-| SW3 flip up | `got_item` → EVOLVE |
-| SW4 flip up | `take_hit` → HP −1 (no knockback) |
+| Floors | 3 |
+| Room roles per floor | START, Combat 1, Combat 2, Puzzle, Boss (15 rooms in play) |
+| Room map files | 13 ASCII files, 20×15 tiles (`maps/00` to `maps/12`); some maps are shared |
+| Ending | Boss 3 drops a key; door E in the start room of floor 3 opens the tilt maze; the maze has a 60 s limit |
 
-### Puzzles and items
+### Hero forms
 
-| Floor | Puzzle room | How to solve it | Item |
-| --- | --- | --- | --- |
-| 1 | Light Bulb | Swing at / shoot levers a–d (bottom row of the room) to toggle the 4 bulbs by the mask a = 0111, b = 1011, c = 1101, d = 1110 (bit 3 = bulb 1) until all are lit · the start pattern is random each game (SEED = 0) | Appears when solved |
-| 2 | Sokoban | Walk straight into a box to push it 1 tile · boxes on both plates (2) = gate opens · if stuck, press SW13 / R · the shortest solution is 24 pushes (`scripts/solve_sokoban.py`) | Behind the gate |
-| 3 | Simon | Watch the plates light up in order, then step on them in the same order, 3 rounds of length 3 / 4 / 5 · a mistake = HP −1 and the round is shown again | Appears after all 3 rounds |
+<p align="center">
+  <img src="docs/images/hero-forms.png" width="800" alt="The four hero forms side by side: Human, Orc, Angel and Final form, with their speed and weapon type">
+</p>
 
-Walking over the item → EVOLVE (next form, full HP) + the boss door `L` of that floor opens (LED13) · a solved puzzle / taken item stays that way after leaving the room · starting a new game from TITLE = reset everything
-
-### Screen and LEDs
-
-| Device | Shows |
-| --- | --- |
-| 7-seg | `floor - HP - mm.ss` (TITLE / PROLOGUE = `--------`); ESCAPE: the 4 right digits = countdown `ss.ff`; during PAUSE the decimal point blinks |
-| LED0–3 | Direction buttons · Light Bulb room = bulbs · Simon room = rounds passed |
-| LED4–7 | Monsters left (bar: ≥1 … ≥4) · boss room: LED0–7 = boss HP (8 LEDs in proportion) |
-| LED8–11 | HP (one LED per HP; max 4 for every form) |
-| LED12 / 13 | Room door locked / floor item taken |
-| LED14 / 15 | sprint (SW14) / WIN |
-| ESCAPE | All 16 LEDs blink at 4 Hz |
-| RGB LED16 | Form colour green / cyan / purple / gold · white during EVOLVE |
-| RGB LED17 | Red = hit (knockback + invulnerable) · **blue** blinks = the PS2_CLK line moves, **green** blinks = a keyboard byte was decoded (for checking the keyboard) |
-| VGA screen | Player hearts (top left, 4 hearts), boss HP bar (top right, boss room) + boss 3 charge bar + microphone meter (boss 1 / SETTINGS page) |
-
-### Values per form (`rtl/params.vh`)
-
-| Form | Speed px/frame | Max HP | Damage | RGB16 | Weapon |
-| --- | --- | --- | --- | --- | --- |
-| 1 Human | 2 | 4 | 1 | green | Melee swing |
-| 2 Orc | 2 | 4 | 1 | cyan | Fires 1 shot |
-| 3 Angel | 3 | 4 | 2 | purple | 3-way spread shot (a shot that hits a monster splits into 4) |
-| 4 Gold | 3 | 4 | 2 | gold | Fast shot / hold 45 frames = big ball (damage 4) |
-
-sprint +1 px/frame for every form · invulnerable after a hit `INV_FRAMES` = 90 frames (after the knockback of 8 frames × 2 px) · hurt box 16×16 (`HURT_BOX`)
-
-### Combat
-
-| Item | Value (`params.vh`) |
-| --- | --- |
-| Melee swing | hit box 24×16 in front of the hero for 8 frames, cooldown 20 · every form can swing when an enemy is inside the box in front of the hero |
-| Form 2 shot | 8×8, 4 px/frame, cooldown 15 (hold to repeat) |
-| Form 3 spread | 3 shots (straight + diagonals 3 px/axis), cooldown 20, split bullets last 24 frames |
-| Form 4 | tap = 6 px/frame cooldown 15 · hold 45 frames and release = big ball 16×16, 4 px/frame, damage 4, stops on hit; a growing ball appears in front of the hero while charging |
-| Monster A (`S`) | HP 2, moves every 2 frames (half speed), slides along walls |
-| Monster B (`T`, turret) | HP 3, fires 4 directions + 1 shot aimed at the player every 120 frames (first shot at 60, each next turret offset by 30), bullet 3 px/frame |
-| Combat rooms | the doors close on entry until all monsters are dead; rooms 4, 5, 8 have 2 waves, rooms 10, 11 have 3 waves (the next wave appears 1 s after the last monster dies), room 7 has a single wave |
-| Traps | floor 2: timed spikes 90 normal / 30 warning / 60 up (damage 2), safe for 60 frames after entering the room · floor 3: permanent spikes `X` (1 HP) · form 3 flies over pits/spikes |
-| All numbers | `rtl/params.vh` |
-
-### Bosses (`rtl/boss.v`, `rtl/params.vh`)
-
-| Boss | HP | Movement | Attack | Phase 2 (rage) |
+| Form | Speed (px/frame) | Max HP | Damage | Weapon |
 | --- | --- | --- | --- | --- |
-| 1 (floor 1) | 10 | chases 1 px every 2 frames | bullet pattern every 90 frames (blinks as a warning for 20 frames); clap / SW11 / C = stunned for 180 frames, then cooldown 240 | HP ≤ 5: fires every 55 frames, moves every frame |
-| 2 (floor 2) | 16 | stays in place inside the fence box | cross / X bullets every 90 frames · summons 3 minions per round · **invulnerable until all minions are dead**, then can be hit for 240 frames, then rests 75 | HP ≤ 8: fires every 60, can be hit for 180, rests 45 |
-| 3 (floor 3) | **9** | chases 1 px every 2 frames | armour: hurt only by the charged shot of form 4 (1 HP per shot); chase 180 frames → charge 240 frames (a charged shot can interrupt it) → heavy bullet storm 120 frames (2 HP per bullet) → rest 120 frames (any kind of hit hurts it) | HP ≤ 3: chase 120, rest 90, denser storm (period 18) |
+| 1 Human | 2 | 4 | 1 | Melee swing |
+| 2 Orc | 2 | 4 | 1 | Single shot |
+| 3 Angel | 3 | 4 | 2 | Three-way spread; a shot that hits a monster splits into four |
+| 4 Final form | 3 | 4 | 2 | Fast shot; hold 45 frames for a large ball (damage 4) |
 
-Boss 3 must be hit **9 times** (HP 9 drops by 1 each time); the HP bar on screen = hp / 9 in proportion, not 3 slots · touching a boss = HP −1 · sprite 64×64, hitbox 48×48 · after you enter the boss room the door closes until the boss is dead · a dead boss stays dead until a new game starts · bosses 1, 2 dead → FLOOR CLEAR; boss 3 dead → key on the room floor (walk over it to pick it up) → door E → ESCAPE
+Form 4 uses a placeholder sprite (the Human sheets with a gold tint), see `docs/SPRITE_STATUS.md`. Values are from `rtl/params.vh`.
 
-### ESCAPE (Ball in a Maze) and the microphone
+### Enemies, bosses and obstacles
 
-* ESCAPE = a 20×15 maze (`maps/maze/maze.txt` → `mem/maze.mem`), 60 s (`ESCAPE_SECONDS`), reaching the goal = WIN, time out = GAME OVER · ADXL362 sensor over SPI (deadzone 3, `MAZE_SIGN_X/Y` = 0 after the axes were flipped in W37) — **the axis direction on the board is not confirmed (board: not tested)**
-* PDM microphone: `M_CLK` 2.5 MHz, count every 4096 samples, check the peak of |block − DC| (W4) > `MIC_TH` = **448** (adjustable from the SETTINGS page 192 / 320 / 448 / 704 / 1024 or SW5–SW7), then a holdoff of 200 ms · clap = **stun boss 1** (not boss 2) · **board: not tested**
-* The game name on screen: edit `docs/STORY.md`, then run `python scripts/build_story.py` (font/text are generated by `scripts/make_font.py`)
+<p align="center">
+  <img src="docs/images/enemies-bosses-obstacles.png" width="700" alt="The two monsters, the three bosses, the spike trap and the breakable block as drawn by the game">
+</p>
 
-## Sound
-
-- `AUD_PWM` outputs 8-bit PWM (carrier 100 MHz / 256) · `AUD_SD` drives 1 = amplifier on (`AUD_SD_ON`; **not confirmed against the manual / board: not tested**)
-- `rtl/audio.v`: one SFX at a time with priority (a lower number is more important; a lower-priority sound requested while one is playing is dropped) + BGM that is quieter (SFX ±48, BGM ±18)
-
-| # | Event | Frequency | Length (frames) |
-| --- | --- | --- | --- |
-| 1 | Player hit | 330 → 110 Hz | 18 |
-| 2 | Boss 1 stunned (clap) | 1200 → 600 Hz | 24 |
-| 3 | Monster / boss dies | 500 → 120 Hz | 14 |
-| 4 | Item pickup / evolve | 800 → 2000 Hz | 28 |
-| 5 | Room cleared / gate opens | 600 → 1000 Hz | 20 |
-| 6 | Wrong puzzle step | 200 → 170 Hz | 24 |
-| 7 | Correct puzzle step | 1500 Hz | 5 |
-| 8 | Enemy hit | 900 → 700 Hz | 4 |
-| 9 | Shot (form 2 / spread / fast shot / big ball) | 1800→1200 / 1400→1000 / 2400→1600 / 600→250 Hz | 5 / 6 / 4 / 16 |
-| 10 | Melee swing | 450 → 250 Hz | 7 |
-| 11 | Boss appears | 250 → 204 Hz | 30 |
-| 12 | Going through a door | 1000 Hz | 4 |
-| 13 | Boss 3 charge (a beep at every step) | 600 → ~1000 Hz | 12 |
-| — | Simon notes | C5 E5 G5 C6 (523 / 659 / 784 / 1047 Hz) play over every SFX while the plate is lit | per plate |
-
-- **BGM** (`mem/music.mem` from `scripts/make_music.py`, settings in `sprites/music.json`): floors 1–3 use the same track 6 (the Connect melody) · ESCAPE track 3 (loops) · WIN track 4, GAME OVER track 5 (play once) · TITLE / PROLOGUE are silent
-- Sound in Verilator: played live through SDL at 12,207 Hz (4 times slower than real) · `AUDIO_RATE=<Hz>`, `NOAUDIO=1`, key **M** = mute / unmute · record with `--wav out.wav` / `--wav-seg A:B:out.wav` · samples in `docs/audio/`
-
-## Folder structure
-
-```
-rtl/            Verilog (+ *.vh)  [*_cfg.vh, puzzle_layout.vh, text_layout.vh, text_select.vh, tilebase.vh are generated by scripts — do not edit by hand]
-  top.v           connects every module: input, pause, 7-seg, LED, sound, tutorial/hint, dialogue event
-  params.vh       all game values (`include in the modules)
-  game_fsm.v      states TITLE/PROLOGUE/PLAY/EVOLVE/FLOOR_CLEAR/ESCAPE/WIN/GAME_OVER, form, HP, timer
-  world.v         floor / room / grid / doors / spawn points · player.v movement+collision+knockback · player_frame.v picks the animation · face_lock.v
-  objects.v       monsters 6 / player bullets 6 / enemy bullets 16 / boss, AABB, wave, locked rooms, auto aim
-  boss.v          3 bosses (boss_rom + FSM, rage) · keyitem.v key · maze.v + adxl362.v maze
-  puzzles.v       Light Bulb / Sokoban / Simon + item · overlay.v state of breakable crates
-  renderer.v      4-clock pipeline · objline.v object line buffer · hud.v hearts/boss bar/meter · roms.v all ROMs · vga_sync.v
-  dialog.v        story box + hint strip · dlg_cfg.vh, text_*.vh (generated from docs/STORY.md)
-  audio.v         PWM, SFX 13, BGM · pdm_mic.v microphone · ps2_kbd.v keyboard · debounce.v · seg7.v · bin2bcd.v
-  mic_test_top.v  separate microphone test (docs/BOARD_DAY.md)
-constraints/    nexys_a7.xdc, mic_test.xdc
-maps/           13 ASCII maps of 20×15 + maps/maze/maze.txt (edit here) · maps_v1/ = originals
-mem/            .mem files / objects.txt generated by scripts (do not edit by hand) · *_v1.mem = originals
-sprites/        JSON settings for art/music (sprites.json, tileset.json, monsters.json, bosses.json, puzzle.json, hud.json, overlay.json, music.json, music/) + README.md
-my_asset/       source art · my_audio/ source audio (not committed)
-scripts/        build_*_mem.py, build_maps.py, build_story.py, make_*.py, audio_to_music.py, solve_sokoban.py, update_sprites.*,
-                check_all.sh/.bat, run_sim.sh, run_full_game.sh, run_sprite_shots.sh, make_shots.sh, create_project.tcl, create_mic_project.tcl,
-                vivado_synth.tcl, vivado_update_project.tcl
-tests/          Python tests (10 test_*.py files) + fallback_drill.sh
-sim/            testbenches tb_*.v (iverilog), sim/verilator (Makefile, main.cpp, scripts/*.txt), sim/anim_on/, sim/vig.vh, sokoban_solution.vh
-report_shots/   (untracked) WSL scripts that take Verilator screenshots: env.sh, _build.sh, run.sh, convert.py, scripts/t1.txt
-preview/        generated preview pictures (git-ignored except layout_guide.png)
-docs/           documents (see docs/README.md) + pictures *.png + docs/audio/*.wav + docs/archive/
-vivado/         Vivado project (git-ignored, created by create_project.tcl)
-```
-
-## Editing maps / sprites
-
-- Edit maps: edit `maps/*.txt`, then run `python3 scripts/build_maps.py` (creates `mem/tilemap.mem`, `monsters.mem`, `objects.txt`, `overlay.mem`, `rtl/puzzle_layout.vh`) — details in `docs/MAP_DESIGN.md`
-- All art: edit `my_asset/` + `sprites/*.json`, then run `scripts/update_sprites.sh` · read `sprites/README.md`
-- On-screen text: edit `docs/STORY.md`, then `python scripts/build_story.py`
-- After a .mem file changes, Vivado needs to re-run synthesis · before a commit run `scripts/check_all.sh`
-
-## Play on a computer screen (no board needed) — Verilator + SDL2
-
-Verilator converts the same Verilog as the board into a program and shows the VGA picture in an SDL2 window with a 7-seg / LED / switch panel (Verilator 5.x; tested with 5.054 in the conda env `dungeon` on WSL, see `report_shots/env.sh`)
-
-```
-cd sim/verilator
-make run        # build + open the window
-```
-
-> **Warning:** the current `Makefile` passes `-GPROLOGUE=$(PROLOGUE_V)` while `PROLOGUE_V` is not defined (empty value) — it is not confirmed whether a plain `make run` / `make seeded` builds successfully · a way that probably works (**not run**): `make seeded PROLOGUE_V=0` (for the `scripts/*.txt` scripts, which were written for runs without the PROLOGUE pages) or `PROLOGUE_V=1` for normal play · the seeded binary on this machine was built with `report_shots/_build.sh` (`-GPROLOGUE=0`)
-
-| Key in the simulator | Board equivalent |
-| --- | --- |
-| Arrow keys | BTNU / BTND / BTNL / BTNR |
-| Space | BTNC |
-| 0–9 | Toggle SW0–SW9 |
-| F1–F6 | Toggle SW10–SW15 (F5 = SW14 sprint, F6 = SW15 pause) |
-| Backspace | CPU_RESETN |
-| C | Simulated clap 100 ms |
-| M | Mute / unmute |
-| [ / ] | Decrease / increase frame skip |
-| Esc | Quit |
-
-(Verilator has no PS/2 keyboard model — the keys P / L / H / R / WASD work only on the board and in `tb_ps2`)
-
-Windows: use WSL2 + Ubuntu / Kali (`sudo apt install -y build-essential verilator libsdl2-dev`; Verilator must be 5.x — apt on Ubuntu 22.04 gives 4.x, which is too old) · macOS: `brew install verilator sdl2`
-
-The simulator sets `CE_DIV=1`, `DEBOUNCE=2000` (real board `CE_DIV=4`, `DEBOUNCE=1_000_000` = 10 ms); the logic is the same as the board · `DEBUG` has its default value (=1)
-
-Build options (`sim/verilator`): `make` / `make run` (PGO g++, random puzzles → `obj_dir/Vtop`) · `make seeded` (SEED=0x1234 → `obj_dir_seeded/Vtop`) · `make SEED=0x5678` · `make PGO=0` · `make FAST_CLOCK=0`
-
-Test without opening a window:
-```
-cd mem && SDL_VIDEODRIVER=dummy ../sim/verilator/obj_dir/Vtop --frames 300 --script "R:5:200,C:60:62" --shot shot.bmp
-```
-`Vtop` options: `--frames N`, `--shot f.bmp`, `--shot-at N:f.bmp`, `--script "..."` / `--script-file f`, `--wav f`, `--wav-seg A:B:f`, `--headless`, env `LOG=N` (print the state every N frames), `HEADLESS=1`, `AUDIO_RATE`, `NOAUDIO` · script format: `button:start_frame:end_frame` (buttons `U D L R C`, switches `0-9 a-f` = SW0–SW15, `K` = clap, `#` = comment)
-
-Scripts in `sim/verilator/scripts/` (**they need a seeded build** and were written for runs without the PROLOGUE pages):
-
-| Script | What it does |
-| --- | --- |
-| `full_game.txt` (196 lines) | TITLE → floors 1–3 (combat rooms cleared with debug SW2, bosses fought for real) → key → ESCAPE → WIN (it passes when it ends at WIN; not rerun on the latest code in this documentation pass) |
-| `floor1.txt` / `floor2.txt` / `floor3.txt` | Puzzle of floor 1 / 2 (Sokoban 24 pushes, generated by `scripts/make_floor2_script.py`) / 3 (Simon) |
-| `weapons_demo.txt` | Form 1→4 weapon demo (uses debug SW3 / SW2) |
-| `sprite_check.txt` | Pictures of the sprite of every form/direction (used by `scripts/run_sprite_shots.sh`) |
-
-```
-./scripts/run_full_game.sh            # play the full game without a window, passes when it ends at WIN (~10 minutes; builds seeded itself if missing)
-SHOTS=1 ./scripts/run_full_game.sh    # + save docs/p5_*.png
-WAVS=1 ./scripts/run_full_game.sh     # + save docs/audio/*.wav
-./scripts/run_sprite_shots.sh         # pictures of every form → preview/game/
-./scripts/make_shots.sh               # render the renderer only (iverilog) → preview/shots/
-```
-`report_shots/` (untracked): a set of scripts that take Verilator screenshots in WSL (`_build.sh` builds seeded with `-GPROLOGUE=0`, `run.sh <script> <frames> [--shot-at ...]`, `convert.py` converts BMP → PNG)
-
-## Simulation (testbench, Icarus Verilog)
-
-Icarus Verilog is required (`sudo apt install iverilog`; tested with 13.0 in WSL) · run from the root folder:
-
-```
-./scripts/run_sim.sh <target>     # targets below; passes when there is no FAIL and "errors = 0"
-./scripts/run_sim.sh all          # player world fsm objects puzzles mic mictop audio boss hud simonplate dialog ovrender text ps2 orb debug top
-./scripts/check_all.sh [--fast]   # rebuild generated files + check nothing is stale + Python tests + (without --fast) run_sim.sh all (~12 minutes; --fast ~1 minute)
-```
-
-| target | testbench | What it checks |
+| Enemy | HP | Behaviour |
 | --- | --- | --- |
-| `player` / `playerframe` / `facelock` | tb_player, tb_player_frame, tb_facelock | walk, collide, slide, doors · animation selection · facing lock |
-| `world` | tb_world | doors/grid/spawn points/restart/retry/next_floor (52 checks) |
-| `fsm` | tb_game_fsm | states, EVOLVE, HP, GAME OVER, FLOOR_CLEAR, timer, sprint (67 checks) |
-| `objects` / `orb` | tb_objects, tb_orb | AABB, weapons, monsters, wave, traps, overlay · charge ball |
-| `puzzles` | tb_puzzles | Light Bulb / Sokoban (played with the solver's answer) / Simon / item |
-| `boss` | tb_boss | 3 bosses, stun, FLOOR_CLEAR, key, ESCAPE |
-| `hud`, `dialog`, `text`, `ovrender`, `simonplate` | tb_hud, tb_dialog, tb_text, tb_ovrender, tb_simonplate | HUD (compared with mem pixel by pixel), story box, text, overlay, Simon plates |
-| `audio` / `mic` / `mictop` / `ps2` / `adxl` / `maze` | tb_audio, tb_pdm_mic, tb_mic_test_top, tb_ps2, tb_adxl362, tb_maze | sound (64 checks) · microphone · separate microphone test · keyboard (30) · ADXL · maze |
-| `sprites` `tileset` `monster` `bosssprites` `puzzleart` `animroms` | tb_sprites … | art ROM matches the `.mem` |
-| `debug` | tb_debug | the `DEBUG` parameter (SW0–SW4 work only when DEBUG = 1) |
-| `top` / `topanim` | tb_top | whole-system simulation (`topanim` = animation flags ON) |
+| Chaser (monster A) | 2 | Walks towards the hero at half speed |
+| Turret (monster B) | 3 | Fires in four directions and aims one shot at the hero |
 
-`tb_shot.v` is used by `scripts/make_shots.sh` and is not a target of `run_sim.sh`
+| Boss | HP | Notes |
+| --- | --- | --- |
+| Boss 1 (floor 1) | 10 | Chases the hero; a clap (or SW11, or key C) stuns it for 3 s |
+| Boss 2 (floor 2) | 16 | Stays inside a fence and summons minions; it can be hurt only after all minions are dead |
+| Boss 3 (floor 3) | 9 | Armoured; hurt by the charged shot of form 4, or while it rests; it charges a large attack that can be interrupted |
 
-## Next steps
+Obstacles: spike traps (permanent on floor 3, timed on floor 2), breakable crates, pits (form 3 flies over them) and locked doors that open when the room is clear.
 
-See `docs/NEXT_STEPS.md` and the FUTURE BACKLOG table in `docs/DESIGN_PLAN.md`: board test (picture, sound, microphone, maze) → fix timing (WNS −4.045 ns) → set `DEBUG = 0` → video + hand-in report
+### Puzzles
+
+| Floor | Puzzle | Rule |
+| --- | --- | --- |
+| 1 | Light Bulb | Hit levers a to d to toggle the four bulbs until all are lit |
+| 2 | Sokoban | Push both boxes onto the plates; the gate opens (shortest solution: 24 pushes) |
+| 3 | Simon Says | Watch the plates light up, then repeat the pattern; three rounds of length 3, 4 and 5 |
+
+Solving a puzzle shows an item. Picking it up evolves the hero and opens the boss door of that floor.
+
+## Controls
+
+The game can be played with the board alone, with a USB keyboard, or with both. The complete player guide is `docs/CONTROLS.md`.
+
+| Board | Keyboard | Action |
+| --- | --- | --- |
+| BTNU / BTND / BTNL / BTNR | Arrow keys or W A S D | Walk |
+| BTNC | Space, J or Enter | Start; attack; close a story box |
+| BTNL (game over) | Left arrow | Back to the title screen |
+| BTNR / BTNL (title) | Right / left arrow | Next / previous title page (settings, controls, credits) |
+| SW15 | P or Esc | Pause |
+| SW14 | Shift | Sprint (+1 px/frame) |
+| SW13 (flip up) | R | Reset the Sokoban boxes |
+| SW9 | L | Auto aim; on by default, SW9 up or L turns it off |
+| SW12 | none | Hold the facing direction |
+| SW11 (flip up) | C | Backup for the microphone clap |
+| SW10 | none | Maze: use the buttons instead of the tilt sensor |
+| SW8 | H | Show hit boxes |
+| SW5 to SW7 | none | Adjust the clap level (0 uses the setting from the title menu) |
+| CPU_RESETN | none | Reset |
+
+Other inputs:
+
+- **Microphone (PDM):** a clap stuns boss 1.
+- **Accelerometer (ADXL362):** tilting the board rolls the ball in the maze.
+
+**Debug switches.** SW0 to SW4 work only when `parameter DEBUG` in `rtl/top.v` is 1. The file default is **1**. The submission build must set `DEBUG = 0`. `scripts/create_project.tcl` does not set this parameter.
+
+| Switch | Effect when `DEBUG = 1` |
+| --- | --- |
+| SW0 | Open the boss door and door E |
+| SW1 (flip up) | Finish the floor; at door E without a key it ends the game with a win |
+| SW2 (flip up) | Remove all monsters of the room |
+| SW3 (flip up) | Give the item (evolve) |
+| SW4 (flip up) | Lose one heart |
+
+## Hardware and software requirements
+
+| Item | Requirement |
+| --- | --- |
+| Board | Digilent Nexys A7-100T (FPGA part `xc7a100tcsg324-1`) |
+| Display | VGA monitor |
+| Input | Board buttons and switches; optional USB keyboard on the USB-HID port |
+| Sound | Headphones or speakers on the AUDIO OUT jack |
+| Synthesis | Vivado 2024.2 |
+| PC simulator | Verilator 5.x, SDL2, a C++ compiler and `make` (tested with Verilator 5.054) |
+| Testbenches | Icarus Verilog (tested with 13.0) |
+| Art and ROM generation | Python 3 with Pillow |
+
+## Quick start
+
+### Build for the board (Vivado)
+
+Create the project, synthesise and write the bitstream in one step:
+
+```bash
+vivado -mode batch -source scripts/create_project.tcl -tclargs build
+```
+
+The bitstream is `vivado/Group10_Dungeon.runs/impl_1/top.bit`. To create only the project, omit `-tclargs build` and run the flow in the Vivado GUI. Program the board from the Hardware Manager. The step-by-step guide is `docs/BOARD_TEST_STEPS.md`.
+
+Before building for submission, set `parameter DEBUG = 0` in `rtl/top.v`.
+
+### Run the testbenches (Icarus Verilog)
+
+```bash
+./scripts/run_sim.sh all          # all testbench targets
+./scripts/run_sim.sh world        # one target
+./scripts/check_all.sh --fast     # regenerate files, check they are up to date, run Python tests (about 1 minute)
+./scripts/check_all.sh            # the same plus the full Icarus suite (about 12 minutes)
+```
+
+### Run the game on a PC (Verilator)
+
+The simulator builds the same Verilog as the board and shows the VGA picture in an SDL2 window.
+
+```bash
+cd sim/verilator
+make run        # build and open the window
+make seeded     # fixed puzzle seed, used by the replay scripts
+```
+
+Headless run with a screenshot:
+
+```bash
+cd mem
+SDL_VIDEODRIVER=dummy ../sim/verilator/obj_dir/Vtop --frames 300 --script "R:5:200,C:60:62" --shot shot.bmp
+```
+
+Scripted play and screenshot helpers:
+
+```bash
+./scripts/run_full_game.sh            # scripted run from title to win (about 10 minutes)
+./scripts/run_sprite_shots.sh         # pictures of every form
+./scripts/make_shots.sh               # render screenshots with Icarus Verilog
+```
+
+See [Known limitations](#known-limitations) for the state of the Verilator build and of the replay scripts. The `Vtop` options and the script format are described in `docs/README_detailed_reference.md`.
+
+### Regenerate art, maps and text
+
+Sprites, tiles, maps, text and music are generated from the files in `my_asset/`, `sprites/`, `maps/` and `docs/STORY.md`. Do not edit `mem/*.mem` by hand.
+
+```bash
+scripts/update_sprites.sh             # rebuild all art ROMs and previews
+python3 scripts/build_maps.py         # rebuild map ROMs
+python3 scripts/build_story.py        # rebuild on-screen text from docs/STORY.md
+```
+
+## Architecture
+
+The design runs on one 100 MHz clock. A clock enable drives the pixel timing. The game logic advances once per frame (60 Hz).
+
+### Game state machine
+
+`rtl/game_fsm.v` holds the game state, the hero form and the hero HP. Pause is not a state; it stops the frame tick during play and in the maze. A hit that reduces HP to zero, or a maze timeout, leads to the game-over state.
+
+```mermaid
+stateDiagram-v2
+    [*] --> TITLE
+    TITLE --> PROLOGUE: BTNC
+    PROLOGUE --> PLAY: last page
+    PLAY --> EVOLVE: item taken
+    EVOLVE --> PLAY: 60 frames
+    PLAY --> FLOOR_CLEAR: floor done
+    FLOOR_CLEAR --> PLAY: 120 frames, next floor
+    PLAY --> ESCAPE: door E with key
+    ESCAPE --> WIN: ball reaches goal
+    ESCAPE --> GAME_OVER: timeout or HP 0
+    PLAY --> GAME_OVER: HP 0
+    GAME_OVER --> PLAY: BTNC, retry floor
+    GAME_OVER --> TITLE: BTNL
+    WIN --> TITLE: BTNC
+```
+
+### Game engine
+
+`rtl/top.v` connects the modules. The debounced buttons, the PS/2 keyboard, the PDM microphone and the ADXL362 sensor feed the game logic. `world.v` tracks the floor and the room. `player.v` handles movement and collision. `objects.v` holds up to six monsters, six player bullets and sixteen enemy bullets, and tests overlaps. `boss.v`, `puzzles.v` and `maze.v` implement the bosses, the three puzzles and the tilt maze. `audio.v` outputs sound effects and music as PWM.
+
+```text
+buttons / switches / PS/2 keyboard / microphone / accelerometer
+        |
+     top.v  -->  game_fsm  world  player  objects  boss  puzzles  maze  dialog
+        |
+     renderer  (tiles, objects, hero, HUD, text)  -->  VGA
+     audio     (13 sound effects, music)          -->  AUD_PWM
+```
+
+### Pixel pipeline
+
+`rtl/renderer.v` computes the colour of each pixel in a four-clock pipeline. Stage 0 applies the screen shake and computes the tile address and the text position. Stage 1 reads the tile map and registers the addresses of the tile set and of the hero sprite. Stage 2 reads the ROMs (block RAM) and takes the object layer from `objline.v`, a double line buffer that draws the objects of the next line. Stage 3 selects the layer and registers the colour. The layers, bottom to top, are tile, puzzle objects with monsters, bosses and bullets, hero, and text. The colour `F0F` marks a transparent pixel. `top.v` delays the sync signals by the same four clocks.
+
+### Content pipeline
+
+Art, maps, text and music are built by Python scripts into `.mem` files that Vivado loads as ROM contents. If a source file is missing, the build falls back to the original art and prints a warning.
+
+## Repository structure
+
+```text
+rtl/            Verilog sources; files named *_cfg.vh, puzzle_layout.vh, text_*.vh and tilebase.vh are generated
+constraints/    nexys_a7.xdc (pins and clock), mic_test.xdc
+maps/           13 ASCII room maps and maps/maze/maze.txt; maps_v1/ holds the originals
+mem/            generated ROM files; *_v1.mem are the original art
+sprites/        JSON settings for the art and music pipelines
+my_asset/       source art
+scripts/        ROM builders, Vivado Tcl scripts, simulation and check scripts
+tests/          Python tests for the pipelines
+sim/            Icarus testbenches (tb_*.v) and the Verilator player (sim/verilator)
+report_shots/   scripts, key scripts and screenshots made with Verilator for the project report
+docs/           documents, images (docs/images), recorded audio (docs/audio)
+preview/        generated preview pictures
+```
+
+The `vivado/` folder is created by `scripts/create_project.tcl` and is not part of the source. `my_audio/` (source audio) is not committed.
+
+## Testing and verification
+
+**Testbenches.** The testbenches in `sim/` run with Icarus Verilog through `scripts/run_sim.sh`. A target passes when its log has no `FAIL` and no `errors = N` with N above zero.
+
+| Area | Targets |
+| --- | --- |
+| Hero and world | `player`, `playerframe`, `facelock`, `world`, `fsm` |
+| Objects and combat | `objects`, `orb`, `boss` |
+| Puzzles and maze | `puzzles`, `simonplate`, `maze`, `adxl` |
+| Display and text | `hud`, `dialog`, `text`, `ovrender` |
+| Input and sound | `ps2`, `mic`, `mictop`, `audio` |
+| Art ROMs | `sprites`, `tileset`, `monster`, `bosssprites`, `puzzleart`, `animroms` |
+| Whole system | `debug`, `top`, `topanim` |
+
+**Python tests.** `tests/` has one test file per generation pipeline (sprites, tiles, monsters, bosses, puzzle objects, HUD, overlay, maps, story, music) and a fallback drill. `scripts/check_all.sh` runs them.
+
+**Full-game simulation.** A scripted run from title to win exists (`scripts/run_full_game.sh`). It was not rerun on the latest code (see limitations).
+
+**Board.** The full game was played on a Nexys A7-100T and works. The per-feature board checklist is `docs/BOARD_TEST_STEPS.md`.
+
+## Known limitations
+
+1. **Timing is not met at 100 MHz.** The implemented design in Vivado reports the following (`top_timing_summary_routed.rpt`, run of 22/11/2026):
+
+   | Metric | Value |
+   | --- | --- |
+   | Worst negative slack (WNS) | -4.045 ns |
+   | Total negative slack (TNS) | -2904.290 ns |
+   | Failing setup endpoints | 1853 of 9926 |
+   | Worst hold slack (WHS) | +0.046 ns (hold is met) |
+
+   The same run reports 18,182 of 63,400 slice LUTs and 103.5 of 135 block RAM tiles. The worst path ends in the renderer text address. Despite the failed constraint, the design ran on the board. Timing has not been fixed.
+2. **`DEBUG` defaults to 1.** The debug switches SW0 to SW4 are active in a default build. Set `DEBUG = 0` for the submission build.
+3. **Verilator build.** With Verilator 5.054, the unmodified `sim/verilator/Makefile` did not build in our WSL setup. The identifier `inside` in `rtl/renderer.v` is read as a SystemVerilog keyword, and the Makefile passes `-GPROLOGUE=$(PROLOGUE_V)` while `PROLOGUE_V` is never defined. The screenshots were made with a command-line override (`--default-language 1364-2005`, `-GPROLOGUE=0`); see `report_shots/_build.sh`.
+4. **Old replay scripts.** The scripts in `sim/verilator/scripts/` (including `full_game.txt`) were written before the story boxes and the room redesign. They no longer reach the end of the game. The scripts used for the report pictures are in `report_shots/scripts/`.
+5. **Not confirmed on the board:** the `AUD_SD` level against the board manual, and the tilt direction of the maze (`MAZE_SIGN_X`, `MAZE_SIGN_Y` in `rtl/params.vh`). Both are open items in `docs/BOARD_TEST_STEPS.md`.
+6. **Art.** The form 4 hero sprite is a recoloured placeholder. Bullets and the melee slash use the original simple art. See `docs/SPRITE_STATUS.md`.
+7. **Music.** The background music uses the melody of the song "Connect", which is copyrighted. Check this before making the repository public (`mem/music.mem`, `sprites/music/connect.txt`).
+8. The pictures `docs/p*.png` were taken before the latest changes and may not match the current look of the game. The pictures in `docs/images/` are current.
+
+## Team
+
+Group 10, CPE222, King Mongkut's University of Technology Thonburi (KMUTT).
+
+| Name | Student ID | Contribution |
+| --- | --- | --- |
+| Thanayot Monthichachat | 68070501019 | Game design; report |
+| Phongsakon Sriwicha | 68070501032 | Game design; report |
+| Phitchayapha Vittayavanich | 68070501034 | Sprites; report |
+| Pichamon Muroh | 68070501035 | Coding and testing; report |
+| Onanong Chadee | 68070501087 | Sprites; report |
+
+Supervisor: Dr. Taweechai Nuntawisuttiwong.
+
+## Credits and licences
+
+The repository has no `LICENSE` file. No licence is stated for the project itself.
+
+Third-party material is included in `my_asset/`. The repository does not record the author or the licence of these items, so each is listed as **licence not recorded**.
+
+| Item | Where | Licence |
+| --- | --- | --- |
+| 2D Pixel Dungeon Asset Pack v2.0 (tiles, props) | `my_asset/2D Pixel Dungeon Asset Pack v2.0.zip`, `my_asset/tileset/`, `my_asset/props/` | Licence not recorded |
+| Enemy Animations Set (skeleton and vampire sheets) | `my_asset/Enemy_Animations_Set.zip`, `my_asset/enemies/` | Licence not recorded |
+| Hero sheets (Human, Orc, Angel) | `my_asset/Character/` | Licence not recorded |
+| Hearts and health bar | `my_asset/ui/Hearts/` | Licence not recorded |
+| UI sheet "MediavelFree" (not used by the game) | `my_asset/ui/MediavelFree.png` | Licence not recorded |
+| Orb sprites for the maze ball | `my_asset/ball/` | Licence not recorded |
+| Song "Connect" (melody entered as notes) | `sprites/music/connect.txt` | Copyrighted song; permission not recorded |
+
+Tools: Xilinx Vivado, Verilator, Icarus Verilog, SDL2, Python with Pillow.
+
+## Documentation index
+
+| Document | Content |
+| --- | --- |
+| [docs/README.md](docs/README.md) | Project guide: which document to read, folder map, workflow |
+| [docs/CONTROLS.md](docs/CONTROLS.md) | Player guide: buttons, switches, keys |
+| [docs/FEATURES.md](docs/FEATURES.md) | Every implemented feature by category |
+| [docs/BOARD_TEST_STEPS.md](docs/BOARD_TEST_STEPS.md) | Vivado steps and board test checklist |
+| [docs/BOARD_DAY.md](docs/BOARD_DAY.md) | Board day notes, microphone test project |
+| [docs/DESIGN_PLAN.md](docs/DESIGN_PLAN.md) | Design plan and status of every work item |
+| [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md) | Backlog by priority |
+| [docs/PROGRESS.md](docs/PROGRESS.md) | Progress log |
+| [docs/CHANGE_REVIEW.md](docs/CHANGE_REVIEW.md) | Changes and how they were verified |
+| [docs/GAMEPLAY_REVIEW.md](docs/GAMEPLAY_REVIEW.md) | Story and gameplay review |
+| [docs/MAP_DESIGN.md](docs/MAP_DESIGN.md) | Room design rules |
+| [docs/STORY.md](docs/STORY.md) | Source of all on-screen text |
+| [docs/SPRITE_STATUS.md](docs/SPRITE_STATUS.md) | Which sprites are final or placeholders |
+| [docs/SOUND_PLAN.md](docs/SOUND_PLAN.md) | Sound effects and music |
+| [docs/SOUND_PIPELINE_PLAN.md](docs/SOUND_PIPELINE_PLAN.md) | Audio import pipeline plan |
+| [docs/DOC_UPDATE_REPORT.md](docs/DOC_UPDATE_REPORT.md) | Report of the last documentation refresh |
+| [docs/README_detailed_reference.md](docs/README_detailed_reference.md) | Previous detailed README (tables, simulator options, sound list) |
+| [docs/archive/SPRITE_PLAN.md](docs/archive/SPRITE_PLAN.md) | Old sprite plan (history) |
+| [sprites/README.md](sprites/README.md) | How to change sprites, tiles, enemies and bosses |

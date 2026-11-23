@@ -1,0 +1,21 @@
+# fig name, job script (report_shots/scripts/<job>.txt), frame, total frames of that job, what it shows, DEBUG switches used by the script
+FIGS = [
+ ("fig20_title",            "A",  20,   "title screen (hero vs vampire between two torches)", "none"),
+ ("fig21_play",             "E",  500,  "floor 1 combat room 1, 4 monsters alive, hero with 4 hearts, hint strip (DEFEAT ALL ENEMIES / ENEMIES LEFT) at the top", "none (real play: intro dialogs skipped with BTNC, walk to C1)"),
+ ("fig22_melee",            "E",  602,  "Form 1 melee swing (yellow arc) on a monster", "none"),
+ ("fig23_shooting",         "F",  1440, "Form 3 (angel) shot splitting (green AOE bullets) in floor 2 combat room 1 with turrets firing", "SW1 (skip floor 1), SW3 x2 (evolve to form 3), SW0 (boss door); combat itself is real"),
+ ("fig24_cleared",          "H2", 1000, "floor 1 combat room cleared: doors open, hint DOORS OPEN / GO ON, spikes down", "SW2 (clear waves), SW0 (boss door)"),
+ ("fig25_lightbulb_start",  "B",  2210, "Light Bulb puzzle at the start: bulbs 1010 (seeded), 4 levers, hint LIGHT ALL BULBS / PULL THE LEVERS", "SW2 only in the two combat rooms before it"),
+ ("fig26_lightbulb_solved", "B",  2750, "Light Bulb solved: all 4 bulbs lit, item on the floor (levers b and d pulled by the hero)", "SW2 only in the two combat rooms before it"),
+ ("fig27_sokoban_start",    "C",  None, "Sokoban at the start (floor 2)", "SW1, SW2"),
+ ("fig28_sokoban_gate_open","C",  None, "Sokoban solved, gate open", "SW1, SW2"),
+ ("fig29_simon_show",       "D",  None, "Simon Says pattern being shown (floor 3)", "SW1 x2, SW3 x3, SW2, SW0"),
+ ("fig30_simon_solved",     "D",  None, "Simon Says solved", "SW1 x2, SW3 x3, SW2, SW0"),
+ ("fig31_boss1",            "H2", 1440, "Boss 1 stunned by the clap (K key), boss HP bar", "SW0 (boss door), SW2 (clear C1)"),
+ ("fig32_boss2",            "F2", 2500, "Boss 2 inside its fence with minions", "SW1, SW3 x2, SW2, SW0"),
+ ("fig33_boss3",            "G3", 2600, "Boss 3 charging (charge bar under its HP bar), hero's charged shot", "SW1 x2, SW3 x3, SW2, SW0"),
+ ("fig34_floor_clear",      "K",  195,  "FLOOR 1 CLEAR! screen", "SW1 (floor done)"),
+ ("fig35_escape_maze",      "N",  None, "tilt maze with the ball", "SW1 x2, SW3 x3, SW2, SW0 (boss door only); boss 3 and the key are real"),
+ ("fig36_win",              "N",  None, "WIN screen", "same as fig35"),
+ ("fig37_gameover",         "K",  630,  "GAME OVER screen", "SW4 x4 (take hit)"),
+]
