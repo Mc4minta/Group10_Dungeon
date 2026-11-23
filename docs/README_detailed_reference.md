@@ -1,7 +1,7 @@
 > **Archived reference.** This is the previous root `README.md` (state of 23/11/2026), kept for its detailed tables (combat values, sound list, simulator options).
 > The root `README.md` is the current overview; where the two differ, the code and the root README take precedence.
 
-# Group10_Dungeon — THE CHOSEN ONE (game name on screen; folder = Group10_Dungeon)
+# cpe222-the-chosen-one — THE CHOSEN ONE (game name on screen; repository name was Group10_Dungeon before the rename)
 
 A dungeon crawler with puzzle rooms for the Digilent Nexys A7-100T, VGA 640×480 @ 60 Hz, Verilog (Vivado 2024.2)
 This document was updated from the real code on 23/11/2026 (branch `dev` = `main` at commit `3e908a3`). Documentation update report: `docs/DOC_UPDATE_REPORT.md`

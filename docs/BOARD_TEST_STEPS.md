@@ -25,7 +25,7 @@ Keyboard (confirmed), clap meter + settings page, story boxes that freeze the ga
 1. Update the folder: it is already on branch `sprite-zip` (I merged everything into it). In a terminal in the project folder: `git status` should say `On branch sprite-zip`.
 2. In Vivado: **File -> Close Project** (stop any running synthesis first).
 3. In the Tcl Console run:
-   `source E:/vivado/Group10_Dungeon/Group10_Dungeon/scripts/create_project.tcl`
+   `source <path-to-your-clone>/scripts/create_project.tcl`
    This rebuilds the project from the folders, so the new files (`face_lock.v`, `player_frame.v`, new `.mem` files and headers) are all included. It opens the new project.
 4. Check **Sources**: about 19 `.v` files (including `face_lock`, `player_frame`, `hud`, `audio`, `objects`, `boss`, `puzzles`) and the `.mem` files.
 5. Click **Generate Bitstream** (it runs synthesis and implementation first).
@@ -34,7 +34,7 @@ Keyboard (confirmed), clap meter + settings page, story boxes that freeze the ga
    If it says "HW Target shutdown": unplug and replug the USB cable, then Auto Connect again.
 
 Quickest fix if synthesis says `module 'xxx' not found` (for example `face_lock`) and you do not want to re-create the project: in the Tcl Console of the OPEN project run
-`source E:/vivado/Group10_Dungeon/Group10_Dungeon/scripts/vivado_update_project.tcl` (it adds every missing `rtl/*.v` and `mem/*.mem` and prints OK / MISSING for the key modules), then Generate Bitstream.
+`source <path-to-your-clone>/scripts/vivado_update_project.tcl` (it adds every missing `rtl/*.v` and `mem/*.mem` and prints OK / MISSING for the key modules), then Generate Bitstream.
 
 **Programming errors** ("No devices detected on target", "may be locked by another hw_server", "HW Target shutdown"): this is the cable / board, not the design. Check: the board power switch is ON, the micro-USB cable is in the PROG/UART port,
 no other program uses the board (a second Vivado window, Digilent Adept). Then in the Tcl Console: `disconnect_hw_server`, `close_hw_manager`, `open_hw_manager`, `connect_hw_server -allow_non_jtag`, `open_hw_target`.
