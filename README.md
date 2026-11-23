@@ -115,7 +115,7 @@ Form 4 uses a placeholder sprite (the Human sheets with a gold tint), see `docs/
 | Boss 2 (floor 2) | 16 | Stays inside a fence and summons minions; it can be hurt only after all minions are dead |
 | Boss 3 (floor 3) | 9 | Armoured; hurt by the charged shot of form 4, or while it rests; it charges a large attack that can be interrupted |
 
-Obstacles: spike traps (permanent on floor 3, timed on floor 2), breakable crates, pits (form 3 flies over them) and locked doors that open when the room is clear.
+Obstacles: spike traps (permanent on floor 3, timed on floor 2), breakable crates, pits (forms 3 and 4 fly over them) and locked doors that open when the room is clear.
 
 ### Puzzles
 
@@ -285,6 +285,20 @@ buttons / switches / PS/2 keyboard / microphone / accelerometer
 ### Pixel pipeline
 
 `rtl/renderer.v` computes the colour of each pixel in a four-clock pipeline. Stage 0 applies the screen shake and computes the tile address and the text position. Stage 1 reads the tile map and registers the addresses of the tile set and of the hero sprite. Stage 2 reads the ROMs (block RAM) and takes the object layer from `objline.v`, a double line buffer that draws the objects of the next line. Stage 3 selects the layer and registers the colour. The layers, bottom to top, are tile, puzzle objects with monsters, bosses and bullets, hero, and text. The colour `F0F` marks a transparent pixel. `top.v` delays the sync signals by the same four clocks.
+
+### Sprites and ROMs
+
+All pictures are ROMs with 12-bit RGB444 words (`F0F` = transparent), loaded from `mem/*.mem`.
+
+| ROM | Contents |
+| --- | --- |
+| `mem/player.mem` | 48 hero frames of 32×32 (4 forms × 4 directions × 3 poses) |
+| `mem/monster.mem` | 4 frames of 32×32 (2 monsters × 2 frames) |
+| `mem/boss.mem` | 8 slots of 64×64 (6 used: 3 bosses × 2 frames) |
+| `mem/tileset.mem` | 48 tiles of 32×32 (3 floors × 16 tiles) |
+| `mem/ovtile.mem` | 16 overlay pictures of 32×32 (crate, spike trap, decoration, torches, timed spikes) |
+
+The local Vivado run of 22/11/2026 reports 103.5 of 135 block RAM tiles (101 RAMB36 and 5 RAMB18).
 
 ### Content pipeline
 

@@ -62,7 +62,7 @@ The sprites, tiles, enemies, bosses, puzzle objects, maps and music are generate
 4. Connect a VGA monitor and speakers/headphones to the AUDIO OUT jack, then play
 5. **Before the hand-in build:** set `parameter DEBUG = 0` in `rtl/top.v` (the default is currently 1)
 
-Board day: [`docs/BOARD_DAY.md`](docs/BOARD_DAY.md) (separate microphone test: `scripts/create_mic_project.tcl`) · before the first build, compare the pins in `constraints/nexys_a7.xdc` with Digilent's Master XDC once more
+Board day: [`docs/BOARD_DAY.md`](BOARD_DAY.md) (separate microphone test: `scripts/create_mic_project.tcl`) · before the first build, compare the pins in `constraints/nexys_a7.xdc` with Digilent's Master XDC once more
 
 ## Buttons / switches / keyboard (according to the code `rtl/top.v`, `rtl/ps2_kbd.v`)
 
