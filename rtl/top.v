@@ -257,7 +257,9 @@ module top #(
     wire open_E   = has_key | sw0_key;             // W7: ประตู E เปิดเมื่อมีกุญแจ (debug SW0 เปิดด้วย)
     wire is_title = (state == S_TITLE);
     // ---- W29 title pages: BTNR / right arrow = next page, BTNL / left arrow = previous; 0 title, 1-5 controls, 6-8 credits ----
-    // W36: page 1 = SETTINGS (clap level), 2-6 = CONTROLS 1-5, 7-9 = CREDITS 1-3
+    // W36: page 1 = SETTINGS (clap level), 2-6 = CONTROLS 1-5, 7-9 = CREDITS 1-3; W45: 7-14 = CREDITS 1-8
+    // W45: credits grew to 8 pages (CREDITS 1-8 = tpage 7-14; their text screen ids are 21-23 and 30-34, hence the 6-bit txt_scr)
+    localparam [3:0] TPAGE_LAST = 4'd14;
     reg [3:0] tpage = 4'd0;
     reg       br_d = 1'b0, bl_d = 1'b0, bu_d = 1'b0, bd_d = 1'b0;
     reg [2:0] mic_step = 3'd2;                      // clap level 0 VERY LOW .. 4 VERY HIGH, 2 = MID (default); kept over new games, reset only by rst
@@ -269,8 +271,8 @@ module top #(
             if (bd & ~bd_d && mic_step != 3'd0) mic_step <= mic_step - 3'd1;
         end
         if (rst || !is_title) tpage <= 4'd0;
-        else if (br & ~br_d) tpage <= (tpage == 4'd9) ? 4'd0 : tpage + 4'd1;
-        else if (bl & ~bl_d) tpage <= (tpage == 4'd0) ? 4'd9 : tpage - 4'd1;
+        else if (br & ~br_d) tpage <= (tpage == TPAGE_LAST) ? 4'd0 : tpage + 4'd1;
+        else if (bl & ~bl_d) tpage <= (tpage == 4'd0) ? TPAGE_LAST : tpage - 4'd1;
     end
     wire [11:0] mic_step_th = (mic_step == 3'd0) ? 12'd192 : (mic_step == 3'd1) ? 12'd320 : (mic_step == 3'd2) ? 12'd448 : (mic_step == 3'd3) ? 12'd704 : 12'd1024;
     wire [11:0] mic_th_eff = (SW[7:5] != 3'd0) ? {2'b00, SW[7:5], 7'd0} : mic_step_th;      // SW5-SW7 override (0 = the menu value); SW8 = hitbox overlay (W43)
@@ -401,7 +403,7 @@ module top #(
     wire led_blink_on = (blk_cnt < (LED_BLINK + 1) / 2);
     wire hint_on;                               // W32: the hint strip is shown (assigned below, next to its logic)
     // ข้อความ: 1 TITLE 2 FLOOR CLEAR 3 ESCAPE! 4 WIN 5 GAME OVER 6 PAUSED
-    wire [4:0] txt_scr = paused ? 5'd6 : is_title ? ((tpage == 4'd0) ? 5'd1 : (tpage == 4'd1) ? (5'd25 + {2'b00, mic_step}) : (5'd14 + {1'b0, tpage})) : is_pro ? (5'd7 + {3'b000, pro_page}) :
+    wire [5:0] txt_scr = paused ? 6'd6 : is_title ? ((tpage == 4'd0) ? 6'd1 : (tpage == 4'd1) ? (6'd25 + {3'b000, mic_step}) : (tpage > 4'd9) ? (6'd20 + {2'b00, tpage}) : (6'd14 + {2'b00, tpage})) : is_pro ? (5'd7 + {3'b000, pro_page}) :
                          (state == S_EVOLVE) ? (5'd11 + {3'b000, form}) : (state == S_CLEAR) ? 5'd2 : esc_banner ? 5'd3 :
                          is_win ? 5'd4 : (state == S_GAME_OVER) ? (tmo ? 5'd15 : 5'd5) : dlg_show ? 5'd14 : hint_on ? 5'd24 : 5'd0;
     wire [2:0] b_frame = {b_kind, 1'b0} + ((b_kind == 2'd0) ? b_stunned : b_anim);   // บอส 1 เฟรม 1 = ภาพมึน (W10)

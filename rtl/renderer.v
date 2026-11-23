@@ -69,7 +69,7 @@ module renderer (
     input  wire [9:0]   sh_dx, sh_dy,     // จอสั่น (two's complement): เลื่อนพิกัดภาพ ไม่ยุ่ง sync
     input  wire [11:0]  hint_b0, hint_b1,      // W32: hint strip text addresses (text ROM)
     input  wire [4:0]   hint_n0, hint_n1,      // W32: characters in each hint line
-    input  wire [4:0]   txt_scr,          // ข้อความ: 0 ไม่มี 1 TITLE 2 FLOOR CLEAR 3 ESCAPE! 4 WIN 5 GAME OVER 6 PAUSED 7-10 PROLOGUE 11-13 NEW FORM
+    input  wire [5:0]   txt_scr,          // ข้อความ: 0 ไม่มี 1 TITLE 2 FLOOR CLEAR 3 ESCAPE! 4 WIN 5 GAME OVER 6 PAUSED 7-10 PROLOGUE 11-13 NEW FORM
     input  wire         txt_blink,        // 1 = ซ่อนบรรทัดที่กะพริบ
     input  wire [3:0]   t_floor, t_m1, t_m0, t_s1, t_s0,   // ตัวเลขสดในข้อความ
     input  wire [2:0]   hud_hp, hud_hp_max,                // player hearts (hud.v)
@@ -199,7 +199,7 @@ module renderer (
     reg        ls0, ls1, lk0, lk1, in0, in1, s4, kk;
     reg [11:0] lb0, lb1, bb, ta_;
     reg [5:0]  code;
-    reg [4:0]  colc;
+    reg [5:0]  colc;                              // W45: 6 bits, a 2x line may be up to 40 characters (the credits pages)
     // stage A: ตำแหน่งในบรรทัดข้อความ (ลบ + เทียบขอบ + เลือกบรรทัด) -> register; stage B: อ่านตัวอักษรจาก text ROM + เลขสด
     reg [9:0]  a_rx = 0, a_ry = 0; reg a_in = 0, a_s4 = 0, a_kk = 0, a_on = 0; reg [11:0] a_bb = 0;
     always @(posedge clk) begin
@@ -222,7 +222,7 @@ module renderer (
         r1_txt <= 1'b0;
         if (a_on) begin
             rx = a_rx; ry = a_ry; s4 = a_s4; bb = a_bb; kk = a_kk;
-            colc = s4 ? rx[9:5] : rx[8:4];
+            colc = s4 ? {1'b0, rx[9:5]} : rx[9:4];
             ta_  = bb + colc;
             code = txtmem[ta_];
             case (code)                                  // ตัวเลขสด

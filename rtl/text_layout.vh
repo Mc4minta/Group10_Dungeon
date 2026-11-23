@@ -1,5 +1,5 @@
 // สร้างโดย scripts/make_font.py — อย่าแก้มือ (แก้ข้อความที่ docs/STORY.md)
-// บรรทัดข้อความ: หน้าจอ s (1..13, 15) บรรทัด l (0..1): Y, X, W(px), H(px), S (0 = 2x, 1 = 4x), B (ที่อยู่ใน text.mem), K (กะพริบ)
+// บรรทัดข้อความ: หน้าจอ s (1..13, 15..23, 25..34) บรรทัด l (0..1): Y, X, W(px), H(px), S (0 = 2x, 1 = 4x), B (ที่อยู่ใน text.mem), K (กะพริบ)
 localparam [9:0] T1_0_Y = 10'd96, T1_0_X = 10'd96, T1_0_W = 10'd448, T1_0_H = 10'd32; localparam T1_0_S = 1, T1_0_B = 24, T1_0_K = 0;
 localparam [9:0] T1_1_Y = 10'd360, T1_1_X = 10'd160, T1_1_W = 10'd320, T1_1_H = 10'd16; localparam T1_1_S = 0, T1_1_B = 38, T1_1_K = 1;
 localparam [9:0] T2_0_Y = 10'd176, T2_0_X = 10'd96, T2_0_W = 10'd448, T2_0_H = 10'd32; localparam T2_0_S = 1, T2_0_B = 58, T2_0_K = 0;
@@ -41,9 +41,9 @@ localparam [9:0] T20_1_Y = 10'd230, T20_1_X = 10'd160, T20_1_W = 10'd320, T20_1_
 localparam [9:0] T21_0_Y = 10'd150, T21_0_X = 10'd96, T21_0_W = 10'd448, T21_0_H = 10'd32; localparam T21_0_S = 1, T21_0_B = 632, T21_0_K = 0;
 localparam [9:0] T21_1_Y = 10'd230, T21_1_X = 10'd256, T21_1_W = 10'd128, T21_1_H = 10'd16; localparam T21_1_S = 0, T21_1_B = 646, T21_1_K = 0;
 localparam [9:0] T22_0_Y = 10'd150, T22_0_X = 10'd80, T22_0_W = 10'd480, T22_0_H = 10'd32; localparam T22_0_S = 1, T22_0_B = 654, T22_0_K = 0;
-localparam [9:0] T22_1_Y = 10'd230, T22_1_X = 10'd240, T22_1_W = 10'd160, T22_1_H = 10'd16; localparam T22_1_S = 0, T22_1_B = 669, T22_1_K = 0;
-localparam [9:0] T23_0_Y = 10'd150, T23_0_X = 10'd112, T23_0_W = 10'd416, T23_0_H = 10'd32; localparam T23_0_S = 1, T23_0_B = 679, T23_0_K = 0;
-localparam [9:0] T23_1_Y = 10'd230, T23_1_X = 10'd200, T23_1_W = 10'd240, T23_1_H = 10'd16; localparam T23_1_S = 0, T23_1_B = 692, T23_1_K = 0;
+localparam [9:0] T22_1_Y = 10'd230, T22_1_X = 10'd184, T22_1_W = 10'd272, T22_1_H = 10'd16; localparam T22_1_S = 0, T22_1_B = 669, T22_1_K = 0;
+localparam [9:0] T23_0_Y = 10'd200, T23_0_X = 10'd48, T23_0_W = 10'd544, T23_0_H = 10'd16; localparam T23_0_S = 0, T23_0_B = 686, T23_0_K = 0;
+localparam [9:0] T23_1_Y = 10'd240, T23_1_X = 10'd72, T23_1_W = 10'd496, T23_1_H = 10'd16; localparam T23_1_S = 0, T23_1_B = 720, T23_1_K = 0;
 localparam [9:0] T25_0_Y = 10'd150, T25_0_X = 10'd160, T25_0_W = 10'd320, T25_0_H = 10'd32; localparam T25_0_S = 1, T25_0_B = 541, T25_0_K = 0;
 localparam [9:0] T25_1_Y = 10'd220, T25_1_X = 10'd80, T25_1_W = 10'd480, T25_1_H = 10'd32; localparam T25_1_S = 1, T25_1_B = 551, T25_1_K = 0;
 localparam [9:0] T26_0_Y = 10'd150, T26_0_X = 10'd160, T26_0_W = 10'd320, T26_0_H = 10'd32; localparam T26_0_S = 1, T26_0_B = 566, T26_0_K = 0;
@@ -54,3 +54,13 @@ localparam [9:0] T28_0_Y = 10'd150, T28_0_X = 10'd160, T28_0_W = 10'd320, T28_0_
 localparam [9:0] T28_1_Y = 10'd220, T28_1_X = 10'd256, T28_1_W = 10'd128, T28_1_H = 10'd32; localparam T28_1_S = 1, T28_1_B = 602, T28_1_K = 0;
 localparam [9:0] T29_0_Y = 10'd150, T29_0_X = 10'd160, T29_0_W = 10'd320, T29_0_H = 10'd32; localparam T29_0_S = 1, T29_0_B = 606, T29_0_K = 0;
 localparam [9:0] T29_1_Y = 10'd220, T29_1_X = 10'd64, T29_1_W = 10'd512, T29_1_H = 10'd32; localparam T29_1_S = 1, T29_1_B = 616, T29_1_K = 0;
+localparam [9:0] T30_0_Y = 10'd200, T30_0_X = 10'd16, T30_0_W = 10'd608, T30_0_H = 10'd16; localparam T30_0_S = 0, T30_0_B = 751, T30_0_K = 0;
+localparam [9:0] T30_1_Y = 10'd240, T30_1_X = 10'd112, T30_1_W = 10'd416, T30_1_H = 10'd16; localparam T30_1_S = 0, T30_1_B = 789, T30_1_K = 0;
+localparam [9:0] T31_0_Y = 10'd220, T31_0_X = 10'd112, T31_0_W = 10'd416, T31_0_H = 10'd16; localparam T31_0_S = 0, T31_0_B = 815, T31_0_K = 0;
+localparam [9:0] T31_1_Y = 10'd0, T31_1_X = 10'd0, T31_1_W = 10'd0, T31_1_H = 10'd0; localparam T31_1_S = 0, T31_1_B = 0, T31_1_K = 0;
+localparam [9:0] T32_0_Y = 10'd150, T32_0_X = 10'd112, T32_0_W = 10'd416, T32_0_H = 10'd32; localparam T32_0_S = 1, T32_0_B = 841, T32_0_K = 0;
+localparam [9:0] T32_1_Y = 10'd230, T32_1_X = 10'd72, T32_1_W = 10'd496, T32_1_H = 10'd16; localparam T32_1_S = 0, T32_1_B = 854, T32_1_K = 0;
+localparam [9:0] T33_0_Y = 10'd200, T33_0_X = 10'd24, T33_0_W = 10'd592, T33_0_H = 10'd16; localparam T33_0_S = 0, T33_0_B = 885, T33_0_K = 0;
+localparam [9:0] T33_1_Y = 10'd240, T33_1_X = 10'd40, T33_1_W = 10'd560, T33_1_H = 10'd16; localparam T33_1_S = 0, T33_1_B = 922, T33_1_K = 0;
+localparam [9:0] T34_0_Y = 10'd200, T34_0_X = 10'd144, T34_0_W = 10'd352, T34_0_H = 10'd16; localparam T34_0_S = 0, T34_0_B = 957, T34_0_K = 0;
+localparam [9:0] T34_1_Y = 10'd240, T34_1_X = 10'd128, T34_1_W = 10'd384, T34_1_H = 10'd16; localparam T34_1_S = 0, T34_1_B = 979, T34_1_K = 0;
