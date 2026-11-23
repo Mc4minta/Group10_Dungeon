@@ -5,7 +5,7 @@ Goal from the owner: (1) the player always knows what to do, (2) the story must 
 **Status 20/11: the owner approved everything, W31 / W32 / W33 / W34 and the W28 / W29 designs are implemented on `dev` (see the DONE notes in `docs/DESIGN_PLAN.md`; deviations: the controls list is 5 two-line pages and the credits 3 pages, the enemy count is not shown in the objective). Not tested on the board.**
 
 ## 1. How the story works today
-* 50 story boxes (`docs/STORY.md`, tier B): **12 are blocking** (the safe-room intro F1-01 .. F1-12: the game is frozen until BTNC), **38 are timed** (2.5 s, `DLG_FRAMES` = 150).
+* (code 23/11: `rtl/dlg_cfg.vh` has 67 dialogue entries = 51 boxes + 16 hint lines, 37 events) 50 story boxes (`docs/STORY.md`, tier B): **12 are blocking** (the safe-room intro F1-01 .. F1-12: the game is frozen until BTNC), **38 are timed** (2.5 s, `DLG_FRAMES` = 150).
 * A blocking box freezes everything (`ft` = frame tick is gated: hero, monsters, bullets, boss, timers) and the attack press only advances the box.
 * A timed box **does not stop the game**: a black band (64 px) is drawn over the bottom of the screen for 2.5 s while hero, monsters and bullets keep moving.
 

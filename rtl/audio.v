@@ -1,6 +1,6 @@
 // เสียง P6: mono PWM -> AUD_PWM, 2 ช่อง: SFX (ทีละเสียง มี priority) + BGM (เพลงวน/jingle)
 //
-//   SFX 10 แบบ: ev[1..10] เป็น pulse 1 clock; เลขน้อย = priority สูงกว่า
+//   SFX 13 แบบ: ev[1..13] เป็น pulse 1 clock (11 boss appears, 12 door, 13 boss-3 charge beep); เลขน้อย = priority สูงกว่า
 //     เสียงที่ priority สูงกว่าแทรกได้ทันที; เท่ากันหรือต่ำกว่าระหว่างที่ยังเล่นอยู่ = ทิ้ง (ไม่รอคิว)
 //     ev[9] (ยิง) เลือกเสียงตาม shoot_k: 0 ร่าง 2, 1 กระจาย, 2 นัดเร็ว, 3 ลูกใหญ่ (ต่ำ ยาวกว่า)
 //   โน้ต Simon: simon_note_on + simon_note ให้เสียงทับ SFX ทุกอย่าง (priority สูงสุด) ตลอดที่ on

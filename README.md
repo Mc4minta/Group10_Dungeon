@@ -1,328 +1,399 @@
-# Group10_Dungeon (ชื่อเกมชั่วคราว)
+<h1 align="center">The Chosen One</h1>
 
-เกม dungeon crawler + ห้องปริศนา บน Digilent Nexys A7-100T, VGA 640×480 @ 60 Hz, Verilog
+<p align="center">
+  A dungeon crawler with puzzle rooms, three bosses and a tilt maze, written in Verilog for the Digilent Nexys A7-100T (VGA 640×480 @ 60 Hz).
+</p>
 
-สถานะ: **P0–P5 เสร็จใน simulation — เล่นจบเกมได้ใน sim** — ภาพขึ้นจอ, เดิน 8 ทิศ, ชนกำแพง + ไถล + corner slide, เปลี่ยนห้อง flip-screen ครบ 3 ชั้น × 5 ห้อง, หลุม/ประตูบอส/ประตูทางออกเช็คตามร่าง, Game FSM (TITLE / PLAY / EVOLVE / FLOOR_CLEAR / WIN / GAME_OVER), 4 ร่าง + HP + เวลา mm.ss + sprint, การต่อสู้ (ฟัน/ยิง, มอน A ไล่ + มอน B ป้อมยิง 4 ทิศ, โดนตี knockback + อมตะ, ห้อง Combat ล็อกจนมอนตายหมด), ปริศนา 3 ห้อง (Light Bulb, Sokoban + ดันกล่อง, Simon) + ไอเทมจริง (EVOLVE + เปิดประตูบอส L), บอส 3 ตัว + FLOOR_CLEAR จริง, ฉากหนี ESCAPE 30 วิ, ข้อความบนจอ, ไมค์ PDM (ตบมือ = บอส 2 มึน) (ยังไม่ได้ลงบอร์ดจริง) — ดูความคืบหน้าที่ `docs/PROGRESS.md`
+<p align="center">
+  <img src="docs/images/title-screen.png" width="640" alt="Title screen of The Chosen One: the hero and a vampire between two torches">
+</p>
 
-## Current status (21/11/2026) - read this first
+<p align="center">
+  <img src="https://img.shields.io/badge/FPGA%20board-Nexys%20A7--100T-blue" alt="FPGA board: Nexys A7-100T">
+  <img src="https://img.shields.io/badge/language-Verilog-orange" alt="Language: Verilog">
+  <img src="https://img.shields.io/badge/simulator-Verilator%20%2F%20Icarus-green" alt="Simulators: Verilator and Icarus Verilog">
+  <img src="https://img.shields.io/badge/course-CPE222%20KMUTT-lightgrey" alt="Course: CPE222, KMUTT">
+</p>
 
-The game is playable from the title screen to the win screen **in simulation, and the first batches were tested on the Nexys A7 board** (the USB keyboard works, the build synthesises: 103.5 of 135 Block RAM tiles). Everything added on 20-21/11 is committed on `dev` and merged into `main`, and is **not yet tested on the board**: see `docs/BOARD_TEST_STEPS.md` (items 6b-6f).
+The game name on screen is *The Chosen One*; the repository folder is `Group10_Dungeon`.
 
-What exists (details: `docs/FEATURES.md`, controls for the player: **`docs/CONTROLS.md`**):
+## Contents
 
-* 3 floors x (safe room, 2 combat rooms with 2-3 waves, 1 puzzle room, 1 boss room), forms 1-4, melee / shot / spread / charge, auto aim (on by default, free angle, target marker), timed spikes, breakable crates, pits, hint strip + tutorial, story boxes that freeze the game, title pages (settings, controls, credits).
-* 3 bosses with second phases: boss 1 (clap, microphone meter on the screen), boss 2 (fence box, minions, hit only when they are dead), boss 3 (armour, 4 s charge, bullet storm).
-* Key + Ball in a Maze ending (accelerometer; axes flipped 20/11), GAME OVER = retry the current floor.
-* Inputs: board buttons / switches **and** a USB keyboard at the same time. SW8 / H = hitbox overlay.
-* Docs: `docs/README.md` (index), `docs/DESIGN_PLAN.md` (every item W1-W46 and the **FUTURE BACKLOG** table), `docs/GAMEPLAY_REVIEW.md`, `docs/MAP_DESIGN.md`, `docs/STORY.md` (all on-screen text), `docs/SPRITE_STATUS.md`.
+1. [Overview](#overview)
+2. [Screenshots](#screenshots)
+3. [Game at a glance](#game-at-a-glance)
+4. [Controls](#controls)
+5. [Hardware and software requirements](#hardware-and-software-requirements)
+6. [Quick start](#quick-start)
+7. [Architecture](#architecture)
+8. [Repository structure](#repository-structure)
+9. [Testing and verification](#testing-and-verification)
+10. [Known limitations](#known-limitations)
+11. [Team](#team)
+12. [Credits and licences](#credits-and-licences)
+13. [Documentation index](#documentation-index)
 
-Branches: `main` and `dev` are the same commit; new work goes on `dev` first, `main` only when the owner says "merge".
+## Overview
 
-## Quick start for the art / map / sound pipelines (English)
+The hero explores three floors of a dungeon. Each floor has a start room, two combat rooms, a puzzle room and a boss room. The whole game, including the VGA picture, the sound and the input handling, is written in Verilog. There is no processor.
 
-The sprites, tiles, enemies, bosses, puzzle objects, maps and music are generated from files you edit (`my_asset/`, `my_audio/`, `sprites/*.json`, `maps/*.txt`).
-**Start with `docs/README.md`** (index, folder map, workflow, branches). Handy commands:
+Main features:
 
-| What | Command |
-|---|---|
-| Rebuild all art + previews | `scripts/update_sprites.sh` (Windows: `scripts\update_sprites.bat`) |
-| Check everything before a commit | `scripts/check_all.sh` (`--fast` = no iverilog suite) |
-| Build and test on the board | `docs/BOARD_TEST_STEPS.md` |
-| Which sprites are final / still needed | `docs/SPRITE_STATUS.md` |
-| Sounds and music | `docs/SOUND_PLAN.md` |
-| What to do next | `docs/NEXT_STEPS.md` |
+- **Movable player.** The hero walks in four directions with the board buttons or a USB keyboard, fights with melee or shots, and can use auto aim.
+- **Sprite evolution.** Each solved puzzle gives an item. The hero then evolves into a new form with a new sprite and a new weapon (four forms in total).
+- **Puzzles, bosses and a tilt maze.** Each floor has one puzzle (Light Bulb, Sokoban, Simon Says) and one boss. After the last boss, the hero rolls a ball through a maze by tilting the board.
 
-Development line: branch `dev` (`main` = the same code, merged 21/11; tag `board-test-2` = an older board build).
+## Screenshots
 
-## เริ่มใช้
+All screenshots come from the **Verilator simulation of the real design**, not from the board. Some of them use debug switches (SW0 to SW4) to skip long stretches of play. The script and frame of each picture are listed in `report_shots/README.txt`.
 
-1. ติดตั้ง Vivado (ตัวเดียวกับที่ใช้ใน lab) แล้วเปิด terminal ที่โฟลเดอร์นี้
-2. สร้าง project:
-   ```
-   vivado -mode batch -source scripts/create_project.tcl
-   ```
-   หรือใน Vivado GUI: **Tools → Run Tcl Script…** เลือก `scripts/create_project.tcl`
-3. เปิด `vivado/Group10_Dungeon.xpr` → Generate Bitstream → Program Device
-   (หรือสั่ง build ทีเดียว: `vivado -mode batch -source scripts/create_project.tcl -tclargs build`)
-4. ต่อจอ VGA แล้วกดเล่น
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/title-screen.png" width="320" alt="Title screen"><br>Title</td>
+    <td align="center"><img src="docs/images/combat.png" width="320" alt="Combat room with four skeleton monsters and the hint strip"><br>Combat</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/light-bulb-solved.png" width="320" alt="Light Bulb puzzle solved: all four bulbs lit and the item on the floor"><br>Light Bulb puzzle</td>
+    <td align="center"><img src="docs/images/sokoban-start.png" width="320" alt="Sokoban puzzle room at the start with two boxes and two plates"><br>Sokoban</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/simon-show.png" width="320" alt="Simon Says room while the pattern is shown: the red plate is lit"><br>Simon Says</td>
+    <td align="center"><img src="docs/images/boss-1.png" width="320" alt="Boss 1, a skeleton, in its room with the boss health bar"><br>Boss 1</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/boss-2.png" width="320" alt="Boss 2 inside its fence with skeleton minions around it"><br>Boss 2</td>
+    <td align="center"><img src="docs/images/boss-3.png" width="320" alt="Boss 3 charging an attack, with its charge bar under the health bar"><br>Boss 3</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/tilt-maze.png" width="320" alt="Tilt maze with the ball and the goal plate"><br>Tilt maze</td>
+    <td align="center"><img src="docs/images/win.png" width="320" alt="Win screen: You escaped, you win"><br>Win</td>
+  </tr>
+</table>
 
-> **วันลงบอร์ด:** ขั้นตอน build / checklist ทดสอบ / ทดสอบเสียงและไมค์ / ของที่ต้องส่งกลับ อยู่ที่ [`docs/BOARD_DAY.md`](docs/BOARD_DAY.md) (ตัวทดสอบไมค์แยก: `scripts/create_mic_project.tcl`)
+More pictures are in `docs/images/` (melee, shooting, room cleared, Sokoban solved, Simon solved, floor clear, game over, hero forms, enemies and obstacles).
 
-**ก่อน build ครั้งแรก** เทียบ pin ใน `constraints/nexys_a7.xdc` กับ `Nexys-A7-100T-Master.xdc` ของ Digilent อีกรอบ
+## Game at a glance
 
-## ปุ่มตอนนี้ (มีปุ่ม debug ชั่วคราว)
+### Structure
 
-| อุปกรณ์ | ทำอะไร |
+| Item | Value |
 | --- | --- |
-| BTNU/D/L/R | เดิน (กด 2 ปุ่ม = ทแยง) |
-| BTNC กด | เริ่มเกมจากหน้า TITLE · **โจมตี** ตอนเล่น (ดูตารางอาวุธต่อร่าง) · กลับ TITLE จากหน้า WIN / GAME OVER |
-| BTNC กดค้าง | strafe (ไม่เปลี่ยนทิศที่หัน) + ร่าง 2–3 ยิงซ้ำทุก cooldown, ร่าง 4 ชาร์จลูกใหญ่ |
-| **SW9** | **auto-lock**: ยก = โจมตีเล็งศัตรูที่ใกล้สุดอัตโนมัติ (8 ทิศ ระยะ 240 px) · ลง = เล็งตามทิศที่หัน |
-| **SW15** | **PAUSE**: ยก = เกมหยุดทุกอย่าง (ตำแหน่ง มอน กระสุน timer) + ข้อความ PAUSED + เสียงเงียบ, ลง = เล่นต่อ (ใช้ได้ตอน PLAY / ESCAPE)
-| **SW14** | **sprint**: ความเร็ว +1 px/เฟรม (ค่า `SPRINT_BONUS` ใน `rtl/params.vh`) ใช้ได้ทุกร่าง ระหว่างเล่น (LED14) |
-| **SW12** | ล็อกทิศค้าง (เดิม SW14) |
-| **SW13** ยกขึ้น | รีเซ็ตกล่องห้อง Sokoban (ชั้น 2) กลับที่เดิม — ใช้ได้เฉพาะในห้องนั้น ตอน gate ยังปิด (control จริง ไม่ใช่ debug) |
-| CPU_RESETN | reset (กลับหน้า TITLE) |
+| Floors | 3 |
+| Room roles per floor | START, Combat 1, Combat 2, Puzzle, Boss (15 rooms in play) |
+| Room map files | 13 ASCII files, 20×15 tiles (`maps/00` to `maps/12`); some maps are shared |
+| Ending | Boss 3 drops a key; door E in the start room of floor 3 opens the tilt maze; the maze has a 60 s limit |
 
-สวิตช์ **debug** ทำงานเฉพาะเมื่อ `top.v` ตั้ง `parameter DEBUG = 1` (ค่าตอนนี้ทั้งบอร์ดและ Verilator) — **build ส่งงานตั้ง `DEBUG = 0`**
-(`vivado ... create_project.tcl` แล้วแก้ generic `DEBUG` ของ top เป็น 0 หรือแก้ค่า default ใน `rtl/top.v`):
+### Hero forms
 
-| อุปกรณ์ | ทำอะไร (DEBUG = 1) |
-| --- | --- |
-| SW0 | เปิดประตูบอส L ทุกชั้น (ทับ `has_item`) |
-| SW1 ยกขึ้น | ข้ามชั้น: `floor_done` → FLOOR_CLEAR 2 วิ → ชั้นถัดไป (ของจริงคือฆ่าบอส) · ตอน PLAY เดินเข้าประตู E = WIN ทันทีด้วย (ทางลัดเดิม) |
-| SW2 ยกขึ้น | ลบมอนทั้งห้อง → ห้องเคลียร์ (ใช้ย่อสคริปต์ทดสอบ) |
-| SW3 ยกขึ้น | `got_item` → EVOLVE (ของจริง: เก็บไอเทมในห้องปริศนา) |
-| SW4 ยกขึ้น | `take_hit` → HP −1 (ไม่มี knockback) |
+<p align="center">
+  <img src="docs/images/hero-forms.png" width="800" alt="The four hero forms side by side: Human, Orc, Angel and Final form, with their speed and weapon type">
+</p>
 
-ไอเทมและปริศนา (P4):
-
-| ชั้น | ห้องปริศนา | ทำอย่างไร | ไอเทม |
-| --- | --- | --- | --- |
-| 1 | Light Bulb | ฟันประชิดหรือยิงคันโยก a–d (แถวบน) แต่ละครั้งสลับหลอด 4 ดวงตาม mask a = 0111, b = 1011, c = 1101, d = 1110 (bit 3 = หลอด 1) จนติดครบ 4 ดวง · รูปแบบเริ่มต้นสุ่มทุกเกม ต้องตีอย่างน้อย 2 ครั้ง | โผล่ที่ `I` เมื่อแก้ได้ |
-| 2 | Sokoban | เดินตรง (แกนเดียว) ชนกล่องเพื่อดัน 1 ช่อง ช่องถัดไปต้องเป็นพื้น/แผ่น · กล่องทับแผ่นครบ 2 แผ่น = gate เปิด · ติดเมื่อไหร่ยก SW13 · คำตอบน้อยสุด 24 ครั้ง (`scripts/solve_sokoban.py`) | อยู่หลัง gate ตั้งแต่แรก |
-| 3 | Simon | ยืนรอดูแผ่นสว่างตามลำดับ แล้วเดินเหยียบตาม (นับเมื่อจุดกลางตัวเข้าแผ่น ต้องลงจากแผ่นก่อนก้าวต่อไป) 3 รอบ ยาว 3 / 4 / 5 · ผิด = HP −1 แผ่นแดง แล้วโชว์รอบเดิมใหม่ | โผล่ที่ `I` เมื่อครบ 3 รอบ |
-
-เดินทับไอเทม → EVOLVE (ร่างถัดไป) + `has_item[ชั้น]` = ประตูบอส `L` ชั้นนั้นเปิด (LED13) · ปริศนาที่แก้แล้ว/ไอเทมที่เก็บแล้วค้างไว้แม้ออกจากห้อง · เริ่มเกมใหม่จาก TITLE = รีเซ็ตทั้งหมด
-
-จอและ LED:
-
-| อุปกรณ์ | แสดง |
-| --- | --- |
-| 7-seg | `ชั้น - HP - mm.ss` (TITLE = `--------`; WIN / GAME OVER ค้างค่าสุดท้าย) |
-| LED0–3 | ปุ่มทิศ · ในห้อง Light Bulb = หลอด 1–4 (LED3 = หลอด 1 … LED0 = หลอด 4) · ในห้อง Simon = รอบที่ผ่านแล้ว (LED0–2) |
-| LED4–7 | มอนที่เหลือในห้อง (bar: LED4 = ≥1 … LED7 = ≥4, ห้องมีได้ถึง 6 ตัว) |
-| LED8–11 | HP (หนึ่งดวงต่อ HP เริ่มจาก LED8) |
-| LED12 | ประตูห้องล็อกอยู่ (ห้อง Combat ที่ยังมีมอน) |
-| LED13 | มีไอเทมของชั้นนี้แล้ว (ประตูบอส L เปิด) |
-| LED14 / LED15 | sprint เปิดอยู่ / WIN |
-| RGB LED16 | สีตามร่าง เขียว/ฟ้า/ม่วง/ทอง · ขาวตอน EVOLVE |
-| RGB LED17 | แดง = เพิ่งโดนตี (ช่วง knockback + อมตะ 68 เฟรม) |
-| จอ VGA | TITLE = ชื่อเกม + `PRESS BTNC` (กะพริบ) · FLOOR CLEAR = `FLOOR n CLEAR` · ESCAPE = `ESCAPE!` 2 วิแรก + จอสั่น · WIN = ทอง `YOU WIN` + เวลา `mm:ss` · GAME OVER = แดงเข้ม `GAME OVER` + `PRESS BTNC` |
-| ห้องบอส | LED0–7 = HP บอส (8 ดวงตามสัดส่วน) · ESCAPE: LED ทั้ง 16 ดวงกะพริบ 4 Hz, 7-seg 4 หลักขวา = นับถอยหลัง `ss.ff` (วินาที.เฟรม) |
-| 7-seg ในห้อง Simon | ยังแสดง HP ตามเดิม (เหยียบผิดเสีย HP) รอบที่ผ่านดูที่ LED0–2 |
-
-ค่าเกมที่ยัง *tentative* ทั้งหมดอยู่ใน `rtl/params.vh` ที่เดียว (บรรทัดละค่า) ค่าต่อร่าง:
-
-| ร่าง | ความเร็ว px/เฟรม | Max HP | ดาเมจ | RGB16 |
+| Form | Speed (px/frame) | Max HP | Damage | Weapon |
 | --- | --- | --- | --- | --- |
-| 1 | 2 | 3 | 1 | เขียว |
-| 2 | 2 | 3 | 1 | ฟ้า |
-| 3 | 3 | 4 | 2 | ม่วง |
-| 4 | 3 | 4 | 2 | ทอง |
+| 1 Human | 2 | 4 | 1 | Melee swing |
+| 2 Orc | 2 | 4 | 1 | Single shot |
+| 3 Angel | 3 | 4 | 2 | Three-way spread; a shot that hits a monster splits into four |
+| 4 Final form | 3 | 4 | 2 | Fast shot; hold 45 frames for a large ball (damage 4) |
 
-การต่อสู้ (P3, *tentative*):
+Form 4 uses a placeholder sprite (the Human sheets with a gold tint), see `docs/SPRITE_STATUS.md`. Values are from `rtl/params.vh`.
 
-| อย่าง | ค่า |
-| --- | --- |
-| ร่าง 1 ฟันประชิด | hit box 24×16 หน้าตัว อยู่ 8 เฟรม, cooldown 20 เฟรม, โดนมอนตัวละ 1 ทีต่อการฟัน |
-| ร่าง 2–4 ยิง | กระสุน 8×8 วิ่ง 4 px/เฟรม, บนจอได้ 2 นัด, cooldown 15 เฟรม · หยุดที่ `#` และประตูปิด, ผ่าน `H` `F` |
-| มอน A (`S` ในแมพ) | HP 2, เดินหาผู้เล่น 1 px/เฟรม แยกแกน x/y ชน tile (ไม่ผ่าน `#` ประตู `H` `F`), ชนตัว = HP −1 |
-| มอน B (`T` ในแมพ) | HP 3, อยู่กับที่ ยิง 4 ทิศทุก 120 เฟรม (ครั้งแรก 60 เฟรมหลังเข้าห้อง) ตัวถัดไปในห้องเหลื่อม 30 เฟรม, กระสุน 3 px/เฟรม |
-| มอนโดนตี | กะพริบขาว 8 เฟรม, HP 0 = หายไป |
-| ผู้เล่นโดนตี | HP −1, ถอย 16 px ใน 8 เฟรม (ประตูเป็นกำแพงระหว่างถอย), แล้วอมตะ 60 เฟรม (กะพริบ) — กระสุนศัตรูทะลุตอนอมตะ |
-| ห้อง Combat (C1, C2) | เข้าแล้วมีมอน = ประตู D ปิด · มอนตายหมด = cleared ประตูเปิด ไม่เกิดใหม่ · เริ่มเกมใหม่ = ล้าง cleared |
+### Enemies, bosses and obstacles
 
-## อาวุธต่อร่าง (P6)
+<p align="center">
+  <img src="docs/images/enemies-bosses-obstacles.png" width="700" alt="The two monsters, the three bosses, the spike trap and the breakable block as drawn by the game">
+</p>
 
-| ร่าง | กด Space | กดค้าง | กระสุน | ดาเมจ |
-| --- | --- | --- | --- | --- |
-| 1 | ฟันประชิด (กล่อง 24×16 หน้าตัว) | strafe | — | 1 |
-| 2 | ยิง 1 นัด 4 px/เฟรม (ผ่านรั้ว `F`) | strafe + ยิงซ้ำทุก 15 เฟรม | 8×8 ฟ้า | 1 |
-| 3 | ยิงกระจาย 3 ทาง: ตรง + ทแยง 45° สองข้าง (ทแยง 3 px/แกน/เฟรม) | strafe + ยิงซ้ำทุก 20 เฟรม | 8×8 เขียว ×3 | 2 ต่อนัด |
-| 4 | นัดเร็ว 6 px/เฟรม | ชาร์จ (strafe): ครบ 45 เฟรม ตัวละครกะพริบสว่าง ปล่อยแล้วยิง **ลูกใหญ่** | 8×8 เหลือง / ลูกใหญ่ 16×16 ส้ม | 2 / ลูกใหญ่ 4 |
-
-- **ฟันได้ทุกร่าง**: ร่าง 2–4 กด Space ตอนมีมอนหรือบอสอยู่ในกล่องหน้าตัว = ฟัน (ดาเมจของร่าง) แทนยิง/ชาร์จ
-- ลูกใหญ่: หยุดเมื่อโดนมอน/บอสตัวแรก (ไม่ทะลุแล้ว, W3), หยุดที่กำแพงและประตูปิด, ทำลายกระสุนศัตรูที่โดน, บนจอได้ทีละลูก · ปล่อยก่อน 45 เฟรม = ไม่มีลูกใหญ่ (ได้แค่นัดเร็วตอนกด) · ร่าง 4 ไม่ยิงซ้ำอัตโนมัติ
-- **กระสุนชนกัน**: กระสุนผู้เล่นโดนกระสุนศัตรู = หายทั้งคู่ (ยกเว้นลูกใหญ่ ไปต่อ)
-- กระสุนผู้เล่นมี 6 slot (กระจาย 2 ชุดพอดี) · ทแยงตรวจ tile ปลายทาง + ช่องที่ขยับแกน x (ไม่ลอดมุมกำแพง)
-- ค่าทั้งหมดใน `rtl/params.vh` (`SPREAD_*`, `TAP_*`, `CHARGE_FRAMES`, `BIG_*`) · SW14 sprint +1 px/เฟรม ใช้ได้ทุกร่างเหมือนเดิม (LED14; เดิมเป็น SW15)
-- **Sokoban ล็อกเมื่อแก้สำเร็จ**: gate เปิดแล้วกล่องดันไม่ได้อีก (เป็นกำแพง), SW13 ไม่ทำอะไร; ทางจาก gate กลับประตูออกยังเปิด (ผ่านช่อง (7, 9) ระหว่างแผ่น)
-
-## เสียง (P6 sound)
-
-- ขา `AUD_PWM` (A11) ส่ง PWM 8 bit (carrier 100 MHz / 256 = 390 kHz) ผ่านวงจร low-pass บนบอร์ด · `AUD_SD` (D12) ขับ **1 = เปิดแอมป์** (`AUD_SD_ON` ใน `params.vh`; ค่านี้จำจาก demo ของ Digilent — เว็บ reference manual เข้าไม่ได้จากเครื่องนี้ ต้องเช็คกับ manual ก่อนลงบอร์ด)
-- `rtl/audio.v`: 2 ช่อง คลื่นสี่เหลี่ยม — **SFX** (ทีละเสียง มี priority) + **BGM** (เบากว่า: SFX ±48, BGM ±18 รอบ 128)
-- **priority**: เลขน้อยสำคัญกว่า, แทรกได้ทันที; เท่ากันหรือต่ำกว่าระหว่างที่ยังเล่นอยู่ = **ทิ้ง** (ไม่รอคิว)
-
-| # | เหตุการณ์ | ความถี่ | ยาว (เฟรม) |
-| --- | --- | --- | --- |
-| 1 | ผู้เล่นโดนตี | 330 → 110 Hz | 18 |
-| 2 | บอส 2 มึน (ตบมือ) | 1200 → 600 Hz | 24 |
-| 3 | มอน / บอสตาย | 500 → 120 Hz | 14 |
-| 4 | เก็บไอเทม / evolve | 800 → 2000 Hz | 28 |
-| 5 | เคลียร์ห้อง / ประตูเปิด / gate เปิด | 600 → 1000 Hz | 20 |
-| 6 | ปริศนาผิด (Simon) | 200 → 170 Hz | 24 |
-| 7 | ปริศนาถูก (คันโยก / กล่องเลื่อน / Simon เหยียบถูก) | 1500 Hz | 5 |
-| 8 | ศัตรูโดนตี | 900 → 700 Hz | 4 |
-| 9 | ยิง: ร่าง 2 / กระจาย / นัดเร็ว / ลูกใหญ่ | 1800→1200 / 1400→1000 / 2400→1600 / 600→250 Hz | 5 / 6 / 4 / 16 |
-| 10 | ฟันประชิด | 450 → 250 Hz | 7 |
-| — | โน้ต Simon q w e r | C5 E5 G5 C6 (523 659 784 1047 Hz) ทับทุก SFX ตลอดที่แผ่นสว่าง | ตามแผ่น |
-
-- **BGM** (`mem/music.mem` จาก `scripts/make_music.py`; ทำนองเขียนเองทั้งหมด): ชั้น 1 (C เมเจอร์ สดใส ~112 bpm, 17 วิ) · ชั้น 2 (A ไมเนอร์ ลึกลับ, 19 วิ) · ชั้น 3 (D ไมเนอร์ ฮึกเหิม เร็ว, 13 วิ) · ESCAPE (สลับโน้ตเร่งเร้า, 5.6 วิ วน) · jingle WIN (3.3 วิ) และ GAME OVER (3.6 วิ) เล่นครั้งเดียว · หน้า TITLE เงียบ · เล่นใน PLAY / EVOLVE / FLOOR CLEAR / ESCAPE
-- เสียงใน sim: `AUD_PWM` เฉลี่ยทุก 512 clock → 1 sample (48,828 Hz ตามเวลาเกมจริง); เล่นสดผ่าน SDL ที่อัตรา 12,207 Hz (ช้ากว่าจริง 4 เท่า ตรงความเร็ว sim ~15 fps — เสียงต่ำลง 2 octave แต่ไม่สะดุด; ตั้ง `AUDIO_RATE=<Hz>` ได้, `NOAUDIO=1` ปิด) · คีย์ **M** = ปิด/เปิดเสียง
-- บันทึกเสียงที่ความเร็วเวลาเกมจริง: `--wav out.wav` (ทั้งรัน 48,828 Hz) หรือ `--wav-seg เฟรมเริ่ม:เฟรมจบ:out.wav` (เฉพาะช่วง, 12,207 Hz, ไฟล์เล็ก) · ไฟล์ตัวอย่างใน `docs/audio/` (`WAVS=1 SHOTS=1 ./scripts/run_full_game.sh` สร้างใหม่)
-
-## บอส ฉากหนี ไมค์ (P5)
-
-| บอส | ชั้น | HP | เคลื่อนที่ | โจมตี |
-| --- | --- | --- | --- | --- |
-| 1 | 1 | 10 | ไล่ช้า 1 px ทุก 2 เฟรม | ชนตัวอย่างเดียว |
-| 2 | 2 | 16 | เด้งทแยง 2 px/เฟรม ในวงรั้ว `F` | ยิง 4 ทิศทุก 120 เฟรม · **ตบมือ = มึน 2 วิ** แล้ว cooldown 5 วิ |
-| 3 | 3 | 24 | ไล่เร็ว 2 px/เฟรม | ยิง 4 ทิศทุก 60 เฟรม |
-
-- sprite 64×64, ชนตัว = HP −1, โดนกระสุน/ฟันแล้วกะพริบ, กระสุนผู้เล่นผ่านรั้ว `F` (ร่าง 2–4 ยิงบอส 2 ข้ามรั้วได้) · ค่าทั้งหมดอยู่ใน `rtl/params.vh`
-- เข้าห้องบอสตอนบอสยังอยู่ = ประตูปิด ออกไม่ได้จนบอสตาย (หรือผู้เล่นตาย) · บอสที่ตายแล้วตายถาวรจนเริ่มเกมใหม่
-- บอส 1, 2 ตาย → FLOOR CLEAR 2 วิ → ชั้นถัดไป · บอส 3 ตาย → **ได้กุญแจ** (W7: ประตู E ที่ START ชั้น 3 เปิด, เดินเข้า = เกม Ball in a Maze 60 วิ เอียงบอร์ด (ADXL362) หรือปุ่ม / SW10, ถึงเส้นชัย = WIN) · (ระบบเก่า: ESCAPE 30 วิ วิ่งกลับ ห้องบอส → C1 → START → ประตู `E` (ต้องร่าง 4 จากไอเทมชั้น 3) = WIN, หมดเวลา = GAME OVER
-- ไมค์บอร์ด: `M_CLK` J5 (2.5 MHz), `M_DATA` H5, `M_LRSEL` F5 (= 0, อ่านขอบขาขึ้น) · นับ bit 1 ทุก 4096 sample, |ones − 2048| > `MIC_TH` (600) = ตบมือ แล้วไม่สน 200 ms (`rtl/pdm_mic.v`) — ยังไม่ได้ลองกับไมค์จริง
-- ชื่อเกม (ตอนนี้ `DUNGEON`) แก้ที่ `GAME_NAME` ใน `scripts/make_font.py` ที่เดียว แล้วรันสคริปต์ใหม่
-
-## โครงสร้าง
-
-```
-rtl/          Verilog
-  params.vh     ค่าเกม tentative ทั้งหมด (`include ใน game_fsm / player / objects)
-  top.v         ต่อทุก module + input/จอ/LED
-  world.v       ห้อง: floor, room, grid, ตารางประตู + จุดเกิด, load player
-  game_fsm.v    TITLE/PLAY/EVOLVE/FLOOR_CLEAR/ESCAPE/WIN/GAME_OVER, ร่าง, HP, timer, sprint
-  objects.v     slot มอน 6 / กระสุนผู้เล่น 2 / กระสุนศัตรู 16 / บอส 1, spawn, โจมตี, AABB, โดนตี, ห้องล็อก
-  boss.v        บอส 3 ตัว + boss_rom (ค่าต่อตัว), เดิน ยิง มึน HP bar
-  pdm_mic.v     ไมค์ PDM -> clap_pulse
-  mic_test_top.v ตัวทดสอบไมค์แยก (LED bar, peak, ตัวนับ, TH จากสวิตช์) + bin2bcd.v — ดู docs/BOARD_DAY.md
-  audio.v       เสียง: PWM, SFX 10 แบบ, BGM
-  tilebase.vh   ที่อยู่ tile ไม่ใช้ตัวคูณ (LUT 13 ห้อง + shift-add)
-  text_layout.vh ตำแหน่งข้อความบนจอ (สร้างโดย make_font.py)
-  objline.v     ชั้นภาพ object แบบ line buffer สองชุด (วาดบรรทัดถัดไประหว่างบรรทัดนี้) รวมของในห้องปริศนา
-  puzzles.v     Light Bulb, Sokoban (ดันกล่อง), Simon, ไอเทม -> has_item / got_item
-  puzzle_layout.vh  ตำแหน่งคันโยก หลอด กล่อง แผ่น gate ไอเทม (สร้างจาก maps/ โดย build_maps.py)
-  vga_sync.v    VGA timing, frame_tick
-  renderer.v    pipeline 3 clock: tile < object < ผู้เล่น + หน้า TITLE / GAME OVER / WIN
-  player.v      Movement FSM + collision + ประตู + knockback
-  roms.v        tilemap / tileset / player / monster / bullet / effect / puzzle / spawn ROM
-  debounce.v    sync 2FF + debounce + edge
-  seg7.v        7-segment 8 หลัก + จุดทศนิยม
-maps/         แมพ ASCII 20×15 ทั้ง 13 ห้อง (แก้ที่นี่)
-mem/          ไฟล์ .mem ที่สร้างจากสคริปต์ (อย่าแก้มือ)
-scripts/
-  build_maps.py        maps/*.txt → mem/tilemap.mem + mem/objects.txt + mem/monsters.mem + rtl/puzzle_layout.vh
-  make_placeholders.py สร้าง sprite placeholder → mem/tileset.mem, player.mem, monster.mem, bullet.mem, effect.mem, puzzle.mem
-  solve_sokoban.py     BFS หาคำตอบห้อง Sokoban (ดันน้อยสุด), --vh เขียน sim/sokoban_solution.vh ให้ testbench
-  make_floor2_script.py สร้างสคริปต์ Verilator ชั้น 2 จากคำตอบ solver
-  create_project.tcl   สร้าง Vivado project
-  run_sim.sh           simulation ด้วย Icarus Verilog
-sim/          testbench + ภาพจาก simulation
-constraints/  .xdc
-docs/         ภาพ preview ของ placeholder + ภาพจาก simulation (p2_*, p3_*, p4_*)
-  PROGRESS.md   checklist ความคืบหน้า P0–P7 / sprite / asset (อัปเดตทุกครั้งที่งานเสร็จ)
-```
-
-## แก้แมพ / sprite
-
-- แก้แมพ: แก้ `maps/*.txt` แล้วรัน `python3 scripts/build_maps.py` (สัญลักษณ์ตาม Core Mechanics Bible, แผ่น Simon ใช้ `q w e r`)
-- sprite ผู้เล่น: วาด PNG ใน `my_asset/form1-4.png` แล้วรัน `python scripts/build_player_mem.py` (หรือ `scripts/update_sprites.sh`) — สร้าง `mem/player.mem` ให้เอง, เฟรมที่ขาด/ผิดใช้ภาพเก่า `mem/player_v1.mem`; อ่าน `sprites/README.md`
-- เปลี่ยน sprite จริง: ใช้ sprite_tool ทำ `.mem` แล้ววางทับ `mem/tileset.mem` / `mem/player.mem` ขนาดและลำดับเฟรมต้องเหมือนเดิม
-  - tileset: 3 ชั้น × 16 tile, address = (ชั้น×16 + tile)×1024 + y×32 + x
-  - player: เฟรม = ร่าง×12 + ทิศ×3 + ท่า (ทิศ 0 ลง 1 ขึ้น 2 ซ้าย 3 ขวา, ท่า 0 idle 1 ก้าว A 2 ก้าว B)
-  - monster: 4 เฟรม 32×32 = มอน A เฟรม 0, 1 แล้วมอน B เฟรม 0, 1 · bullet: 2 เฟรม 8×8 (ผู้เล่น, ศัตรู) · effect: ฟันประชิด 4 ทิศ 32×32
-  - puzzle: 10 เฟรม 32×32 = หลอดดับ, หลอดติด, คันโยกขึ้น, คันโยกลง, กล่อง, gate ปิด, gate เปิด, ไอเทม 1, 2, 3 (tile 11 ของ tileset = กล่องบนแผ่น)
-- แก้ไฟล์ .mem แล้วใน Vivado ต้อง re-run synthesis
-
-## เล่นบนจอคอม (ไม่ต้องมีบอร์ด)
-
-ใช้ Verilator แปลง Verilog ชุดเดียวกับที่ลงบอร์ดเป็นโปรแกรม แล้วแสดงภาพ VGA ในหน้าต่าง SDL2 พร้อมแผง 7-seg / LED / RGB / สวิตช์ ด้านล่าง
-
-```
-cd sim/verilator
-make run
-```
-
-| คีย์ | บนบอร์ด |
-| --- | --- |
-| ลูกศร | BTNU / BTND / BTNL / BTNR |
-| Space | BTNC (เริ่มเกม / โจมตี / ค้าง = strafe + ยิงซ้ำ) |
-| 0–9 | สลับ SW0–SW9 |
-| F1–F6 | สลับ SW10–SW15 |
-| Backspace | CPU_RESETN |
-| C | ตบมือจำลอง (ไมค์ดัง 100 ms → `clap_pulse`; ชื่อหน้าต่างขึ้น `CLAP`, บอส 2 มึนขึ้น `STUN`) |
-| Esc | ออก |
-
-ติดตั้งครั้งแรก:
-
-- **Windows**: ใช้ WSL2 + Ubuntu 24.04 (Windows 11 หรือ Windows 10 ที่อัปเดต WSL แล้ว หน้าต่างเด้งขึ้นมาเองผ่าน WSLg)
-  ```
-  wsl --install -d Ubuntu-24.04          # ใน PowerShell (admin) ครั้งเดียว แล้วรีสตาร์ท
-  sudo apt update && sudo apt install -y build-essential verilator libsdl2-dev
-  ```
-  เปิดโฟลเดอร์โปรเจคจาก WSL ได้ที่ `/mnt/c/Users/<ชื่อ>/...` (build เร็วกว่าถ้า copy ไปไว้ใน `~/`)
-- **macOS**: `brew install verilator sdl2`
-- **Ubuntu/Debian**: `sudo apt install -y build-essential verilator libsdl2-dev` (ต้องเป็น Verilator 5.x — Ubuntu 22.04 ได้ 4.x ซึ่งเก่าไป ใช้ 24.04)
-
-ข้อแตกต่างจากบอร์ดจริง: simulator ตั้ง `CE_DIV=1` (pixel clock ทุก clock เพื่อให้เร็วขึ้น 4 เท่า) และ debounce สั้นลง ส่วน logic เกมเหมือนบอร์ดทุกอย่าง ความเร็วขึ้นกับเครื่อง (WSL2 ~16–21 fps) ถ้าช้ากว่า 60 fps เกมจะดูช้าลงตาม แต่ไม่ผิด
-
-ตัวเลือก build (ใน `sim/verilator`):
-
-| คำสั่ง | ทำอะไร |
-| --- | --- |
-| `make` / `make run` | build ปกติ: ปริศนาสุ่มทุกเกม, eval ครั้งเดียวต่อ clock + PGO (g++) → `obj_dir/Vtop` |
-| `make seeded` | build seed คงที่ (`SEED=0x1234`) → `obj_dir_seeded/Vtop` สำหรับสคริปต์ใน `sim/verilator/scripts/` (หลอด 1010, Simon w q q e q ทุกครั้ง) |
-| `make SEED=0x5678` | seed อื่น (ใช้ `obj_dir_seeded/` เหมือนกัน) |
-| `make PGO=0` | ไม่ทำ PGO: build เร็วกว่า ~2 เท่า แต่ sim ช้ากว่า ~10% |
-| `make FAST_CLOCK=0` | กลับไป eval 2 ครั้งต่อ clock (ถ้า Verilator รุ่นอื่น build ไม่ผ่าน เพราะใช้ชื่อตัวแปรภายในของ Verilator 5.x) |
-
-ทดสอบอัตโนมัติแบบไม่เปิดหน้าต่าง:
-```
-SDL_VIDEODRIVER=dummy make run ARGS='--frames 300 --script "R:5:200,C:60:62" --shot shot.bmp'
-```
-
-## Simulation (testbench)
-
-```
-./scripts/run_sim.sh player   # 12 test เดิม + speed 4 + freeze: เดิน ชน ไถล corner slide หลุม ประตู animation
-./scripts/run_sim.sh world    # ประตูทุกบาน ทุกชั้น, grid, จุดเกิด, restart, next_floor, exit_evt
-./scripts/run_sim.sh fsm      # game_fsm: TITLE→PLAY, EVOLVE 60 เฟรม, HP, GAME OVER, FLOOR_CLEAR 120 เฟรม, timer, sprint
-./scripts/run_sim.sh objects  # objects: AABB, ฟัน, ยิง, กระสุนชน tile, มอน A/B, โดนตี knockback อมตะ, ห้องล็อก
-./scripts/run_sim.sh puzzles  # ปริศนา 3 ห้อง + ดันกล่อง (เล่นตามคำตอบ solver เป็นการกดปุ่ม) + ไอเทม + ค้างสถานะ + restart
-./scripts/run_sim.sh debug    # parameter DEBUG: สวิตช์ debug ใช้ได้เฉพาะ DEBUG = 1
-./scripts/run_sim.sh top      # จำลองทั้งระบบ ได้ภาพ sim/frame_*.ppm
-./scripts/run_sim.sh all      # รันทั้งหมดข้างบน
-```
-ต้องมี Icarus Verilog (`sudo apt install iverilog` หรือ `brew install icarus-verilog`) ภาพตัวอย่างอยู่ใน `sim/*.png`, `docs/p2_*.png`, `docs/p3_*.png`, `docs/p4_*.png`
-
-ทดสอบ Verilator แบบไม่เปิดหน้าต่าง + จับภาพหลายเฟรม (สวิตช์ใน `--script`: `0-9` = SW0–9, `a-f` = SW10–15):
-```
-cd mem && SDL_VIDEODRIVER=dummy ../sim/verilator/obj_dir/Vtop --frames 540   --script "C:20:23,f:50,R:45:230,3:240,3:250" --shot-at 15:t.bmp --shot-at 270:e.bmp
-```
-
-สคริปต์ต่อสู้ห้อง Combat 1 ชั้น 1 (ที่ใช้ทำ `docs/p3_*.png`): เข้าห้อง, หันขึ้นฟันมอนตัวแรก, SW3 เป็นร่าง 2, หันขวายิงค้างจนห้องเคลียร์ แล้วเดินออกประตูซ้าย
-`LOG=10` พิมพ์ค่า LED ทุก 10 เฟรม (LED4–7 มอนเหลือ, LED8–11 HP, LED12 ล็อก):
-```
-cd mem && SDL_VIDEODRIVER=dummy LOG=10 ../sim/verilator/obj_dir/Vtop --frames 900 \
-  --script "C:20:23,R:40:200,U:201:202,C:300:301,C:321:322,C:342:343,C:363:364,C:384:385,C:405:406,C:426:427,3:450,3:455,R:514:517,C:525:800,L:820:900" \
-  --shot-at 300:locked.bmp --shot-at 560:shooting.bmp --shot-at 815:cleared.bmp
-```
-
-สคริปต์อยู่ใน `sim/verilator/scripts/` (ไฟล์ข้อความ: บรรทัดละรายการ `ปุ่ม:เฟรมเริ่ม:เฟรมจบ`, `#` = คอมเมนต์; ปุ่ม `U D L R C`, สวิตช์ `0-9 a-f`, `K` = ตบมือ)
-**ทุกสคริปต์ต้องใช้ build แบบ seeded** (บอกไว้ที่หัวไฟล์):
-```
-cd sim/verilator && make seeded && cd ../../mem
-../sim/verilator/obj_dir_seeded/Vtop --script-file ../sim/verilator/scripts/full_game.txt      # ดูในหน้าต่าง
-SDL_VIDEODRIVER=dummy LOG=50 ../sim/verilator/obj_dir_seeded/Vtop --frames 1900 --script-file ../sim/verilator/scripts/floor1.txt
-./scripts/run_full_game.sh            # (จาก root) เล่นเต็มเกมแบบไม่เปิดหน้าต่าง ผ่านเมื่อจบที่ WIN (~10 นาที)
-SHOTS=1 ./scripts/run_full_game.sh    # + บันทึกภาพ docs/p5_*.png
-```
-
-| สคริปต์ | เฟรม | ทำอะไร |
+| Enemy | HP | Behaviour |
 | --- | --- | --- |
-| `full_game.txt` | ~9800 | TITLE → ชั้น 1 (Light Bulb, บอส 1) → ชั้น 2 (Sokoban, บอส 2 + ตบมือ 2 ครั้ง) → ชั้น 3 (Simon, บอส 3) → ESCAPE → E → WIN · ไม่ใช้ SW1 / SW3 |
-| `weapons_demo.txt` | 600 | ร่าง 1 ฟัน → 2 ยิง → 3 กระจาย → 4 ชาร์จ/ลูกใหญ่ → ยิงชนกระสุนป้อม (ภาพ `docs/p6t_*.png`; ใช้ SW3 / SW2 DEBUG) |
-| `floor1.txt` | ~2100 | START → C1 → C2 → Light Bulb (ตีคันโยก b, d) → ไอเทม 1 → EVOLVE → กลับ C2 → C1 → ประตู L → ห้องบอส |
-| `floor2.txt` | ~2400 | ข้ามชั้นด้วย SW1 → C1 → C2 → Sokoban เล่นตามคำตอบ solver 24 ครั้ง → gate เปิด → ไอเทม 2 (สร้างด้วย `scripts/make_floor2_script.py`) |
-| `floor3.txt` | ~2900 | ข้าม 2 ชั้น + SW3 เป็นร่าง 3 (บินข้ามหลุม) → C1 → C2 → Simon 3 รอบ → ไอเทม 3 |
+| Chaser (monster A) | 2 | Walks towards the hero at half speed |
+| Turret (monster B) | 3 | Fires in four directions and aims one shot at the hero |
 
-ห้อง Combat ในสคริปต์เหล่านี้เคลียร์ด้วย SW2 (DEBUG) ให้สั้น (บอสสู้จริง) · build seeded ทำให้รูปแบบหลอด / ลำดับ Simon มาจาก `SEED` อย่างเดียว ไม่ขึ้นกับเวลาที่เข้าห้อง จึงไม่พังเมื่อแก้ RTL ที่ไม่เกี่ยวกับการเดิน
-`LOG=N` พิมพ์สถานะทุก N เฟรม (ห้อง, ตำแหน่ง, HP, ร่าง, หลอด, Simon, บอส `boss/bhp/bx/by/stun`, ESCAPE `esc`)
+| Boss | HP | Notes |
+| --- | --- | --- |
+| Boss 1 (floor 1) | 10 | Chases the hero; a clap (or SW11, or key C) stuns it for 3 s |
+| Boss 2 (floor 2) | 16 | Stays inside a fence and summons minions; it can be hurt only after all minions are dead |
+| Boss 3 (floor 3) | 9 | Armoured; hurt by the charged shot of form 4, or while it rests; it charges a large attack that can be interrupted |
 
-## ขั้นต่อไป (ตามแผน Implement)
+Obstacles: spike traps (permanent on floor 3, timed on floor 2), breakable crates, pits (form 3 flies over them) and locked doors that open when the room is clear.
 
-- P6 เสียง (SFX + BGM, โน้ต Simon) + sprite จริง + เล่นทดสอบ · ลงบอร์ดจริง (Vivado build + timing)
-- งานคู่ขนาน: sprite จริง, ทดสอบไมค์ PDM
+### Puzzles
+
+| Floor | Puzzle | Rule |
+| --- | --- | --- |
+| 1 | Light Bulb | Hit levers a to d to toggle the four bulbs until all are lit |
+| 2 | Sokoban | Push both boxes onto the plates; the gate opens (shortest solution: 24 pushes) |
+| 3 | Simon Says | Watch the plates light up, then repeat the pattern; three rounds of length 3, 4 and 5 |
+
+Solving a puzzle shows an item. Picking it up evolves the hero and opens the boss door of that floor.
+
+## Controls
+
+The game can be played with the board alone, with a USB keyboard, or with both. The complete player guide is `docs/CONTROLS.md`.
+
+| Board | Keyboard | Action |
+| --- | --- | --- |
+| BTNU / BTND / BTNL / BTNR | Arrow keys or W A S D | Walk |
+| BTNC | Space, J or Enter | Start; attack; close a story box |
+| BTNL (game over) | Left arrow | Back to the title screen |
+| BTNR / BTNL (title) | Right / left arrow | Next / previous title page (settings, controls, credits) |
+| SW15 | P or Esc | Pause |
+| SW14 | Shift | Sprint (+1 px/frame) |
+| SW13 (flip up) | R | Reset the Sokoban boxes |
+| SW9 | L | Auto aim; on by default, SW9 up or L turns it off |
+| SW12 | none | Hold the facing direction |
+| SW11 (flip up) | C | Backup for the microphone clap |
+| SW10 | none | Maze: use the buttons instead of the tilt sensor |
+| SW8 | H | Show hit boxes |
+| SW5 to SW7 | none | Adjust the clap level (0 uses the setting from the title menu) |
+| CPU_RESETN | none | Reset |
+
+Other inputs:
+
+- **Microphone (PDM):** a clap stuns boss 1.
+- **Accelerometer (ADXL362):** tilting the board rolls the ball in the maze.
+
+**Debug switches.** SW0 to SW4 work only when `parameter DEBUG` in `rtl/top.v` is 1. The file default is **1**. The submission build must set `DEBUG = 0`. `scripts/create_project.tcl` does not set this parameter.
+
+| Switch | Effect when `DEBUG = 1` |
+| --- | --- |
+| SW0 | Open the boss door and door E |
+| SW1 (flip up) | Finish the floor; at door E without a key it ends the game with a win |
+| SW2 (flip up) | Remove all monsters of the room |
+| SW3 (flip up) | Give the item (evolve) |
+| SW4 (flip up) | Lose one heart |
+
+## Hardware and software requirements
+
+| Item | Requirement |
+| --- | --- |
+| Board | Digilent Nexys A7-100T (FPGA part `xc7a100tcsg324-1`) |
+| Display | VGA monitor |
+| Input | Board buttons and switches; optional USB keyboard on the USB-HID port |
+| Sound | Headphones or speakers on the AUDIO OUT jack |
+| Synthesis | Vivado 2024.2 |
+| PC simulator | Verilator 5.x, SDL2, a C++ compiler and `make` (tested with Verilator 5.054) |
+| Testbenches | Icarus Verilog (tested with 13.0) |
+| Art and ROM generation | Python 3 with Pillow |
+
+## Quick start
+
+### Build for the board (Vivado)
+
+Create the project, synthesise and write the bitstream in one step:
+
+```bash
+vivado -mode batch -source scripts/create_project.tcl -tclargs build
+```
+
+The bitstream is `vivado/Group10_Dungeon.runs/impl_1/top.bit`. To create only the project, omit `-tclargs build` and run the flow in the Vivado GUI. Program the board from the Hardware Manager. The step-by-step guide is `docs/BOARD_TEST_STEPS.md`.
+
+Before building for submission, set `parameter DEBUG = 0` in `rtl/top.v`.
+
+### Run the testbenches (Icarus Verilog)
+
+```bash
+./scripts/run_sim.sh all          # all testbench targets
+./scripts/run_sim.sh world        # one target
+./scripts/check_all.sh --fast     # regenerate files, check they are up to date, run Python tests (about 1 minute)
+./scripts/check_all.sh            # the same plus the full Icarus suite (about 12 minutes)
+```
+
+### Run the game on a PC (Verilator)
+
+The simulator builds the same Verilog as the board and shows the VGA picture in an SDL2 window.
+
+```bash
+cd sim/verilator
+make run        # build and open the window
+make seeded     # fixed puzzle seed, used by the replay scripts
+```
+
+Headless run with a screenshot:
+
+```bash
+cd mem
+SDL_VIDEODRIVER=dummy ../sim/verilator/obj_dir/Vtop --frames 300 --script "R:5:200,C:60:62" --shot shot.bmp
+```
+
+Scripted play and screenshot helpers:
+
+```bash
+./scripts/run_full_game.sh            # scripted run from title to win (about 10 minutes)
+./scripts/run_sprite_shots.sh         # pictures of every form
+./scripts/make_shots.sh               # render screenshots with Icarus Verilog
+```
+
+See [Known limitations](#known-limitations) for the state of the Verilator build and of the replay scripts. The `Vtop` options and the script format are described in `docs/README_detailed_reference.md`.
+
+### Regenerate art, maps and text
+
+Sprites, tiles, maps, text and music are generated from the files in `my_asset/`, `sprites/`, `maps/` and `docs/STORY.md`. Do not edit `mem/*.mem` by hand.
+
+```bash
+scripts/update_sprites.sh             # rebuild all art ROMs and previews
+python3 scripts/build_maps.py         # rebuild map ROMs
+python3 scripts/build_story.py        # rebuild on-screen text from docs/STORY.md
+```
+
+## Architecture
+
+The design runs on one 100 MHz clock. A clock enable drives the pixel timing. The game logic advances once per frame (60 Hz).
+
+### Game state machine
+
+`rtl/game_fsm.v` holds the game state, the hero form and the hero HP. Pause is not a state; it stops the frame tick during play and in the maze. A hit that reduces HP to zero, or a maze timeout, leads to the game-over state.
+
+```mermaid
+stateDiagram-v2
+    [*] --> TITLE
+    TITLE --> PROLOGUE: BTNC
+    PROLOGUE --> PLAY: last page
+    PLAY --> EVOLVE: item taken
+    EVOLVE --> PLAY: 60 frames
+    PLAY --> FLOOR_CLEAR: floor done
+    FLOOR_CLEAR --> PLAY: 120 frames, next floor
+    PLAY --> ESCAPE: door E with key
+    ESCAPE --> WIN: ball reaches goal
+    ESCAPE --> GAME_OVER: timeout or HP 0
+    PLAY --> GAME_OVER: HP 0
+    GAME_OVER --> PLAY: BTNC, retry floor
+    GAME_OVER --> TITLE: BTNL
+    WIN --> TITLE: BTNC
+```
+
+### Game engine
+
+`rtl/top.v` connects the modules. The debounced buttons, the PS/2 keyboard, the PDM microphone and the ADXL362 sensor feed the game logic. `world.v` tracks the floor and the room. `player.v` handles movement and collision. `objects.v` holds up to six monsters, six player bullets and sixteen enemy bullets, and tests overlaps. `boss.v`, `puzzles.v` and `maze.v` implement the bosses, the three puzzles and the tilt maze. `audio.v` outputs sound effects and music as PWM.
+
+```text
+buttons / switches / PS/2 keyboard / microphone / accelerometer
+        |
+     top.v  -->  game_fsm  world  player  objects  boss  puzzles  maze  dialog
+        |
+     renderer  (tiles, objects, hero, HUD, text)  -->  VGA
+     audio     (13 sound effects, music)          -->  AUD_PWM
+```
+
+### Pixel pipeline
+
+`rtl/renderer.v` computes the colour of each pixel in a four-clock pipeline. Stage 0 applies the screen shake and computes the tile address and the text position. Stage 1 reads the tile map and registers the addresses of the tile set and of the hero sprite. Stage 2 reads the ROMs (block RAM) and takes the object layer from `objline.v`, a double line buffer that draws the objects of the next line. Stage 3 selects the layer and registers the colour. The layers, bottom to top, are tile, puzzle objects with monsters, bosses and bullets, hero, and text. The colour `F0F` marks a transparent pixel. `top.v` delays the sync signals by the same four clocks.
+
+### Content pipeline
+
+Art, maps, text and music are built by Python scripts into `.mem` files that Vivado loads as ROM contents. If a source file is missing, the build falls back to the original art and prints a warning.
+
+## Repository structure
+
+```text
+rtl/            Verilog sources; files named *_cfg.vh, puzzle_layout.vh, text_*.vh and tilebase.vh are generated
+constraints/    nexys_a7.xdc (pins and clock), mic_test.xdc
+maps/           13 ASCII room maps and maps/maze/maze.txt; maps_v1/ holds the originals
+mem/            generated ROM files; *_v1.mem are the original art
+sprites/        JSON settings for the art and music pipelines
+my_asset/       source art
+scripts/        ROM builders, Vivado Tcl scripts, simulation and check scripts
+tests/          Python tests for the pipelines
+sim/            Icarus testbenches (tb_*.v) and the Verilator player (sim/verilator)
+report_shots/   scripts, key scripts and screenshots made with Verilator for the project report
+docs/           documents, images (docs/images), recorded audio (docs/audio)
+preview/        generated preview pictures
+```
+
+The `vivado/` folder is created by `scripts/create_project.tcl` and is not part of the source. `my_audio/` (source audio) is not committed.
+
+## Testing and verification
+
+**Testbenches.** The testbenches in `sim/` run with Icarus Verilog through `scripts/run_sim.sh`. A target passes when its log has no `FAIL` and no `errors = N` with N above zero.
+
+| Area | Targets |
+| --- | --- |
+| Hero and world | `player`, `playerframe`, `facelock`, `world`, `fsm` |
+| Objects and combat | `objects`, `orb`, `boss` |
+| Puzzles and maze | `puzzles`, `simonplate`, `maze`, `adxl` |
+| Display and text | `hud`, `dialog`, `text`, `ovrender` |
+| Input and sound | `ps2`, `mic`, `mictop`, `audio` |
+| Art ROMs | `sprites`, `tileset`, `monster`, `bosssprites`, `puzzleart`, `animroms` |
+| Whole system | `debug`, `top`, `topanim` |
+
+**Python tests.** `tests/` has one test file per generation pipeline (sprites, tiles, monsters, bosses, puzzle objects, HUD, overlay, maps, story, music) and a fallback drill. `scripts/check_all.sh` runs them.
+
+**Full-game simulation.** A scripted run from title to win exists (`scripts/run_full_game.sh`). It was not rerun on the latest code (see limitations).
+
+**Board.** The full game was played on a Nexys A7-100T and works. The per-feature board checklist is `docs/BOARD_TEST_STEPS.md`.
+
+## Known limitations
+
+1. **Timing is not met at 100 MHz.** The implemented design in Vivado reports the following (`top_timing_summary_routed.rpt`, run of 22/11/2026):
+
+   | Metric | Value |
+   | --- | --- |
+   | Worst negative slack (WNS) | -4.045 ns |
+   | Total negative slack (TNS) | -2904.290 ns |
+   | Failing setup endpoints | 1853 of 9926 |
+   | Worst hold slack (WHS) | +0.046 ns (hold is met) |
+
+   The same run reports 18,182 of 63,400 slice LUTs and 103.5 of 135 block RAM tiles. The worst path ends in the renderer text address. Despite the failed constraint, the design ran on the board. Timing has not been fixed.
+2. **`DEBUG` defaults to 1.** The debug switches SW0 to SW4 are active in a default build. Set `DEBUG = 0` for the submission build.
+3. **Verilator build.** With Verilator 5.054, the unmodified `sim/verilator/Makefile` did not build in our WSL setup. The identifier `inside` in `rtl/renderer.v` is read as a SystemVerilog keyword, and the Makefile passes `-GPROLOGUE=$(PROLOGUE_V)` while `PROLOGUE_V` is never defined. The screenshots were made with a command-line override (`--default-language 1364-2005`, `-GPROLOGUE=0`); see `report_shots/_build.sh`.
+4. **Old replay scripts.** The scripts in `sim/verilator/scripts/` (including `full_game.txt`) were written before the story boxes and the room redesign. They no longer reach the end of the game. The scripts used for the report pictures are in `report_shots/scripts/`.
+5. **Not confirmed on the board:** the `AUD_SD` level against the board manual, and the tilt direction of the maze (`MAZE_SIGN_X`, `MAZE_SIGN_Y` in `rtl/params.vh`). Both are open items in `docs/BOARD_TEST_STEPS.md`.
+6. **Art.** The form 4 hero sprite is a recoloured placeholder. Bullets and the melee slash use the original simple art. See `docs/SPRITE_STATUS.md`.
+7. **Music.** The background music uses the melody of the song "Connect", which is copyrighted. Check this before making the repository public (`mem/music.mem`, `sprites/music/connect.txt`).
+8. The pictures `docs/p*.png` were taken before the latest changes and may not match the current look of the game. The pictures in `docs/images/` are current.
+
+## Team
+
+Group 10, CPE222, King Mongkut's University of Technology Thonburi (KMUTT).
+
+| Name | Student ID | Contribution |
+| --- | --- | --- |
+| Thanayot Monthichachat | 68070501019 | Game design; report |
+| Phongsakon Sriwicha | 68070501032 | Game design; report |
+| Phitchayapha Vittayavanich | 68070501034 | Sprites; report |
+| Pichamon Muroh | 68070501035 | Coding and testing; report |
+| Onanong Chadee | 68070501087 | Sprites; report |
+
+Supervisor: Dr. Taweechai Nuntawisuttiwong.
+
+## Credits and licences
+
+The repository has no `LICENSE` file. No licence is stated for the project itself.
+
+Third-party material is included in `my_asset/`. The repository does not record the author or the licence of these items, so each is listed as **licence not recorded**.
+
+| Item | Where | Licence |
+| --- | --- | --- |
+| 2D Pixel Dungeon Asset Pack v2.0 (tiles, props) | `my_asset/2D Pixel Dungeon Asset Pack v2.0.zip`, `my_asset/tileset/`, `my_asset/props/` | Licence not recorded |
+| Enemy Animations Set (skeleton and vampire sheets) | `my_asset/Enemy_Animations_Set.zip`, `my_asset/enemies/` | Licence not recorded |
+| Hero sheets (Human, Orc, Angel) | `my_asset/Character/` | Licence not recorded |
+| Hearts and health bar | `my_asset/ui/Hearts/` | Licence not recorded |
+| UI sheet "MediavelFree" (not used by the game) | `my_asset/ui/MediavelFree.png` | Licence not recorded |
+| Orb sprites for the maze ball | `my_asset/ball/` | Licence not recorded |
+| Song "Connect" (melody entered as notes) | `sprites/music/connect.txt` | Copyrighted song; permission not recorded |
+
+Tools: Xilinx Vivado, Verilator, Icarus Verilog, SDL2, Python with Pillow.
+
+## Documentation index
+
+| Document | Content |
+| --- | --- |
+| [docs/README.md](docs/README.md) | Project guide: which document to read, folder map, workflow |
+| [docs/CONTROLS.md](docs/CONTROLS.md) | Player guide: buttons, switches, keys |
+| [docs/FEATURES.md](docs/FEATURES.md) | Every implemented feature by category |
+| [docs/BOARD_TEST_STEPS.md](docs/BOARD_TEST_STEPS.md) | Vivado steps and board test checklist |
+| [docs/BOARD_DAY.md](docs/BOARD_DAY.md) | Board day notes, microphone test project |
+| [docs/DESIGN_PLAN.md](docs/DESIGN_PLAN.md) | Design plan and status of every work item |
+| [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md) | Backlog by priority |
+| [docs/PROGRESS.md](docs/PROGRESS.md) | Progress log |
+| [docs/CHANGE_REVIEW.md](docs/CHANGE_REVIEW.md) | Changes and how they were verified |
+| [docs/GAMEPLAY_REVIEW.md](docs/GAMEPLAY_REVIEW.md) | Story and gameplay review |
+| [docs/MAP_DESIGN.md](docs/MAP_DESIGN.md) | Room design rules |
+| [docs/STORY.md](docs/STORY.md) | Source of all on-screen text |
+| [docs/SPRITE_STATUS.md](docs/SPRITE_STATUS.md) | Which sprites are final or placeholders |
+| [docs/SOUND_PLAN.md](docs/SOUND_PLAN.md) | Sound effects and music |
+| [docs/SOUND_PIPELINE_PLAN.md](docs/SOUND_PIPELINE_PLAN.md) | Audio import pipeline plan |
+| [docs/DOC_UPDATE_REPORT.md](docs/DOC_UPDATE_REPORT.md) | Report of the last documentation refresh |
+| [docs/README_detailed_reference.md](docs/README_detailed_reference.md) | Previous detailed README (tables, simulator options, sound list) |
+| [docs/archive/SPRITE_PLAN.md](docs/archive/SPRITE_PLAN.md) | Old sprite plan (history) |
+| [sprites/README.md](sprites/README.md) | How to change sprites, tiles, enemies and bosses |

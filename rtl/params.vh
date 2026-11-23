@@ -20,7 +20,7 @@ localparam [2:0] RGB1 = 3'b010;            // {R,G,B} เขียว
 localparam [2:0] RGB2 = 3'b011;            // ฟ้า
 localparam [2:0] RGB3 = 3'b101;            // ม่วง
 localparam [2:0] RGB4 = 3'b110;            // ทอง
-localparam [2:0] SPRINT_BONUS = 3'd1;      // SW15: +px/เฟรม
+localparam [2:0] SPRINT_BONUS = 3'd1;      // SW14 (or Shift key): +px/เฟรม
 localparam [6:0] EVOLVE_FRAMES = 7'd60;    // EVOLVE 1 วิ
 localparam [7:0] CLEAR_FRAMES  = 8'd120;   // FLOOR_CLEAR 2 วิ
 localparam [8:0] PROLOGUE_FRAMES = 9'd360;  // W9a: แต่ละหน้า prologue อยู่นานสุด 6 วิ (หรือกด BTNC ข้ามไปหน้าถัดไป)
@@ -69,7 +69,7 @@ localparam PUZZLE_DELAY   = 256;           // puzzles.v เริ่มงาน
 // ---------- บอส (P5) ----------
 localparam BOSS1_HP        = 10;           // บอส 1 (ชั้น 1)
 localparam BOSS2_HP        = 16;           // บอส 2 (ชั้น 2)
-localparam BOSS3_HP        = 9;            // W12: 3 ปล่อยชาร์จที่โดน = ตาย (แถบ HP 3 ช่อง)           // บอส 3 (ชั้น 3)
+localparam BOSS3_HP        = 9;            // W44: boss 3 needs 9 accepted hits (1 HP each: a charged shot, or any hit while it rests); HUD bar = hp / 9
 localparam BOSS1_SPEED     = 1;            // W20: px per step (was 2 every frame = too fast to shoot); with BOSS1_EVERY = 2 -> 0.5 px/frame
 localparam BOSS1_EVERY     = 2;            // boss 1 steps every N frames (W20: every 2nd frame)
 localparam BOSS2_SPEED     = 0;            // W11: บอส 2 อยู่กับที่ (เรียกลูกน้อง)

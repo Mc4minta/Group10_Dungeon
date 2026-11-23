@@ -64,7 +64,7 @@ Plug the keyboard in before or after power-on (the board needs about 1 s to dete
 |---|---|
 | 1 (floor 1, fast chaser with a fan / ring of bullets) | clap to stun it, then hit it. It blinks before each volley |
 | 2 (floor 2, priest in a fence, summons minions) | hit it at any time; split shots (form 3) clear minions. Hide behind the pillars from its cross and X bullets |
-| 3 (floor 3, armoured) | only charged shots (form 4) hurt it. While it charges (bar under its health bar, blink gets faster and changes colour) hit it with a charged shot to interrupt. At 100 % it fires a storm of heavy bullets (2 hearts each): move between the gaps, then it rests for 2 seconds (any hit hurts it) |
+| 3 (floor 3, armoured, 9 HP: 9 hits) | only charged shots (form 4) hurt it (1 HP each). While it charges (bar under its health bar, blink gets faster and changes colour) hit it with a charged shot to interrupt. At 100 % it fires a storm of heavy bullets (2 hearts each): move between the gaps, then it rests for 2 seconds (any hit hurts it) |
 
 ## 7. Rooms and puzzles in short
 
@@ -84,7 +84,7 @@ Plug the keyboard in before or after power-on (the board needs about 1 s to dete
 | LED 0-3 | direction buttons (in the puzzle rooms: bulbs / rounds), LED 4-7 monsters left, LED 8-11 hearts, LED 12 doors locked, LED 13 floor item taken, LED 14 sprint, LED 15 win |
 | RGB LED 16 | colour of your form |
 | RGB LED 17 | red = just hit; blue flickers when the keyboard clock moves, green flickers when a key code was decoded (keyboard check) |
-| SW0 to SW4 | debug switches (clear room, skip floor, evolve, lose a heart): only in the debug build, off in the hand-in build |
+| SW0 to SW4 | debug switches (open doors, skip floor, clear room, evolve, lose a heart): only when `DEBUG = 1` in `rtl/top.v`. **The file's default is 1**; the hand-in build must be built with `DEBUG = 0` |
 | CPU RESET | restarts everything (also resets the clap level and the intro) |
 
 ## 9. Quick card

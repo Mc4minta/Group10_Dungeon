@@ -3,7 +3,7 @@
 //
 // ปุ่ม / สวิตช์:
 //   BTNU/D/L/R เดิน · BTNC = เริ่มเกม (TITLE) / โจมตี (PLAY: ร่าง 1 ฟัน, ร่าง 2-4 ยิง, ค้าง = ยิงซ้ำ + strafe)
-//                    / กลับ TITLE (WIN, GAME_OVER)
+//                    / กลับ TITLE (WIN) / retry ชั้นปัจจุบัน (GAME_OVER; BTNL = กลับ TITLE)
 //   SW15 = PAUSE (ยก = เกมหยุด + ข้อความ PAUSED, เสียงเงียบ; ใช้ได้ใน PLAY / ESCAPE)   SW14 = sprint (ความเร็ว +1 px/เฟรม, ใช้ได้ทุกร่าง)
 //   SW13 ยก = รีเซ็ตกล่องห้อง Sokoban (ตอน gate ยังปิด)   SW12 = ล็อกทิศค้าง (เดิม SW14)
 // สวิตช์ debug (ทำงานเฉพาะ DEBUG = 1; build ส่งงานตั้ง DEBUG = 0):

@@ -1,5 +1,7 @@
 # Design implementation plan (from the "Group 10 - Design Notes", 19/11/2026)
 
+**Doc check 23/11/2026:** the work-item sections (W1-W46) already carry their own DONE lines; the per-section Status lines below were added. Boss 3 is HP 9 (W44), HP 4 on all forms, SW15 pause / SW14 sprint. File names in this plan that do not exist in the repo were planned names that were never created: `docs/HITBOXES.md`, `scripts/measure_hitboxes.py`, `tests/test_player_pipeline.py` (the real player test is `tests/test_sprite_pipeline.py`), `maps/13_maze.txt` (the maze is `maps/maze/maze.txt`).
+
 **Status (21/11/2026): every item W1-W46 is implemented except the parts listed in the FUTURE BACKLOG table (below W45); the items marked "not tested on the board" need the owner's board test.** Section 6 "Open questions" and the older status text below are history. New ideas: write them here first (next W number), implement after the owner's approval.
 Source: the owner's design notes of 19/11/2026 (the master design for the Progress 20/11). Where they disagree with the code or with
 `Group10_Dungeon_DEVELOPER_GUIDE.md`, the design notes win (section 3 lists every conflict, checked against the code on branch `sprite-zip`).
@@ -9,11 +11,15 @@ How to use this file: read section 1 (what is feasible when), pick items, answer
 ---
 
 ## Change log
+
+Status: history, still accurate as a log.
 * 19/11: **Boss 2 rule corrected** - hurt only when ALL minions are dead (VULNERABLE state), shielded while any minion lives; was wrongly written as "hurt only while minions live". Sections 1, 3, W11, 6 (question 4) updated.
 
 ---
 
 ## 0. Honest scope statement
+
+Status (23/11): historical; the scope was met in simulation (W1-W46), board: not tested except the USB keyboard.
 
 * The notes contain about **3 weeks of work** (3 boss rewrites, new tile layer, accelerometer minigame, story). The Progress is Friday 20/11 and the
   feature freeze was 22:00 on 19/11. **Everything below except Phase A is therefore "after the demo" work.**
@@ -24,6 +30,8 @@ How to use this file: read section 1 (what is feasible when), pick items, answer
 ---
 
 ## 1. Phases (recommended order, risk first, value first)
+
+Status (23/11): phases A-E are done (sim); only the FUTURE BACKLOG and board tests remain.
 
 | Phase | Items | Risk | Needs from you | Target |
 |---|---|---|---|---|
@@ -42,6 +50,8 @@ Already done: **W8 hearts + boss health bar** (`rtl/hud.v`, merged in `sprite-zi
 
 ## 2. Game flow (target)
 
+Status (23/11): built as described (TITLE, PROLOGUE, PLAY, EVOLVE, FLOOR_CLEAR, maze in the ESCAPE state, WIN / GAME_OVER); pause is a gate on frame_tick, not a state.
+
 ```
 TITLE (new) -> PROLOGUE (black screen + centred text) -> PLAY
 FLOOR 1: Form 1 (Human, melee) -> Stage 1 -> Puzzle light bulb -> Form 2 (Orc, shot) -> Boss 1
@@ -54,6 +64,8 @@ FLOOR CLEAR (2 s) between floors, GAME OVER whenever HP = 0.
 ---
 
 ## 3. Gap analysis: design vs. the code today (verified on `sprite-zip`)
+
+Status (23/11): HISTORICAL snapshot of 19/11; the gaps listed here have been closed by W1-W46.
 
 | Topic | Code today | Design | Change |
 |---|---|---|---|
@@ -533,6 +545,8 @@ Grouped by area, in the order I suggest; "plan" = designed in this file, waiting
 
 ## 5. Cross-cutting decisions
 
+Status (23/11): applied (tile ids, overlay layer, verification policy). The resource budget is NOT confirmed: Block RAM 103.5 / 135 in the local 22/11 run, timing not met (WNS -4.045 ns).
+
 ### 5.1 Tile id strategy (needed by W1, W5)
 | Option | Cost | Verdict |
 |---|---|---|
@@ -561,6 +575,8 @@ Grouped by area, in the order I suggest; "plan" = designed in this file, waiting
 
 ## 6. Open questions and my default answers
 
+Status (23/11): the defaults were accepted ("implement all" 20/11) and built.
+
 Reply with changes only; otherwise the defaults are used.
 
 | # | Question | Default |
@@ -583,6 +599,8 @@ Reply with changes only; otherwise the defaults are used.
 
 ## 7. Effort summary
 
+Status (23/11): historical estimate.
+
 | Phase | Items | Estimate |
 |---|---|---|
 | A | W1 W2 W3 W4 W6 W9a W15 | ~10 h (W2 already started, W4 needs the board) |
@@ -593,6 +611,8 @@ Reply with changes only; otherwise the defaults are used.
 | Sum | | ~2.5 weeks of focused work; **not possible before 20/11**; Phase A is the realistic part |
 
 ## 8. What I need from you (in order)
+
+Status (23/11): still open for the owner: board test, art choices, story / credits names; see `docs/NEXT_STEPS.md`.
 1. Confirm / change the defaults in section 6 (a one-line answer is enough).
 2. The start-screen / prologue wording (W6, W9a), the story script (W9b). (The plate picture is already received.)
 3. Board time for W4 (mic) and later W7 (accelerometer), and the Block RAM / WNS numbers from the current build.

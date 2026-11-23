@@ -1,4 +1,4 @@
-// Game FSM (P2): TITLE / PLAY / EVOLVE / FLOOR_CLEAR / ESCAPE / WIN / GAME_OVER
+// Game FSM (P2): TITLE / PROLOGUE / PLAY / EVOLVE / FLOOR_CLEAR / ESCAPE (maze) / WIN / GAME_OVER  (pause is not a state: see top.v)
 //  + ร่าง (form), HP, ตารางค่าต่อร่าง, timer mm.ss, sprint
 //
 // ค่าเกม (tentative) อยู่ใน rtl/params.vh ที่เดียว
@@ -10,7 +10,7 @@
 //   take_hit    โดนตี HP-1 (P3 จะมาจาก AABB, ตอนนี้ debug SW4)
 //   floor_done  เคลียร์ชั้น -> FLOOR_CLEAR (P5 จะมาจากบอส, ตอนนี้ debug SW1)
 //   exit_evt    เดินเข้าประตู E (จาก world.v) -> WIN (P5 จะแทรก ESCAPE ก่อน)
-//   sprint      level: ความเร็ว + SPRINT_BONUS (SW15)
+//   sprint      level: ความเร็ว + SPRINT_BONUS (SW14 / Shift key)
 // เอาต์พุต
 //   state       ดู S_* ด้านล่าง
 //   restart     pulse ตอน TITLE -> PLAY (world กลับชั้น 1 START)
