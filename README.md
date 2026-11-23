@@ -342,20 +342,6 @@ The `vivado/` folder is created by `scripts/create_project.tcl` and is not part 
 7. **Music.** The background music uses the melody of the song "Connect", which is copyrighted. Check this before making the repository public (`mem/music.mem`, `sprites/music/connect.txt`).
 8. The pictures `docs/p*.png` were taken before the latest changes and may not match the current look of the game. The pictures in `docs/images/` are current.
 
-## Team
-
-Group 10, CPE222, King Mongkut's University of Technology Thonburi (KMUTT).
-
-| Name | Student ID | Contribution |
-| --- | --- | --- |
-| Thanayot Monthichachat | 68070501019 | Game design; report |
-| Phongsakon Sriwicha | 68070501032 | Game design; report |
-| Phitchayapha Vittayavanich | 68070501034 | Sprites; report |
-| Pichamon Muroh | 68070501035 | Coding and testing; report |
-| Onanong Chadee | 68070501087 | Sprites; report |
-
-Supervisor: Dr. Taweechai Nuntawisuttiwong.
-
 ## Credits and licences
 
 The repository has no `LICENSE` file. No licence is stated for the project itself.
