@@ -1,0 +1,132 @@
+# d) boss 1 fight with the clap stun. Only boss 1 can be stunned by a clap in this RTL (rtl/boss.v: stunnable = (kind == 0)),
+# so there is no boss 2 stun scene. Debug switches: SW2 (clear C1, unrecorded), SW3 (evolve to form 2) and SW0 (boss door open). The fight itself is real.
+# The clap is scripted: K = the simulated microphone hears a clap for 100 ms.
+@skip   # set-up, not recorded: intro dialogs, floor 1 combat room C1 cleared with SW2 (DEBUG clear-room); +SW0 keeps the boss door open
+# title screen, then BTNC skips the intro dialog pages
+   19
+    4 C
+    6
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+  1 +SW0
+  156 R
+  168
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW3   # SW3 (DEBUG) = evolution item -> form 2, so the hero can shoot
+    7
+  120   # evolve animation
+    2 C   # dismiss the evolve dialog page
+    1
+   27
+    2 C   # dismiss the evolve dialog page
+    1
+   27
+    2 C   # dismiss the evolve dialog page
+    1
+   27
+    2 C   # dismiss the evolve dialog page
+    1
+   27
+    2 C   # dismiss the evolve dialog page
+    1
+   27
+    2 C   # dismiss the evolve dialog page
+    1
+   27
+    2 C   # dismiss the evolve dialog page
+    1
+   27
+    2 C   # dismiss the evolve dialog page
+    1
+   27
+   20
+@rec
+# C1 cleared, doors open: hero goes up and right through the boss door
+    8 U
+  280 R
+  165   # boss room dialog, boss 1 appears
+    3 K   # clap (simulated microphone, 100 ms): boss 1 is stunned
+# hero stands facing right and holds BTNC: form 2 fires every 15 frames
+  320 C
+    3 K   # second clap after the 300-frame cooldown
+  480 C
+   60

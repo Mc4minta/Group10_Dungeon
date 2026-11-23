@@ -1,0 +1,4 @@
+# smoke test: title screen, press start
+60
+5 C
+200 

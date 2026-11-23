@@ -1,0 +1,350 @@
+# c) Light Bulb puzzle solved, then Sokoban solved (floor 2).
+# Debug switches used (only in the unrecorded set-up and for the floor skip): SW2 = clear combat rooms, SW1 = floor 1 done.
+# The two puzzles themselves are played with the buttons only (sword on levers; walking and pushing boxes).
+@skip   # set-up, not recorded: floor 1 start room, C1 and C2 are fought through with the debug switch SW2 (clear room)
+# title screen, then BTNC skips the intro dialog pages
+   19
+    4 C
+    6
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+    2 C
+    4
+# START room -> right door -> combat room C1
+  156 R
+  169
+# C1: lock dialog, SW2 (DEBUG) clears the waves
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+  132 R
+  125 U
+  158
+# C2: lock dialog, SW2 (DEBUG) clears the waves
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+   10
+  104 R
+    6
+   83 U
+    6
+# C2 -> right door -> Light Bulb room
+@rec
+   40 R   # walks through the door into the Light Bulb room
+  160   # room dialog (puzzle hint)
+  108 R
+   50 D
+    8
+    2 C   # hit lever b with the sword (bulbs 1010 -> 0001)
+    1
+   30
+  128 R
+    6 D
+    8
+    2 C   # hit lever d (bulbs 0001 -> 1111 = solved, item appears)
+    1
+  240   # all four bulbs lit, item on the floor
+@skip   # SW1 (DEBUG) = floor 1 done -> floor 2; its two combat rooms are again cleared with SW2
+    5 SW1
+    7
+  283
+  152 R
+  328
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+   30 U
+  236 R
+   40 U
+  100 L
+   80 U
+  169
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+    5 SW2
+    7
+   18
+   10
+   80 U
+    5
+   70 R
+    5
+   25 U
+    5
+   83
+@rec
+  105 R   # floor 2: through the door into the Sokoban room
+  215   # room dialog
+    5 L   # align on tile (1,7) from the spawn point
+    4
+    8 U
+    8
+# Sokoban: the 80 moves of sim/sokoban_solution.vh (SOKO_MOVES), 16 frames = 1 tile per move; lower-case moves in the file push a box
+   16 D
+   16 R
+   16 R
+   16 R
+   16 R
+   16 R
+   16 D
+   16 R
+   16 R
+   16 R
+   16 R
+   16 U
+   16 U
+   16 U
+   16 L
+   16 L
+   16 U
+   16 L
+   16 U
+   16 R
+   16 R
+   16 U
+   16 R
+   16 D
+   16 D
+   16 D
+   16 D
+   16 D
+   16 D
+   16 U
+   16 R
+   16 R
+   16 D
+   16 D
+   16 L
+   16 L
+   16 L
+   16 L
+   16 U
+   16 L
+   16 L
+   16 D
+   16 D
+   16 R
+   16 U
+   16 L
+   16 U
+   16 R
+   16 D
+   16 R
+   16 R
+   16 U
+   16 R
+   16 U
+   16 U
+   16 U
+   16 U
+   16 R
+   16 D
+   16 D
+   16 R
+   16 D
+   16 L
+   16 U
+   16 L
+   16 D
+   16 D
+   16 U
+   16 R
+   16 R
+   16 D
+   16 D
+   16 L
+   16 L
+   16 L
+   16 L
+   16 L
+   16 D
+   16 L
+   16 U
+   10   # last box in place -> the gate opens
+   16 R
+   16 R
+   16 R
+   16 R
+   16 R
+   16 R
+   16 U
+   16 U
+   16 U
+   16 R
+   16 R
+   16 R
+   16 R
+   60

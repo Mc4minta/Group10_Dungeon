@@ -21,6 +21,8 @@
 //   --script "R:10:80,U:90:120,1:200"   กดปุ่มตามช่วงเฟรม (U D L R C) / สลับสวิตช์ที่เฟรมนั้น (0-9 = SW0-9, a-f = SW10-15)
 //   --headless | HEADLESS=1   ไม่เรียก SDL เลย, รัน 300 เฟรม (หรือ --frames N) แล้วพิมพ์ fps
 //   FRAMESKIP=N | --skip N    จำลอง N เฟรมต่อ 1 เฟรมที่แสดง/อ่านคีย์ (ค่าเริ่มต้น 1 = เหมือนเดิม; กด [ ] ปรับตอนรัน)
+//   --raw-out FILE         (tools/video) write every VGA frame (640x480 RGB24, no status panel) to FILE; works with --headless
+//   --rec A:B              (tools/video) limit --raw-out and --wav to frames A..B (repeatable; none = all frames)
 //   RENDERER=sw|accel         เลือก SDL renderer (ค่าเริ่มต้น = SDL เลือกเอง)
 //   LOG=N                     พิมพ์ "f=<เฟรม> LED=<hex> st fl room px py hp form alive bulbs sm rnd seq boss bhp bx by stun esc" ทุก N เฟรม
 //   ปุ่ม C = ตบมือจำลอง (ไมค์ดัง 100 ms) · สคริปต์: K:<เฟรม>
@@ -102,6 +104,12 @@ struct WavSeg { int a, b; std::string path; std::vector<int16_t> d; int acc = 0,
 static std::vector<WavSeg> segs;
 static int cur_frame = 0;
 static bool want_wav = false, muted = false;
+static std::vector<std::pair<int, int>> recs;    // --rec A:B (empty = record every frame)
+static bool recording(int f) {
+    if (recs.empty()) return true;
+    for (auto& r : recs) if (f >= r.first && f <= r.second) return true;
+    return false;
+}
 static std::vector<int16_t> aq;      // คิวสำหรับ SDL
 static SDL_AudioDeviceID adev = 0;
 static int aud_acc = 0, aud_n = 0;
@@ -125,6 +133,8 @@ int main(int argc, char** argv) {
     std::vector<Act> script;
     bool headless = false;
     const char* wav_path = nullptr;
+    FILE* raw_fp = nullptr;                          // --raw-out: RGB24 per frame
+    std::vector<uint8_t> rawbuf(W * H * 3);
     int skip = 1;
     if (const char* e = getenv("HEADLESS")) headless = atoi(e) != 0;
     if (const char* e = getenv("FRAMESKIP")) skip = atoi(e);
@@ -134,6 +144,14 @@ int main(int argc, char** argv) {
         else if (!strcmp(argv[i], "--headless")) headless = true;
         else if (!strcmp(argv[i], "--skip") && i + 1 < argc) skip = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--shot") && i + 1 < argc) shot = argv[++i];
+        else if (!strcmp(argv[i], "--raw-out") && i + 1 < argc) {
+            raw_fp = fopen(argv[++i], "wb");
+            if (!raw_fp) { fprintf(stderr, "cannot write %s\n", argv[i]); return 1; }
+        }
+        else if (!strcmp(argv[i], "--rec") && i + 1 < argc) {
+            int a = 0, b = 0;
+            if (sscanf(argv[++i], "%d:%d", &a, &b) == 2) recs.push_back({a, b});
+        }
         else if (!strcmp(argv[i], "--wav") && i + 1 < argc) { want_wav = true; wav_path = argv[++i]; }
         else if (!strcmp(argv[i], "--wav-seg") && i + 1 < argc) {      // --wav-seg A:B:file.wav
             std::string t = argv[++i]; WavSeg sg; size_t c1 = t.find(':'), c2 = t.find(':', c1 + 1);
@@ -230,7 +248,7 @@ int main(int argc, char** argv) {
         if (++aud_n == AUD_WIN) {
             int16_t smp = top->AUD_SD ? (int16_t)((aud_acc * 2 - AUD_WIN) * 96) : 0;
             aud_acc = 0; aud_n = 0;
-            if (want_wav) wav.push_back(smp);
+            if (want_wav && recording(cur_frame + 1)) wav.push_back(smp);   // samples taken while frame cur_frame+1 is scanned
             for (auto& sg : segs) if (cur_frame >= sg.a && cur_frame <= sg.b) {
                 sg.acc += smp;
                 if (++sg.n == 4) { sg.d.push_back((int16_t)(sg.acc / 4)); sg.acc = 0; sg.n = 0; }
@@ -280,6 +298,14 @@ int main(int argc, char** argv) {
                        r->top->dbg_seq, r->top->dbg_bact ? r->top->dbg_floor + 1 : 0, r->top->dbg_bhp,
                        r->top->dbg_bx, r->top->dbg_by, r->top->dbg_stun, r->top->dbg_esc, r->top->dbg_pact, r->top->dbg_chg);
                 fflush(stdout);
+            }
+
+            if (raw_fp && recording(frame)) {              // the frame that just ended is complete (640x480)
+                for (int i = 0; i < W * H; i++) {
+                    uint32_t c = px[i];
+                    rawbuf[i * 3] = (c >> 16) & 255; rawbuf[i * 3 + 1] = (c >> 8) & 255; rawbuf[i * 3 + 2] = c & 255;
+                }
+                fwrite(rawbuf.data(), 1, rawbuf.size(), raw_fp);
             }
 
             if (!headless && frame % skip == 0) {
@@ -392,6 +418,7 @@ int main(int argc, char** argv) {
     } else printf("frames=%d  last-window %.1f fps\n", frame, fps);
     for (auto& sg : segs) { write_wav(sg.path.c_str(), sg.d, 4); printf("wav-seg frames %d..%d: %zu samples -> %s\n", sg.a, sg.b, sg.d.size(), sg.path.c_str()); }
     if (want_wav && wav_path) { write_wav(wav_path, wav); printf("wav: %zu samples (%.1f s game time) -> %s\n", wav.size(), wav.size() / (double)AUD_RATE, wav_path); }
+    if (raw_fp) fclose(raw_fp);
     top->final();
     delete top;
     if (adev) SDL_CloseAudioDevice(adev);
