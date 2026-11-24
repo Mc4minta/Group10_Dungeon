@@ -165,7 +165,7 @@ Nov 20, 2026 · @min · อนุมัติเรื่องและบท�
 ## W28 / W29 / W31 / W32 / W33 (20/11): หน้า CONTROLS / CREDITS บน TITLE, กล่องเริ่มเกมซ้ำ, ข้อความ hint strip
 
 หน้า TITLE กด BTNR (หรือลูกศรขวา / D) = หน้าถัดไป, BTNL = หน้าก่อน; ลำดับ TITLE -> CONTROLS 1-5 -> CREDITS 1-3 -> TITLE; BTNC / Space / Enter = เริ่มเกมจากทุกหน้า.
-**CREDITS: ชื่อทีมเป็น placeholder ให้เจ้าของแก้** (และตรวจ credit ของ asset pack ก่อนส่ง).
+**CREDITS (W45):** ลำดับ TITLE -> SETTINGS -> CONTROLS 1-5 -> CREDITS 1-8 -> TITLE (tpage 0-14). หน้า CREDITS 3-8 ใช้ตัวอักษรขนาด 2x ทั้งสองบรรทัด (ยาวได้ 38 ตัว ส่วนหน้าอื่นไม่เกิน 20); ชื่อทีมต้องตรงกับ `docs/TEAM.txt` (ตรวจใน `tests/test_story.py`); รายละเอียด pack / ลิขสิทธิ์ดู `CREDITS.md` (ไม่ใส่เพลง: ยังไม่ทราบศิลปิน; ฟอนต์ไม่มี _ ( ) จึงเขียน "PIXEL POEM" และ "ITCH.IO - SEE CREDITS.MD").
 
 | ID | Tier | Trigger | จังหวะ | ผู้พูด | บรรทัด 1 | บรรทัด 2 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -175,8 +175,13 @@ Nov 20, 2026 · @min · อนุมัติเรื่องและบท�
 | CTL-04 | A | screen:controls4 | หน้า CONTROLS 4 | System | AUTO AIM | L OR SW9  FACE SW12 |
 | CTL-05 | A | screen:controls5 | หน้า CONTROLS 5 | System | OTHER KEYS | R BOXES  C CLAP SW11 |
 | CRD-01 | A | screen:credits1 | หน้า CREDITS 1 | System | THE CHOSEN ONE | GROUP 10 |
-| CRD-02 | A | screen:credits2 | หน้า CREDITS 2 | System | DESIGN AND CODE | NAMES HERE |
-| CRD-03 | A | screen:credits3 | หน้า CREDITS 3 | System | ART AND SOUND | SEE ASSET PACKS |
+| CRD-02 | A | screen:credits2 | หน้า CREDITS 2 | System | DESIGN AND CODE | GROUP 10 - CPE222 |
+| CRD-03 | A | screen:credits3 | หน้า CREDITS 3 (ทีม 1-2) | System | THANAYOT MONTHICHACHAT 68070501019 | PHONGSAKON SRIWICHA 68070501032 |
+| CRD-04 | A | screen:credits4 | หน้า CREDITS 4 (ทีม 3-4) | System | PHITCHAYAPHA VITTAYAVANICH 68070501034 | PICHAMON MUROH 68070501035 |
+| CRD-05 | A | screen:credits5 | หน้า CREDITS 5 (ทีม 5) | System | ONANONG CHADEE 68070501087 |  |
+| CRD-06 | A | screen:credits6 | หน้า CREDITS 6 | System | ART AND SOUND | PIXEL DUNGEON PACK - PIXEL POEM |
+| CRD-07 | A | screen:credits7 | หน้า CREDITS 7 | System | MINIFANTASY DUNGEON - KRISHNA PALACIO | HEARTS AND HEALTH BAR - VAMPIREGIRL |
+| CRD-08 | A | screen:credits8 | หน้า CREDITS 8 | System | ANIMATED ORBS - AXIALE | ITCH.IO - SEE CREDITS.MD |
 | F1-00 | B | start_again! | เริ่มเกมครั้งที่ 2+ (ข้าม intro เต็ม) | Player | FIGHT. SOLVE. WIN. | ONCE MORE! |
 
 Hint strip (กล่องเล็กกลางบนของจอ ไม่หยุดเกม; ไม่เกิน 17 ตัวอักษรต่อบรรทัด): objective ของห้อง + บทสอนที่รอให้ผู้เล่นทำ.

@@ -368,16 +368,18 @@ The `vivado/` folder is created by `scripts/create_project.tcl` and is not part 
 
 The repository has no `LICENSE` file. No licence is stated for the project itself.
 
-Third-party material is included in `my_asset/`. The repository does not record the author or the licence of these items, so each is listed as **licence not recorded**.
+See [CREDITS.md](CREDITS.md) for the art packs (name, author, itch.io page, licence, use). The same credits are shown in the game on the title screen (BTNR to page through SETTINGS, CONTROLS 1-5 and CREDITS 1-8). **Minifantasy Dungeon is free for non-commercial use only and its author asks for a link to the finished project.**
+
+Third-party material is included in `my_asset/`. Items that [CREDITS.md](CREDITS.md) does not cover are listed below as **licence not recorded**.
 
 | Item | Where | Licence |
 | --- | --- | --- |
-| 2D Pixel Dungeon Asset Pack v2.0 (tiles, props) | `my_asset/2D Pixel Dungeon Asset Pack v2.0.zip`, `my_asset/tileset/`, `my_asset/props/` | Licence not recorded |
+| 2D Pixel Dungeon Asset Pack v2.0 (tiles, props) | `my_asset/2D Pixel Dungeon Asset Pack v2.0.zip`, `my_asset/tileset/`, `my_asset/props/` | Pixel_Poem, free and commercial use ([CREDITS.md](CREDITS.md)) |
 | Enemy Animations Set (skeleton and vampire sheets) | `my_asset/Enemy_Animations_Set.zip`, `my_asset/enemies/` | Licence not recorded |
-| Hero sheets (Human, Orc, Angel) | `my_asset/Character/` | Licence not recorded |
-| Hearts and health bar | `my_asset/ui/Hearts/` | Licence not recorded |
+| Hero sheets (Human, Orc, Angel) | `my_asset/Character/` | Source not recorded in the repository (CREDITS.md lists Minifantasy Dungeon, non-commercial only) |
+| Hearts and health bar | `my_asset/ui/Hearts/` | VampireGirl, CC0 ([CREDITS.md](CREDITS.md)) |
 | UI sheet "MediavelFree" (not used by the game) | `my_asset/ui/MediavelFree.png` | Licence not recorded |
-| Orb sprites for the maze ball | `my_asset/ball/` | Licence not recorded |
+| Orb sprites for the maze ball | `my_asset/ball/` | axiale, free, credit appreciated ([CREDITS.md](CREDITS.md)) |
 | Song "Connect" (melody entered as notes) | `sprites/music/connect.txt` | Copyrighted song; permission not recorded |
 
 Tools: Xilinx Vivado, Verilator, Icarus Verilog, SDL2, Python with Pillow.

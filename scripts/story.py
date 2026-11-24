@@ -17,6 +17,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CHARS = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -:!.")
 MAX_LINE = 20
+MAX_LINE_CREDITS = 38                      # the credits pages draw both lines at 2x (16 px per character): 38 characters = 608 px of the 640 px screen
 MAX_DLG = 128
 MAX_CHARS = 3500
 SPEAKERS = {"PLAYER": 0, "VOICE": 1, "SYSTEM": 2}
@@ -28,7 +29,7 @@ EVENTS = ["start", "first_attack",
           "enter_f3start", "lock_f3c1", "lock_f3c2", "clear_f3c2", "enter_f3puz", "item_f3", "evolved_f3", "enter_f3boss", "charge_f3", "interrupt_f3",
           "key_drop", "enter_f3start_key", "maze_banner_end", "start_again"]
 
-SCREENS = ["settings1", "settings2", "settings3", "settings4", "settings5", "controls1", "controls2", "controls3", "controls4", "controls5", "credits1", "credits2", "credits3", "title", "prologue1", "prologue2", "prologue3", "prologue4", "evolve2", "evolve3", "evolve4",
+SCREENS = ["settings1", "settings2", "settings3", "settings4", "settings5", "controls1", "controls2", "controls3", "controls4", "controls5", "credits1", "credits2", "credits3", "credits4", "credits5", "credits6", "credits7", "credits8", "title", "prologue1", "prologue2", "prologue3", "prologue4", "evolve2", "evolve3", "evolve4",
            "floorclear", "maze", "win", "timeout", "gameover"]
 
 # Rule 1 fallback texts (the screens exist even without STORY.md)
@@ -44,7 +45,10 @@ DEFAULT_SCREENS = {
     "controls1": ("MOVE", "ARROWS WASD OR BTNS"), "controls2": ("ATTACK", "SPACE J ENTER BTNC"),
     "controls3": ("SPRINT AND PAUSE", "SHIFT SW14  P SW15"), "controls4": ("AUTO AIM", "L OR SW9  FACE SW12"),
     "controls5": ("OTHER KEYS", "R BOXES  C CLAP SW11"), "credits1": ("THE CHOSEN ONE", "GROUP 10"),
-    "credits2": ("DESIGN AND CODE", "NAMES HERE"), "credits3": ("ART AND SOUND", "SEE ASSET PACKS"),
+    "credits2": ("DESIGN AND CODE", "GROUP 10 - CPE222"), "credits3": ("THANAYOT MONTHICHACHAT 68070501019", "PHONGSAKON SRIWICHA 68070501032"),
+    "credits4": ("PHITCHAYAPHA VITTAYAVANICH 68070501034", "PICHAMON MUROH 68070501035"), "credits5": ("ONANONG CHADEE 68070501087", ""),
+    "credits6": ("ART AND SOUND", "PIXEL DUNGEON PACK - PIXEL POEM"), "credits7": ("MINIFANTASY DUNGEON - KRISHNA PALACIO", "HEARTS AND HEALTH BAR - VAMPIREGIRL"),
+    "credits8": ("ANIMATED ORBS - AXIALE", "ITCH.IO - SEE CREDITS.MD"),
 }
 
 
@@ -112,8 +116,9 @@ def validate(entries):
             bad = sorted(set(t) - CHARS)
             if bad:
                 errs.append(f"{e.id} {k}: characters not in the font: {' '.join(repr(c) for c in bad)} (allowed: A-Z 0-9 space - : ! .)")
-            if len(t) > MAX_LINE:
-                errs.append(f"{e.id} {k}: {len(t)} characters, the limit is {MAX_LINE}: {t!r}")
+            limit = MAX_LINE_CREDITS if e.trigger.strip().startswith("screen:credits") else MAX_LINE
+            if len(t) > limit:
+                errs.append(f"{e.id} {k}: {len(t)} characters, the limit is {limit}: {t!r}")
         if not e.l1:
             errs.append(f"{e.id}: line 1 is empty")
         if e.speaker and e.speaker.upper() not in SPEAKERS:

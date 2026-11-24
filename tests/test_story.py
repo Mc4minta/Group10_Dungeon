@@ -62,8 +62,8 @@ class RealStory(unittest.TestCase):
         for e in self.dlg:
             w = dlg[e.index]
             b0, n0, b1, n1, spk, blk = w & 0xFFF, (w >> 12) & 31, (w >> 17) & 0xFFF, (w >> 29) & 31, (w >> 34) & 3, (w >> 36) & 1
-            self.assertEqual(txt[b0:b0 + n0], [59 if c == '@' else CODE[c] for c in e.l1.replace('{F}', '@')], e.id)
-            self.assertEqual(txt[b1:b1 + n1], [59 if c == '@' else CODE[c] for c in e.l2.replace('{F}', '@')], e.id)
+            self.assertEqual(txt[b0:b0 + n0], [59 if c == '@' else CODE[c] for c in e.l1.replace('{F}', '@')], e.id)
+            self.assertEqual(txt[b1:b1 + n1], [59 if c == '@' else CODE[c] for c in e.l2.replace('{F}', '@')], e.id)
             self.assertEqual(spk, S.SPEAKERS[e.speaker.upper()], e.id)
             self.assertEqual(blk, int(e.block), e.id)
         for w in dlg[len(self.dlg):]:
@@ -93,7 +93,34 @@ class RealStory(unittest.TestCase):
     def test_screen_text_fits_the_screen(self):
         for name, (l1, l2) in self.st.screens.items():
             for t in (l1, l2):
-                self.assertLessEqual(len(t.replace("{F}", "1")), 20, name)
+                limit = S.MAX_LINE_CREDITS if name.startswith("credits") else 20
+                self.assertLessEqual(len(t.replace("{F}", "1")), limit, name)
+
+    def test_credits_pages(self):
+        """W45: 8 credits pages; the 2x credits lines leave 16 px free on each side, and the names match docs/TEAM.txt"""
+        names = [f"credits{i}" for i in range(1, 9)]
+        for n in names:
+            self.assertIn(n, self.st.screens)
+            for t in self.st.screens[n]:
+                self.assertLessEqual(len(t) * 16, 640 - 2 * 16, n)
+        team = [ln.strip() for ln in read(os.path.join(ROOT, "docs", "TEAM.txt")).splitlines() if ln.strip()]
+        self.assertGreaterEqual(len(team), 1)
+        shown = [t for n in ("credits3", "credits4", "credits5") for t in self.st.screens[n] if t]
+        self.assertEqual(shown, [t.upper().replace(" - ", " ") for t in team], "STORY.md credits 3-5 must list docs/TEAM.txt in order")
+        art = " ".join(t for n in ("credits6", "credits7", "credits8") for t in self.st.screens[n])
+        for needle in ("PIXEL POEM", "KRISHNA PALACIO", "VAMPIREGIRL", "AXIALE"):
+            self.assertIn(needle, art)
+
+    def test_credits_page_ids_match_top_v(self):
+        """top.v: tpage 7-9 -> text screens 21-23, tpage 10-14 -> 30-34 (6-bit txt_scr); make_font draws exactly those ids"""
+        top = read(os.path.join(ROOT, "rtl", "top.v"))
+        self.assertIn("TPAGE_LAST = 4'd14", top)
+        self.assertIn("(6'd20 + {2'b00, tpage})", top)
+        rnd = read(os.path.join(ROOT, "rtl", "renderer.v"))
+        self.assertIn("colc = s4 ? {1'b0, rx[9:5]} : rx[9:4];", rnd)      # 6-bit column index: 2x lines up to 40 characters
+        sel = read(os.path.join(ROOT, "rtl", "text_select.vh"))
+        for i in (21, 22, 23, 30, 31, 32, 33, 34):
+            self.assertIn(f"6'd{i}: begin", sel)
 
 
 class Mistakes(unittest.TestCase):

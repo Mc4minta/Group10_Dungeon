@@ -46,7 +46,7 @@ Plug the keyboard in before or after power-on (the board needs about 1 s to dete
 
 | Action | Board | Keyboard |
 |---|---|---|
-| Next page (SETTINGS, CONTROLS 1-5, CREDITS 1-3, back to the title) | **BTNR** | **Right arrow** or **D** |
+| Next page (SETTINGS, CONTROLS 1-5, CREDITS 1-8, back to the title) | **BTNR** | **Right arrow** or **D** |
 | Previous page | **BTNL** | **Left arrow** or **A** |
 | Clap level (SETTINGS page): louder clap needed | **BTNU** | **Up arrow** or **W** |
 | Clap level: quieter clap is enough | **BTND** | **Down arrow** or **S** |
