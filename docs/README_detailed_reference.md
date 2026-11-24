@@ -29,7 +29,7 @@ What the game has (details: `docs/FEATURES.md`, how to play: `docs/CONTROLS.md`)
 1. **Not tested on the board** except the USB keyboard: screen/picture does not shift, sound, microphone (clap), tilt maze (axis direction), all buttons/switches after W19 — checklist in `docs/BOARD_TEST_STEPS.md` (items 6b–6f, 7)
 2. **Timing is not met in the latest run whose files are on this machine:** `vivado/Group10_Dungeon.runs/impl_1/top_timing_summary_routed.rpt` (22/11) WNS −4.045 ns, TNS −2904.290 ns; worst path `pz/b0x_reg[1]` → `rnd/a_bb_reg[11]` (the text address in `renderer.v`) · this file is not in git, so it must be run again after any fix. Timing has not been fixed yet
 3. `tb_puzzles`: the old documents recorded that the lever-XOR check fails, but a rerun on 23/11 (Icarus 13.0, WSL) gave 42 checks, errors = 0 and the line "16 lever subsets give 16 different XOR results" = PASS — it currently **does not fail** (sim)
-4. `DEBUG` in `rtl/top.v` has the default value **1** (SW0–SW4 are cheat switches) — **the hand-in build must set `DEBUG = 0`**; at the moment `create_project.tcl` does not set the generic
+4. `DEBUG` in `rtl/top.v` has the default value **0** (SW0–SW4 are cheat switches, off by default) — set `DEBUG = 1` only to use them; `create_project.tcl` does not set the generic
 5. The Verilator `sim/verilator/Makefile` passes `-GPROLOGUE=$(PROLOGUE_V)` but `PROLOGUE_V` is never defined (empty value), and `sim/verilator/scripts/full_game.txt` was written for `PROLOGUE=0` — see "Needs a human decision" in `docs/DOC_UPDATE_REPORT.md`; the latest full-game run (to WIN) was not rerun on the latest code in this documentation pass
 6. Story/credits text on screen is partly placeholder; art that is not final: see `docs/SPRITE_STATUS.md`; wall variants / sample playback are not done (planned)
 7. Most `docs/*.png` pictures were taken before the W19–W46 work (for example `p5_*.png`, `p4_*.png`) and may not match the current look of the game — they were not regenerated
@@ -60,7 +60,7 @@ The sprites, tiles, enemies, bosses, puzzle objects, maps and music are generate
 3. Open `vivado/Group10_Dungeon.xpr` → Generate Bitstream → Program Device
    (or build in one step: `vivado -mode batch -source scripts/create_project.tcl -tclargs build`)
 4. Connect a VGA monitor and speakers/headphones to the AUDIO OUT jack, then play
-5. **Before the hand-in build:** set `parameter DEBUG = 0` in `rtl/top.v` (the default is currently 1)
+5. **Hand-in build:** `parameter DEBUG` in `rtl/top.v` is already 0
 
 Board day: [`docs/BOARD_DAY.md`](BOARD_DAY.md) (separate microphone test: `scripts/create_mic_project.tcl`) · before the first build, compare the pins in `constraints/nexys_a7.xdc` with Digilent's Master XDC once more
 
@@ -88,7 +88,7 @@ Full player guide: **`docs/CONTROLS.md`**
 | PDM microphone | — | Clap = stun boss 1 (see the "microphone" item below) |
 | ADXL362 | — | Tilt the board = roll the ball in ESCAPE |
 
-The **debug** switches work only when `top.v` has `DEBUG = 1` (**default = 1** in both Vivado and Verilator) — the hand-in build must set it to 0:
+The **debug** switches work only when `top.v` has `DEBUG = 1` (**default = 0** in both Vivado and Verilator):
 
 | Switch | What it does (DEBUG = 1) |
 | --- | --- |
@@ -254,7 +254,7 @@ make run        # build + open the window
 
 Windows: use WSL2 + Ubuntu / Kali (`sudo apt install -y build-essential verilator libsdl2-dev`; Verilator must be 5.x — apt on Ubuntu 22.04 gives 4.x, which is too old) · macOS: `brew install verilator sdl2`
 
-The simulator sets `CE_DIV=1`, `DEBOUNCE=2000` (real board `CE_DIV=4`, `DEBOUNCE=1_000_000` = 10 ms); the logic is the same as the board · `DEBUG` has its default value (=1)
+The simulator sets `CE_DIV=1`, `DEBOUNCE=2000` (real board `CE_DIV=4`, `DEBOUNCE=1_000_000` = 10 ms); the logic is the same as the board · `DEBUG` has its default value (=0)
 
 Build options (`sim/verilator`): `make` / `make run` (PGO g++, random puzzles → `obj_dir/Vtop`) · `make seeded` (SEED=0x1234 → `obj_dir_seeded/Vtop`) · `make SEED=0x5678` · `make PGO=0` · `make FAST_CLOCK=0`
 
@@ -310,4 +310,4 @@ Icarus Verilog is required (`sudo apt install iverilog`; tested with 13.0 in WSL
 
 ## Next steps
 
-See `docs/NEXT_STEPS.md` and the FUTURE BACKLOG table in `docs/DESIGN_PLAN.md`: board test (picture, sound, microphone, maze) → fix timing (WNS −4.045 ns) → set `DEBUG = 0` → video + hand-in report
+See `docs/NEXT_STEPS.md` and the FUTURE BACKLOG table in `docs/DESIGN_PLAN.md`: board test (picture, sound, microphone, maze) → fix timing (WNS −4.045 ns) → video + hand-in report

@@ -153,7 +153,7 @@ Other inputs:
 - **Microphone (PDM):** a clap stuns boss 1.
 - **Accelerometer (ADXL362):** tilting the board rolls the ball in the maze.
 
-**Debug switches.** SW0 to SW4 work only when `parameter DEBUG` in `rtl/top.v` is 1. The file default is **1**. The submission build must set `DEBUG = 0`. `scripts/create_project.tcl` does not set this parameter.
+**Debug switches.** SW0 to SW4 work only when `parameter DEBUG` in `rtl/top.v` is 1. The file default is **0**, so the switches are off in a default build. Set `DEBUG = 1` in `rtl/top.v` only when you want them.
 
 | Switch | Effect when `DEBUG = 1` |
 | --- | --- |
@@ -195,7 +195,7 @@ vivado -mode batch -source scripts/create_project.tcl -tclargs build
 
 The bitstream is `vivado/Group10_Dungeon.runs/impl_1/top.bit`. To create only the project, omit `-tclargs build` and run the flow in the Vivado GUI. Program the board from the Hardware Manager. The step-by-step guide is `docs/BOARD_TEST_STEPS.md`.
 
-Before building for submission, set `parameter DEBUG = 0` in `rtl/top.v`.
+`parameter DEBUG` in `rtl/top.v` is already 0 for the submission build.
 
 ### Run the testbenches (Icarus Verilog)
 
@@ -356,7 +356,7 @@ The `vivado/` folder is created by `scripts/create_project.tcl` and is not part 
 
    The same run reports 18,182 of 63,400 slice LUTs and 103.5 of 135 block RAM tiles. The worst path ends in the renderer text address. Despite the failed constraint, the design ran on the board. Timing has not been fixed.
 2. **Test status of the last run (23/11/2026, Icarus Verilog 13.0).** `tb_player` reports 2 failed checks (`form1 blocked by hole`, `spd4: form1 still blocked by hole`). Six targets (`simonplate`, `ovrender`, `text`, `orb`, `debug`, `top`) do not compile with Icarus 13.0, because `rtl/renderer.v:162` uses the name `inside`, which is a keyword in SystemVerilog mode. The other 12 targets pass. Of 165 Python tests, one fails (`test_overlay_pipeline`, a byte comparison of `mem/ovtile.mem`; the checkout has CRLF line endings and the regenerated file has LF). The results are in `test_output_full.txt`.
-3. **`DEBUG` defaults to 1.** The debug switches SW0 to SW4 are active in a default build. Set `DEBUG = 0` for the submission build.
+3. **`DEBUG` defaults to 0.** The debug switches SW0 to SW4 are off in a default build. Set `DEBUG = 1` in `rtl/top.v` to use them.
 4. **Verilator build.** With Verilator 5.054, the unmodified `sim/verilator/Makefile` did not build in our WSL setup. The identifier `inside` in `rtl/renderer.v` is read as a SystemVerilog keyword, and the Makefile passes `-GPROLOGUE=$(PROLOGUE_V)` while `PROLOGUE_V` is never defined. The screenshots were made with a command-line override (`--default-language 1364-2005`, `-GPROLOGUE=0`); see `report_shots/_build.sh`.
 5. **Old replay scripts.** The scripts in `sim/verilator/scripts/` (including `full_game.txt`) were written before the story boxes and the room redesign. They no longer reach the end of the game. The scripts used for the report pictures are in `report_shots/scripts/`.
 6. **Not confirmed on the board:** the `AUD_SD` level against the board manual, and the tilt direction of the maze (`MAZE_SIGN_X`, `MAZE_SIGN_Y` in `rtl/params.vh`). Both are open items in `docs/BOARD_TEST_STEPS.md`.
