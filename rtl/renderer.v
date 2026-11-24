@@ -202,20 +202,40 @@ module renderer (
     reg [5:0]  colc;                              // W45: 6 bits, a 2x line may be up to 40 characters (the credits pages)
     // stage A: ตำแหน่งในบรรทัดข้อความ (ลบ + เทียบขอบ + เลือกบรรทัด) -> register; stage B: อ่านตัวอักษรจาก text ROM + เลขสด
     reg [9:0]  a_rx = 0, a_ry = 0; reg a_in = 0, a_s4 = 0, a_kk = 0, a_on = 0; reg [11:0] a_bb = 0;
+    // timing: the text-screen select used to run from the puzzle / game state straight to a_bb in one clock (WNS -5.2 ns, worst path pz/b1y -> txt_scr/hint_b0 -> case -> a_bb).
+    // It is now 3 short steps: (0) register the inputs, (1) the case -> registers, (A) the position test. These inputs only change at game-state speed, so the 2 extra clocks of latency are invisible.
+    reg [5:0]  s_scr = 0;  reg s_top = 0;
+    reg [11:0] s_hb0 = 0, s_hb1 = 0, s_db0 = 0, s_db1 = 0;
+    reg [4:0]  s_hn0 = 0, s_hn1 = 0, s_dn0 = 0, s_dn1 = 0;
     always @(posedge clk) begin
-        a_on <= (txt_scr != 0);
-        if (txt_scr != 0) begin
-            case (txt_scr)
-                5'd24: begin ly0 = 10'd42; lx0 = 10'd8; lw0 = {1'b0, hint_n0, 4'b0}; lh0 = 10'd16; ls0 = 1'b0; lb0 = hint_b0; lk0 = 1'b0;      // W38: top left under the hearts, never over a door
-                             ly1 = 10'd60; lx1 = 10'd8; lw1 = {1'b0, hint_n1, 4'b0}; lh1 = 10'd16; ls1 = 1'b0; lb1 = hint_b1; lk1 = 1'b0; end
-                5'd14: begin ly0 = dlg_top ? 10'd40 : 10'd392; lx0 = 10'd320 - {1'b0, dlg_n0, 4'b0} / 2; lw0 = {1'b0, dlg_n0, 4'b0}; lh0 = 10'd16; ls0 = 1'b0; lb0 = dlg_b0; lk0 = 1'b0;
-                             ly1 = dlg_top ? 10'd64 : 10'd416; lx1 = 10'd320 - {1'b0, dlg_n1, 4'b0} / 2; lw1 = {1'b0, dlg_n1, 4'b0}; lh1 = 10'd16; ls1 = 1'b0; lb1 = dlg_b1; lk1 = 1'b0; end
-                `include "text_select.vh"
-            endcase
-            rx0 = hcount - lx0; ry0 = vcount - ly0; in0 = (rx0 < lw0) && (ry0 < lh0);
-            rx1 = hcount - lx1; ry1 = vcount - ly1; in1 = (rx1 < lw1) && (ry1 < lh1);
+        s_scr <= txt_scr;  s_top <= dlg_top;
+        s_hb0 <= hint_b0;  s_hb1 <= hint_b1;  s_hn0 <= hint_n0;  s_hn1 <= hint_n1;
+        s_db0 <= dlg_b0;   s_db1 <= dlg_b1;   s_dn0 <= dlg_n0;   s_dn1 <= dlg_n1;
+    end
+    reg [9:0]  m_ly0 = 0, m_lx0 = 0, m_lw0 = 0, m_lh0 = 0, m_ly1 = 0, m_lx1 = 0, m_lw1 = 0, m_lh1 = 0;
+    reg        m_ls0 = 0, m_ls1 = 0, m_lk0 = 0, m_lk1 = 0, m_on = 0;
+    reg [11:0] m_lb0 = 0, m_lb1 = 0;
+    always @(posedge clk) begin
+        m_on <= (s_scr != 0);
+        ly0 = 0; lx0 = 0; lw0 = 0; lh0 = 0; ls0 = 0; lb0 = 0; lk0 = 0;
+        ly1 = 0; lx1 = 0; lw1 = 0; lh1 = 0; ls1 = 0; lb1 = 0; lk1 = 0;
+        case (s_scr)
+            5'd24: begin ly0 = 10'd42; lx0 = 10'd8; lw0 = {1'b0, s_hn0, 4'b0}; lh0 = 10'd16; ls0 = 1'b0; lb0 = s_hb0; lk0 = 1'b0;      // W38: top left under the hearts, never over a door
+                         ly1 = 10'd60; lx1 = 10'd8; lw1 = {1'b0, s_hn1, 4'b0}; lh1 = 10'd16; ls1 = 1'b0; lb1 = s_hb1; lk1 = 1'b0; end
+            5'd14: begin ly0 = s_top ? 10'd40 : 10'd392; lx0 = 10'd320 - {1'b0, s_dn0, 4'b0} / 2; lw0 = {1'b0, s_dn0, 4'b0}; lh0 = 10'd16; ls0 = 1'b0; lb0 = s_db0; lk0 = 1'b0;
+                         ly1 = s_top ? 10'd64 : 10'd416; lx1 = 10'd320 - {1'b0, s_dn1, 4'b0} / 2; lw1 = {1'b0, s_dn1, 4'b0}; lh1 = 10'd16; ls1 = 1'b0; lb1 = s_db1; lk1 = 1'b0; end
+            `include "text_select.vh"
+        endcase
+        m_ly0 <= ly0; m_lx0 <= lx0; m_lw0 <= lw0; m_lh0 <= lh0; m_ls0 <= ls0; m_lb0 <= lb0; m_lk0 <= lk0;
+        m_ly1 <= ly1; m_lx1 <= lx1; m_lw1 <= lw1; m_lh1 <= lh1; m_ls1 <= ls1; m_lb1 <= lb1; m_lk1 <= lk1;
+    end
+    always @(posedge clk) begin
+        a_on <= m_on;
+        if (m_on) begin
+            rx0 = hcount - m_lx0; ry0 = vcount - m_ly0; in0 = (rx0 < m_lw0) && (ry0 < m_lh0);
+            rx1 = hcount - m_lx1; ry1 = vcount - m_ly1; in1 = (rx1 < m_lw1) && (ry1 < m_lh1);
             a_rx <= in0 ? rx0 : rx1;  a_ry <= in0 ? ry0 : ry1;  a_in <= in0 || in1;
-            a_s4 <= in0 ? ls0 : ls1;  a_bb <= in0 ? lb0 : lb1;  a_kk <= in0 ? lk0 : lk1;
+            a_s4 <= in0 ? m_ls0 : m_ls1;  a_bb <= in0 ? m_lb0 : m_lb1;  a_kk <= in0 ? m_lk0 : m_lk1;
         end
     end
     always @(posedge clk) begin
