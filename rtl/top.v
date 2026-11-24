@@ -17,7 +17,7 @@ module top #(
     parameter DEBOUNCE = 1_000_000,         // 10 ms ที่ 100 MHz
     parameter CE_DIV   = 4,                 // บอร์ดจริง = 4 (25 MHz) / simulator บนจอคอม = 1 (เร็วขึ้น 4 เท่า)
     parameter PROLOGUE = 1,                 // 1 = TITLE -> PROLOGUE (4 pages, black screen) -> PLAY; 0 = straight to PLAY (old testbenches)
-    parameter DEBUG    = 0,                // 1 = สวิตช์ debug SW0/SW1/SW2/SW3/SW4 ใช้ได้, 0 = build ส่งงาน
+    parameter DEBUG    = 1,                 // 1 = สวิตช์ debug SW0/SW1/SW2/SW3/SW4 ใช้ได้, 0 = build ส่งงาน
     parameter [15:0] SEED = 16'd0           // 0 = ปริศนาสุ่มต่างกันทุกเกม, อื่น ๆ = คงที่ (ทดสอบ)
 ) (
     input  wire        CLK100MHZ,

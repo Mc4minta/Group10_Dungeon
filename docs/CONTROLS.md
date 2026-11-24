@@ -84,7 +84,7 @@ Plug the keyboard in before or after power-on (the board needs about 1 s to dete
 | LED 0-3 | direction buttons (in the puzzle rooms: bulbs / rounds), LED 4-7 monsters left, LED 8-11 hearts, LED 12 doors locked, LED 13 floor item taken, LED 14 sprint, LED 15 win |
 | RGB LED 16 | colour of your form |
 | RGB LED 17 | red = just hit; blue flickers when the keyboard clock moves, green flickers when a key code was decoded (keyboard check) |
-| SW0 to SW4 | debug switches (open doors, skip floor, clear room, evolve, lose a heart): only when `DEBUG = 1` in `rtl/top.v`. **The file's default is 0** (hand-in build) |
+| SW0 to SW4 | debug switches (open doors, skip floor, clear room, evolve, lose a heart): only when `DEBUG = 1` in `rtl/top.v`. **The file's default is 1**; the hand-in build must be built with `DEBUG = 0` |
 | CPU RESET | restarts everything (also resets the clap level and the intro) |
 
 ## 9. Quick card

@@ -13,7 +13,7 @@ Where to read more: `docs/README.md` (index), `docs/SPRITE_STATUS.md` (art), `do
 | 4 forms (evolution) | form 1 Human (melee), 2 Orc (shot), 3 Angel (3-way spread; a bullet that hits a monster splits into 4 short child bullets), 4 gold (fast shot + charged big ball); each puzzle item evolves the hero and opens that floor's boss door | `game_fsm.v`, `objects.v` |
 | Health | HP 4 on every form, invulnerable 90 frames after a hit, knockback | `params.vh` (`HP1..4`, `INV_FRAMES`) |
 | Timer | mm.ss on the 7-segment display, runs from START | `game_fsm.v`, `seg7.v` |
-| Debug shortcuts | SW0-SW4 (open boss door, skip floor, clear room, evolve, hurt) only when `DEBUG = 1`. **`rtl/top.v` defaults to `DEBUG = 0` (hand-in build)** | `top.v` |
+| Debug shortcuts | SW0-SW4 (open boss door, skip floor, clear room, evolve, hurt) only when `DEBUG = 1`. **`rtl/top.v` defaults to `DEBUG = 1`; the hand-in build must set 0** | `top.v` |
 
 ## 2. Player
 | Feature | Details | Code |
