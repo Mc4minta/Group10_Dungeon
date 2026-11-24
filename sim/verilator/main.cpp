@@ -21,8 +21,11 @@
 //   --script "R:10:80,U:90:120,1:200"   กดปุ่มตามช่วงเฟรม (U D L R C) / สลับสวิตช์ที่เฟรมนั้น (0-9 = SW0-9, a-f = SW10-15)
 //   --headless | HEADLESS=1   ไม่เรียก SDL เลย, รัน 300 เฟรม (หรือ --frames N) แล้วพิมพ์ fps
 //   FRAMESKIP=N | --skip N    จำลอง N เฟรมต่อ 1 เฟรมที่แสดง/อ่านคีย์ (ค่าเริ่มต้น 1 = เหมือนเดิม; กด [ ] ปรับตอนรัน)
-//   --raw-out FILE         (tools/video) write every VGA frame (640x480 RGB24, no status panel) to FILE; works with --headless
-//   --rec A:B              (tools/video) limit --raw-out and --wav to frames A..B (repeatable; none = all frames)
+//   --raw-out FILE         (tools/video) เขียนทุกเฟรม VGA 640x480 เป็น RGB24 ดิบต่อกัน (ไม่รวมแผงสถานะ); ใช้กับ --headless ได้ -> ffmpeg -f rawvideo -pix_fmt rgb24 -s 640x480
+//   --rec A:B              (tools/video) เขียนเฉพาะเฟรม A..B ลง --raw-out และ --wav (ใช้ซ้ำได้หลายช่วง; ไม่ใส่ = ทุกเฟรม)
+//   --record-inputs FILE   (tools/video) บันทึกอินพุตที่กด (ลูกศร/Space/C/สวิตช์/Backspace) ตามเลขเฟรมที่จำลองจริง ลงไฟล์ในรูปแบบเดียวกับ --script-file
+//                          (U:a:b = ปุ่มค้าง, 1:f / a:f = สลับสวิตช์, K:f = ตบมือ, B:a:b = Backspace/รีเซ็ต) -> เล่นซ้ำด้วย --script-file ได้ตรงเฟรม
+//   --frame-hash           พิมพ์ FNV-1a 64 บิตของเฟรม VGA ทุก 60 เฟรม + "FINAL-HASH" ตอนจบ (ตรวจว่าเล่นซ้ำแล้วได้ผลเหมือนเดิม; ดู scripts/verify_replay.sh)
 //   RENDERER=sw|accel         เลือก SDL renderer (ค่าเริ่มต้น = SDL เลือกเอง)
 //   LOG=N                     พิมพ์ "f=<เฟรม> LED=<hex> st fl room px py hp form alive bulbs sm rnd seq boss bhp bx by stun esc" ทุก N เฟรม
 //   ปุ่ม C = ตบมือจำลอง (ไมค์ดัง 100 ms) · สคริปต์: K:<เฟรม>
@@ -38,6 +41,8 @@
 #include <string>
 #include <vector>
 #include <chrono>
+#include <csignal>
+#include <ctime>
 
 #ifndef CE_DIV
 #define CE_DIV 4
@@ -104,12 +109,78 @@ struct WavSeg { int a, b; std::string path; std::vector<int16_t> d; int acc = 0,
 static std::vector<WavSeg> segs;
 static int cur_frame = 0;
 static bool want_wav = false, muted = false;
-static std::vector<std::pair<int, int>> recs;    // --rec A:B (empty = record every frame)
+static std::vector<std::pair<int, int>> recs;    // --rec A:B (ว่าง = บันทึกทุกเฟรม)
 static bool recording(int f) {
     if (recs.empty()) return true;
     for (auto& r : recs) if (f >= r.first && f <= r.second) return true;
     return false;
 }
+// Verilator 5.0x names this member ..._CLK100MHZ__1, 5.04x ..._CLK100MHZ__0: accept either (only used when FAST_CLOCK=1)
+template <class R> static auto set_clk_prev0(R* r, int) -> decltype((void)r->__Vtrigprevexpr___TOP__CLK100MHZ__1) { r->__Vtrigprevexpr___TOP__CLK100MHZ__1 = 0; }
+template <class R> static auto set_clk_prev0(R* r, long) -> decltype((void)r->__Vtrigprevexpr___TOP__CLK100MHZ__0) { r->__Vtrigprevexpr___TOP__CLK100MHZ__0 = 0; }
+template <class R> static void set_clk_prev0(R* r) { set_clk_prev0(r, 0); }
+static volatile std::sig_atomic_t g_stop = 0;    // Ctrl-C ตอนอัดอินพุต -> ออกลูปแบบปกติ (ไฟล์ถูกปิดครบ)
+static void on_signal(int) { g_stop = 1; }
+
+// ---------- --record-inputs: เขียนรูปแบบเดียวกับ --script-file ----------
+// ปุ่มค้าง = "U:เริ่ม:จบ" (เขียนตอนปล่อย; ตอนออกปิดด้วยเฟรมสุดท้าย) · สวิตช์ = "<0-9a-f>:เฟรม" ต่อการสลับ 1 ครั้ง · ตบมือ = "K:เฟรม"
+// เลขเฟรม = เฟรมที่จำลองจริง (นับ VGA vsync) ตรงกับที่ parser ของ --script ใช้ จึงเล่นซ้ำตรงเป๊ะแม้ใช้ --skip > 1
+struct InputRec {
+    FILE* fp = nullptr;
+    const char* KEYS = "UDLRCB";                     // B = Backspace (CPU_RESETN ถูกกดค้าง)
+    bool held[6] = {};
+    int  start[6] = {};
+    unsigned sw_prev = 0;
+    std::chrono::steady_clock::time_point t_flush = std::chrono::steady_clock::now();
+    bool open(const char* path, int skip) {
+        fp = fopen(path, "w");
+        if (!fp) { fprintf(stderr, "cannot write %s\n", path); return false; }
+        char date[64] = "?"; time_t t = time(nullptr); strftime(date, sizeof date, "%Y-%m-%d %H:%M:%S", localtime(&t));
+        char git[160] = "unknown";
+        if (FILE* p = popen("git rev-parse --short HEAD 2>/dev/null", "r")) {
+            if (fgets(git, sizeof git, p)) git[strcspn(git, "\r\n")] = 0; else strcpy(git, "unknown");
+            pclose(p);
+            if (strcmp(git, "unknown") && system("git diff --quiet HEAD -- ../rtl ../sim/verilator 2>/dev/null") != 0)
+                strcat(git, " (+uncommitted changes in rtl/ or sim/verilator)");
+        }
+        fprintf(fp, "# Group10 Dungeon input recording (replay: Vtop --headless --script-file THIS_FILE)\n");
+#ifdef SEED_VAL
+        fprintf(fp, "# seed: %d (0x%x)\n", SEED_VAL, SEED_VAL);
+#else
+        fprintf(fp, "# seed: unknown (binary built without -DSEED_VAL; use make SEED=0x1234)\n");
+#endif
+        fprintf(fp, "# skip: %d\n# date: %s\n# git: %s\n# frame numbers = simulated VGA frames, not wall-clock time\n", skip, date, git);
+        fflush(fp);
+        return true;
+    }
+    void event(char key, int frame) { if (fp) fprintf(fp, "%c:%d\n", key, frame); }
+    void update(int frame, const bool now[6], unsigned sw) {
+        if (!fp) return;
+        for (int i = 0; i < 6; i++) {
+            if (now[i] && !held[i]) { held[i] = true; start[i] = frame; }
+            else if (!now[i] && held[i]) {
+                held[i] = false;
+                fprintf(fp, "%c:%d:%d\n", KEYS[i], start[i], frame - 1 < start[i] ? start[i] : frame - 1);
+            }
+        }
+        unsigned ch = (sw ^ sw_prev) & 0xFFFF;
+        for (int b = 0; b < 16; b++) if ((ch >> b) & 1) fprintf(fp, "%c:%d\n", b < 10 ? '0' + b : 'a' + b - 10, frame);
+        sw_prev = sw;
+        auto n = std::chrono::steady_clock::now();
+        if (n - t_flush > std::chrono::seconds(3)) { fflush(fp); t_flush = n; }
+    }
+    void close(int frame) {
+        if (!fp) return;
+        for (int i = 0; i < 6; i++) if (held[i]) { fprintf(fp, "%c:%d:%d\n", KEYS[i], start[i], frame); held[i] = false; }
+        fprintf(fp, "# end: frame %d\n", frame);
+        fclose(fp); fp = nullptr;
+    }
+};
+static InputRec rec_in;
+
+// ---------- --frame-hash ----------
+static const uint64_t FNV_P = 1099511628211ULL, FNV_0 = 1469598103934665603ULL;
+static inline uint64_t fnv_byte(uint64_t h, uint8_t b) { return (h ^ b) * FNV_P; }
 static std::vector<int16_t> aq;      // คิวสำหรับ SDL
 static SDL_AudioDeviceID adev = 0;
 static int aud_acc = 0, aud_n = 0;
@@ -133,8 +204,11 @@ int main(int argc, char** argv) {
     std::vector<Act> script;
     bool headless = false;
     const char* wav_path = nullptr;
-    FILE* raw_fp = nullptr;                          // --raw-out: RGB24 per frame
+    FILE* raw_fp = nullptr;                          // --raw-out: RGB24 ต่อเฟรม
     std::vector<uint8_t> rawbuf(W * H * 3);
+    const char* rec_path = nullptr;                  // --record-inputs
+    bool fhash = false;                              // --frame-hash
+    uint64_t fh_last = 0, fh_all = FNV_0;
     int skip = 1;
     if (const char* e = getenv("HEADLESS")) headless = atoi(e) != 0;
     if (const char* e = getenv("FRAMESKIP")) skip = atoi(e);
@@ -148,6 +222,8 @@ int main(int argc, char** argv) {
             raw_fp = fopen(argv[++i], "wb");
             if (!raw_fp) { fprintf(stderr, "cannot write %s\n", argv[i]); return 1; }
         }
+        else if (!strcmp(argv[i], "--record-inputs") && i + 1 < argc) rec_path = argv[++i];
+        else if (!strcmp(argv[i], "--frame-hash")) fhash = true;
         else if (!strcmp(argv[i], "--rec") && i + 1 < argc) {
             int a = 0, b = 0;
             if (sscanf(argv[++i], "%d:%d", &a, &b) == 2) recs.push_back({a, b});
@@ -194,6 +270,13 @@ int main(int argc, char** argv) {
     }
 
     if (skip < 1) skip = 1;
+    bool script_has_B = false;                       // สคริปต์มี B:a:b (กด Backspace/รีเซ็ต) -> คุม CPU_RESETN จากสคริปต์
+    for (auto& a : script) if (a.key == 'B') script_has_B = true;
+    if (rec_path) {
+        if (!rec_in.open(rec_path, skip)) return 1;
+        std::signal(SIGINT, on_signal); std::signal(SIGTERM, on_signal);
+    }
+    int last_skip = skip;
     if (headless && max_frames <= 0) max_frames = 300;
     SDL_Window* win = nullptr; SDL_Renderer* ren = nullptr; SDL_Texture* tex = nullptr;
     if (!headless) {
@@ -225,7 +308,7 @@ int main(int argc, char** argv) {
     uint8_t digit[8]; memset(digit, 0x7F, 8);
     bool dpon[8] = {0};                       // จุดทศนิยมต่อหลัก (DP active-low)
     bool quit = false;
-    bool kU = 0, kD = 0, kL = 0, kR = 0, kC = 0;
+    bool kU = 0, kD = 0, kL = 0, kR = 0, kC = 0, kB = 0;
     auto t0 = std::chrono::steady_clock::now();
     auto tw = t0; int fw = 0;      // หน้าต่างวัด fps ราย ~1 วินาที
     double fps = 0;
@@ -237,7 +320,7 @@ int main(int argc, char** argv) {
         // ตั้งค่า "CLK ก่อนหน้า" ของ trigger posedge ให้เป็น 0 เอง (ชื่อตัวแปรภายในของ Verilator 5.x;
         // ถ้า build ไม่ผ่านกับ Verilator รุ่นอื่น ให้ make FAST_CLOCK=0)
         top->CLK100MHZ = 1;
-        top->rootp->__Vtrigprevexpr___TOP__CLK100MHZ__1 = 0;
+        set_clk_prev0(top->rootp);
         top->eval();
 #else
         top->CLK100MHZ = 0; top->eval();
@@ -248,7 +331,7 @@ int main(int argc, char** argv) {
         if (++aud_n == AUD_WIN) {
             int16_t smp = top->AUD_SD ? (int16_t)((aud_acc * 2 - AUD_WIN) * 96) : 0;
             aud_acc = 0; aud_n = 0;
-            if (want_wav && recording(cur_frame + 1)) wav.push_back(smp);   // samples taken while frame cur_frame+1 is scanned
+            if (want_wav && recording(cur_frame + 1)) wav.push_back(smp);   // ตัวอย่างระหว่างสแกนเฟรม cur_frame+1
             for (auto& sg : segs) if (cur_frame >= sg.a && cur_frame <= sg.b) {
                 sg.acc += smp;
                 if (++sg.n == 4) { sg.d.push_back((int16_t)(sg.acc / 4)); sg.acc = 0; sg.n = 0; }
@@ -300,12 +383,23 @@ int main(int argc, char** argv) {
                 fflush(stdout);
             }
 
-            if (raw_fp && recording(frame)) {              // the frame that just ended is complete (640x480)
+            if (raw_fp && recording(frame)) {              // เฟรมที่จบตอนนี้ครบ 640x480 แล้ว
                 for (int i = 0; i < W * H; i++) {
                     uint32_t c = px[i];
                     rawbuf[i * 3] = (c >> 16) & 255; rawbuf[i * 3 + 1] = (c >> 8) & 255; rawbuf[i * 3 + 2] = c & 255;
                 }
                 fwrite(rawbuf.data(), 1, rawbuf.size(), raw_fp);
+            }
+
+            if (fhash) {                                   // hash ของภาพ VGA 640x480 (ไม่รวมแผงสถานะ)
+                uint64_t h = FNV_0;
+                for (int i = 0; i < W * H; i++) {
+                    uint32_t c = px[i];
+                    h = fnv_byte(h, (c >> 16) & 255); h = fnv_byte(h, (c >> 8) & 255); h = fnv_byte(h, c & 255);
+                }
+                fh_last = h;
+                for (int k = 0; k < 8; k++) fh_all = fnv_byte(fh_all, (h >> (8 * k)) & 255);
+                if (frame % 60 == 0) { printf("frame-hash f=%d %016llx\n", frame, (unsigned long long)h); fflush(stdout); }
             }
 
             if (!headless && frame % skip == 0) {
@@ -373,9 +467,9 @@ int main(int argc, char** argv) {
                         else if (k == SDLK_RIGHT) kR = d;
                         else if (k == SDLK_SPACE) kC = d;
                         else if (k == SDLK_ESCAPE && d) quit = true;
-                        else if (k == SDLK_c && d && !e.key.repeat) clap_left = 10000000;   // ตบมือ 100 ms
+                        else if (k == SDLK_c && d && !e.key.repeat) { clap_left = 10000000; rec_in.event('K', frame); }   // ตบมือ 100 ms
                         else if (k == SDLK_m && d && !e.key.repeat) muted = !muted;           // M = ปิด/เปิดเสียง
-                        else if (k == SDLK_BACKSPACE) top->CPU_RESETN = !d;
+                        else if (k == SDLK_BACKSPACE) { top->CPU_RESETN = !d; kB = d; }
                         else if (d && !e.key.repeat && k == SDLK_LEFTBRACKET) { if (skip > 1) skip--; }
                         else if (d && !e.key.repeat && k == SDLK_RIGHTBRACKET) { if (skip < 64) skip++; }
                         else if (d && !e.key.repeat && k >= SDLK_0 && k <= SDLK_9) top->SW ^= (1 << (k - SDLK_0));
@@ -383,17 +477,25 @@ int main(int argc, char** argv) {
                     }
                 }
             }
-            bool sU = 0, sD = 0, sL = 0, sR = 0, sC = 0;
+            if (skip != last_skip) { if (rec_in.fp) fprintf(rec_in.fp, "# skip changed %d -> %d at frame %d\n", last_skip, skip, frame); last_skip = skip; }
+            bool sU = 0, sD = 0, sL = 0, sR = 0, sC = 0, sB = 0;
             for (auto& a : script) {
                 if (frame >= a.from && frame <= a.to) {
                     if (a.key == 'U') sU = 1; if (a.key == 'D') sD = 1;
                     if (a.key == 'L') sL = 1; if (a.key == 'R') sR = 1; if (a.key == 'C') sC = 1;
+                    if (a.key == 'B') sB = 1;
                 }
                 if (a.key >= '0' && a.key <= '9' && frame == a.from) top->SW ^= (1 << (a.key - '0'));
                 if (a.key >= 'a' && a.key <= 'f' && frame == a.from) top->SW ^= (1 << (10 + a.key - 'a'));
-                if (a.key == 'K' && frame == a.from) clap_left = 10000000;   // ตบมือ 100 ms
+                if (a.key == 'K' && frame == a.from) { clap_left = 10000000; rec_in.event('K', frame); }   // ตบมือ 100 ms
             }
             top->BTNU = kU | sU; top->BTND = kD | sD; top->BTNL = kL | sL; top->BTNR = kR | sR; top->BTNC = kC | sC;
+            if (script_has_B) top->CPU_RESETN = !(kB || sB);
+            if (rec_in.fp) {
+                const bool now[6] = { bool(kU | sU), bool(kD | sD), bool(kL | sL), bool(kR | sR), bool(kC | sC), bool(kB || sB) };
+                rec_in.update(frame, now, top->SW);
+            }
+            if (g_stop) quit = true;
 
             if (max_frames > 0 && frame >= max_frames) quit = true;
         }
@@ -419,6 +521,8 @@ int main(int argc, char** argv) {
     for (auto& sg : segs) { write_wav(sg.path.c_str(), sg.d, 4); printf("wav-seg frames %d..%d: %zu samples -> %s\n", sg.a, sg.b, sg.d.size(), sg.path.c_str()); }
     if (want_wav && wav_path) { write_wav(wav_path, wav); printf("wav: %zu samples (%.1f s game time) -> %s\n", wav.size(), wav.size() / (double)AUD_RATE, wav_path); }
     if (raw_fp) fclose(raw_fp);
+    rec_in.close(frame);
+    if (fhash) printf("FINAL-HASH frames=%d last=%016llx all=%016llx\n", frame, (unsigned long long)fh_last, (unsigned long long)fh_all);
     top->final();
     delete top;
     if (adev) SDL_CloseAudioDevice(adev);

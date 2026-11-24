@@ -23,6 +23,8 @@ FAST_CLOCK ?= 1
 PGO        ?= 1
 # seed ของปริศนา: 0 = สุ่มจาก LFSR (เล่นปกติ), อื่น ๆ = รูปแบบหลอด / ลำดับ Simon คงที่ (สคริปต์เล่นซ้ำ)
 SEED        ?= 0
+# 1 = TITLE -> PROLOGUE -> PLAY (the real game, same default as rtl/top.v); 0 = skip the prologue. Was never defined, so -GPROLOGUE= was empty (Verilator 5.048 rejects that)
+PROLOGUE_V  ?= 1
 SCRIPT_SEED := 0x1234
 SEED_DEC    := $(shell printf '%d' $(SEED))
 ifeq ($(SEED_DEC),0)
@@ -39,7 +41,7 @@ ovr = OPT_FAST="$(OPT_NATIVE) $(1)" OPT_SLOW="$(OPT_NATIVE) $(1)" OPT_GLOBAL="$(
 # debounce สั้นลงใน simulation (ของจริง 10 ms = 1,000,000 clock)
 VFLAGS  := --cc --exe -O3 -j 0 --top-module top -I$(ROOT)/rtl -Wno-fatal -Wno-lint -Wno-style \
            -GDEBOUNCE=2000 -GCE_DIV=1 -GSEED=$(SEED_DEC) -GPROLOGUE=$(PROLOGUE_V) --Mdir $(MDIR) --x-assign fast --x-initial fast \
-           -CFLAGS "-DNDEBUG -DCE_DIV=1 -DFAST_CLOCK=$(FAST_CLOCK) $(SDL_CF)" -LDFLAGS "$(SDL_LD)"
+           -CFLAGS "-DNDEBUG -DCE_DIV=1 -DFAST_CLOCK=$(FAST_CLOCK) -DSEED_VAL=$(SEED_DEC) $(SDL_CF)" -LDFLAGS "$(SDL_LD)"
 
 all: $(MDIR)/Vtop
 

@@ -26,3 +26,11 @@ vivado_board_build.*
 
 # large / copyrighted source audio stays local (convert with scripts, commit only the generated mem)
 my_audio/
+
+# video pipeline output (tools/video)
+*.mp4
+*.wav
+!docs/audio/*.wav
+tools/video/out/
+tools/video/work/
+tools/video/frames/
